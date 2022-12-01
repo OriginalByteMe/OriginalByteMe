@@ -7,11 +7,12 @@
         alt="LinkedIn"
       />
   </a>
-  <a href="https://api.daily.dev/get?r=Byt3M3" target="_blank">
+  <a href="https://app.daily.dev/DailyDevTips" target="_blank">
     <img
-      width="256"
+      width="400"
+      alt="Noah Rijkaard's Dev card"
       align="right"
-      src="https://raw.githubusercontent.com/Byt3M3/Byt3M3/devcard/devcard.svg"
+      src="https://github.com/OriginalByteMe/OriginalByteMe/master/devcard.svg"
     />
   </a>
  </div>
