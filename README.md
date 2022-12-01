@@ -23,9 +23,9 @@
 
 ## 🔭 I’m currently working on building React apps in typescript and 
 
-![Metrics](https://raw.githubusercontent.com/OriginalByteMe/OriginalByteMe/github-metrics/github-metrics.svg)
+<!-- ![Metrics](https://raw.githubusercontent.com/OriginalByteMe/OriginalByteMe/github-metrics/github-metrics.svg)
 ![Notable contributions](https://raw.githubusercontent.com/OriginalByteMe/OriginalByteMe/github-metrics/notable.svg)
-![Achievements](https://raw.githubusercontent.com/OriginalByteMe/OriginalByteMe/github-metrics/achievements.svg)
+![Achievements](https://raw.githubusercontent.com/OriginalByteMe/OriginalByteMe/github-metrics/achievements.svg) -->
 
 
 <!--
