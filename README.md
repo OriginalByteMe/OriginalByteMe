@@ -12,7 +12,7 @@
       width="400"
       alt="Noah Rijkaard's Dev card"
       align="right"
-      src="https://github.com/OriginalByteMe/OriginalByteMe/master/devcard.svg"
+      src="https://github.com/OriginalByteMe/OriginalByteMe/blob/main/devcard.svg"
     />
   </a>
  </div>
