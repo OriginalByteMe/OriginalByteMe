@@ -21,7 +21,7 @@
 - Developer at [SUPA](https://www.supa.so)
 - I had a dream where I woke up one morning and had a whole day without any compilation errors...
 
-## 🔭 I’m currently working on building React apps in typescript and 
+## 🔭 I’m currently working on building React apps in typescript with nextjs!
 
 <!-- ![Metrics](https://raw.githubusercontent.com/OriginalByteMe/OriginalByteMe/github-metrics/github-metrics.svg)
 ![Notable contributions](https://raw.githubusercontent.com/OriginalByteMe/OriginalByteMe/github-metrics/notable.svg)
