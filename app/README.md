@@ -1,54 +1,112 @@
-# Astro Starter Kit: Basics
+💫 This is a free template to make your portfolio website using **[Astro 2.0](https://astro.build/blog/astro-2/) + [Tailwind CSS](https://tailwindcss.com/)**.
 
-```sh
-npm create astro@latest -- --template basics
-```
+### Dark mode
+![Dark mode](https://github.com/veranikabarel/astro-portfolio/assets/48052206/240ab82d-8896-412e-8f52-5cf10d42b1db)
+### Light mode
+![Light mode](https://github.com/veranikabarel/astro-portfolio/assets/48052206/bfa88b30-6dcf-4d5f-bf28-efc3caa27d0f)
+### Lighthouse report
+![Lighthouse report](https://github.com/veranikabarel/astro-portfolio/assets/48052206/e7ad23a4-1a9b-477e-a13e-a321ce6bd3d6)
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/withastro/astro/tree/latest/examples/basics)
-[![Open with CodeSandbox](https://assets.codesandbox.io/github/button-edit-lime.svg)](https://codesandbox.io/p/sandbox/github/withastro/astro/tree/latest/examples/basics)
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/withastro/astro?devcontainer_path=.devcontainer/basics/devcontainer.json)
+## Table of Contents
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+- [Demo](#demo)
+- [Features](#features)
+- [Project structure](#project-structure)
+- [Commands](#commands)
+- [Contributing](#contributing)
+- [Credits](#credits)
 
-![just-the-basics](https://github.com/withastro/astro/assets/2244813/a0a5533c-a856-4198-8470-2d67b1d7c554)
+## Demo
 
-## 🚀 Project Structure
+📌 [https://astro-fe-portfolio.netlify.app/](https://astro-fe-portfolio.netlify.app/)
+
+## Features
+
+✔️ Integration with **Tailwind CSS** ([@astrojs/tailwind](https://docs.astro.build/en/guides/integrations-guide/tailwind/)) supporting **Dark mode**.
+
+✔️ Uses the following integrations:
+
+- @astrojs/mdx
+- @astrojs/image
+- @astrojs/tailwind - with prettier class sorting plugin
+- @astro-icon
+- @astro-seo
+- @astro-navbar
+
+✔️([@Playwright](https://github.com/microsoft/playwright)) e2e tests are setted up.
+
+🔜 Blog with frontmatter (title, description, author, date, image, tags) and RSS feed, sitemap and robots.txt
+
+🔜 404 error page
+
+## Project Structure
 
 Inside of your Astro project, you'll see the following folders and files:
 
-```text
+```
 /
 ├── public/
-│   └── favicon.svg
+│   └── favicon.ico
+|   ├── hero.png
+|   └── ...
 ├── src/
+|   ├── assets/
+|   |   ├── images/
+│   │   |   ├── hero.png
+|   |   |   └── ...
 │   ├── components/
-│   │   └── Card.astro
+│   │   ├── ui/
+│   │   |   ├── BackToTop.astro
+|   |   |   └── ...
+│   │   ├── About.astro
+│   │   ├── Contact.astro
+|   |   └── ...
+│   ├── content/
+│   │   ├── projects/
+│   │   │   ├── project-1.md
+│   │   │   ├── project-1.md
+│   │   │   └── ...
+│   │   └-- config.ts
 │   ├── layouts/
-│   │   └── Layout.astro
-│   └── pages/
-│       └── index.astro
-└── package.json
+│   │   ├── Layout.astro
+│   ├── pages/
+│   │   ├── index.astro
+│   ├── tests/
+│   │   ├── index.spec.ts
+├── package.json
+├── astro.config.mjs
+└── ...
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+Astro looks for `.astro`, `.md` or `.mdx` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+`src/components/` is where we put any Astro components and similarly `src/layouts/` for layouts.
 
-Any static assets, like images, can be placed in the `public/` directory.
+Images can be placed in `src/images/`.
 
-## 🧞 Commands
+Blog and documentation content are created as collections of Markdown or MDX files in `src/content`.
+
+Any static assets, eg. images, can be placed in the `public/` directory.
+
+## Commands
 
 All commands are run from the root of the project, from a terminal:
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
+| Command             | Action                                             |
+| :------------------ | :------------------------------------------------- |
+| `yarn`              | Installs dependencies                              |
+| `yarn dev`          | Starts local dev server at `localhost:3000`        |
+| `yarn build`        | Build your production site to `./dist/`            |
+| `yarn preview`      | Preview your build locally, before deploying       |
+| `yarn astro ...`    | Run CLI commands like `astro add`, `astro preview` |
+| `yarn astro --help` | Get help using the Astro CLI                       |
+| `yarn test:e2e`     | Run Playwright tests                               |
 
-## 👀 Want to learn more?
+## Contributing
 
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+If you have any idea, suggestions or find any bugs, feel free to open a discussion, an issue or create a pull request.
+That would be very useful for all of us and we would be happy to listen and take action.
+
+## Credits
+
+Assets designed by (Freepik)[www.freepik.com].
