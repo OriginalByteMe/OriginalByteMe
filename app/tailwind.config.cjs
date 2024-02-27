@@ -16,6 +16,14 @@ module.exports = {
 			black: '#000',
 			white: '#fff',
 			orange: '#E06330',
+			violet: {
+				500: '#8B5CF6',
+				// ...
+			},
+			purple: {
+				500: '#A78BFA',
+				// ...
+			},
 		},
 		fontFamily: {
 			// Headings
