@@ -24,6 +24,9 @@ module.exports = {
 				500: '#A78BFA',
 				// ...
 			},
+			orange: {
+				500: '#F6AD55',
+			},
 		},
 		fontFamily: {
 			// Headings
