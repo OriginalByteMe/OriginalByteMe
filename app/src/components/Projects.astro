@@ -19,13 +19,7 @@ const projects = await getCollection('projects', ({ data }) => {
 	<div class="mb-10 flex w-full flex-col flex-wrap items-center md:flex-row">
 		{
 			projects.map((project) => (
-				<Card
-					url={project.data.link}
-					title={project.data.title}
-					description={project.data.description}
-					alt={project.data.img_alt}
-					tags={project.data.tags}
-				/>
+				<ProjectPin title={project.data.title} URL={project.data.link} URLTitle={project.data.title} description={project.data.description} skills={project.data.skills} imageUrl={project.data.img_url}  client:visible/>
 			))
 		}
 	</div>
@@ -52,22 +46,5 @@ const projects = await getCollection('projects', ({ data }) => {
 		</svg>
 	</a>
 </section>
-<div class="h-[40rem] w-full flex items-center justify-center ">
-	<PinContainer
-		title="/ui.aceternity.com"
-		href="https://twitter.com/mannupaaji"
-		client:visible
-	>
-		<div class="flex basis-full flex-col p-4 tracking-tight text-slate-100/50 sm:basis-1/2 w-[20rem] h-[20rem] ">
-			<h3 class="max-w-xs !pb-2 !m-0 font-bold  text-base text-slate-100">
-				Aceternity UI
-			</h3>
-			<div class="text-base !m-0 !p-0 font-normal">
-				<span class="text-slate-500 ">
-					Customizable Tailwind CSS and Framer Motion Components.
-				</span>
-			</div>
-			<div class="flex flex-1 w-full rounded-lg mt-4 bg-gradient-to-br from-violet-500 via-purple-500 to-blue-500" />
-		</div>
-	</PinContainer>
-</div>
+
+

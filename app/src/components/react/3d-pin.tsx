@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import React, { useState } from "react";
 import { cn } from "../../utils/cn";
 
+
 export const PinContainer = ({
   children,
   title,
@@ -180,12 +181,12 @@ export const ProjectPin = ({
   skills: string[]
 }) => {
   return (
-    <div className="h-[40rem] w-full flex items-center justify-center ">
+    <div className="">
       <PinContainer
-        title="/ui.aceternity.com"
-        href="https://twitter.com/mannupaaji"
+        title={URLTitle}
+        href={URL}
       >
-        <div className="flex basis-full flex-col p-4 tracking-tight text-slate-100/50 sm:basis-1/2 w-[20rem] h-[20rem] ">
+        <div className="flex basis-full flex-col p-4 tracking-tight text-slate-100/50 sm:basis-1/2 w-[20rem]">
           <h3 className="max-w-xs !pb-2 !m-0 font-bold  text-base text-slate-100">
             {title}
           </h3>
@@ -194,23 +195,44 @@ export const ProjectPin = ({
               {description}
             </span>
           </div>
-          <div 
-            className="flex flex-1 w-full rounded-lg mt-4" 
-            style={{
-              backgroundImage: `linear-gradient(to bottom right, #7C3AED, #A78BFA, #60A5FA), url(${imageUrl})`,
-              backgroundBlendMode: 'overlay'
-            }}
-          />
-          # Section with icons displaying skills used on this Project
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={title}
+              width={400}
+              height={400}
+              loading="eager"
+              className="flex flex-1 w-full rounded-lg mt-4"
+              style={{ objectFit: 'contain' }}
+            />
+          ) : (
+            <div 
+              className="flex flex-1 w-full rounded-lg mt-4" 
+              style={{
+                backgroundImage: `linear-gradient(to bottom right, #7C3AED, #A78BFA, #60A5FA)`,
+                backgroundBlendMode: 'overlay'
+              }}
+            />
+          )}
           <div className="flex flex-wrap items-center justify-center w-full mt-4">
-            {skills.map((skill, index) => (
-              <div key={index} className="flex items-center justify-center w-8 h-8 m-1 rounded-full bg-slate-900/20">
-                <span className="text-xs font-bold text-slate-100">{skill}</span>
-              </div>
-            ))}
+            <h4>Tools used for this project:</h4>
+            <div className="grid grid-cols-4 gap-4">
+              {skills.map((skill, index) => (
+                <div key={index} className="flex items-center justify-center w-8 h-8 m-1 rounded-full bg-slate-900/20">
+                  <img
+                    src={`https://deviconapi.vercel.app/${skill}`}
+                    alt={skill}
+                    width={400}
+                    height={400}
+                    loading="eager"
+                    className="flex flex-1 w-full rounded-lg mt-4"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </PinContainer>
     </div>
-  )
-}
+  );
+};

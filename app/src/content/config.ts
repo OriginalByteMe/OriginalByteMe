@@ -5,9 +5,10 @@ const projectsCollection = defineCollection({
 		inProgress: z.boolean(),
 		title: z.string(),
 		description: z.string(),
-		tags: z.array(z.string()),
+		skills: z.array(z.string()),
 		link: z.string(),
 		img_alt: z.string().optional(),
+		img_url: z.string(),
 	}),
 });
 
