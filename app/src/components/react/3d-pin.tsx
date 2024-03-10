@@ -181,58 +181,59 @@ export const ProjectPin = ({
   skills: string[]
 }) => {
   return (
-    <div className="">
-      <PinContainer
-        title={URLTitle}
-        href={URL}
-      >
-        <div className="flex basis-full flex-col p-4 tracking-tight text-slate-100/50 sm:basis-1/2 w-[20rem]">
-          <h3 className="max-w-xs !pb-2 !m-0 font-bold  text-base text-slate-100">
-            {title}
-          </h3>
-          <div className="text-base !m-0 !p-0 font-normal">
-            <span className="text-slate-500 ">
-              {description}
-            </span>
-          </div>
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt={title}
-              width={400}
-              height={400}
-              loading="eager"
-              className="flex flex-1 w-full rounded-lg mt-4"
-              style={{ objectFit: 'contain' }}
-            />
-          ) : (
-            <div 
-              className="flex flex-1 w-full rounded-lg mt-4" 
-              style={{
-                backgroundImage: `linear-gradient(to bottom right, #7C3AED, #A78BFA, #60A5FA)`,
-                backgroundBlendMode: 'overlay'
-              }}
-            />
-          )}
-          <div className="flex flex-wrap items-center justify-center w-full mt-4">
-            <h4>Tools used for this project:</h4>
-            <div className="grid grid-cols-4 gap-4">
-              {skills.map((skill, index) => (
-                <div key={index} className="flex items-center justify-center w-8 h-8 m-1 rounded-full bg-slate-900/20">
-                  <img
-                    src={`https://deviconapi.vercel.app/${skill}`}
-                    alt={skill}
-                    width={400}
-                    height={400}
-                    loading="eager"
-                    className="flex flex-1 w-full rounded-lg mt-4"
-                  />
-                </div>
-              ))}
+    <a href={URL} target="_blank" rel="noopener noreferrer">
+      <div className="">
+        <PinContainer
+          title={URLTitle}
+        >
+          <div className="flex basis-full flex-col p-4 tracking-tight text-slate-100/50 sm:basis-1/2 w-[20rem]">
+            <h3 className="max-w-xs !pb-2 !m-0 font-bold  text-base text-slate-100">
+              {title}
+            </h3>
+            <div className="text-base !m-0 !p-0 font-normal">
+              <span className="text-slate-500 ">
+                {description}
+              </span>
+            </div>
+            {imageUrl ? (
+              <img
+                src={imageUrl}
+                alt={title}
+                width={400}
+                height={400}
+                loading="eager"
+                className="flex flex-1 w-full rounded-lg mt-4"
+                style={{ objectFit: 'contain' }}
+              />
+            ) : (
+              <div 
+                className="flex flex-1 w-full rounded-lg mt-4" 
+                style={{
+                  backgroundImage: `linear-gradient(to bottom right, #7C3AED, #A78BFA, #60A5FA)`,
+                  backgroundBlendMode: 'overlay'
+                }}
+              />
+            )}
+            <div className="flex flex-wrap items-center justify-center w-full mt-4">
+              <h4>Tools used for this project:</h4>
+              <div className="grid grid-cols-4 gap-4">
+                {skills.map((skill, index) => (
+                  <div key={index} className="flex items-center justify-center w-8 h-8 m-1 rounded-full bg-slate-900/20">
+                    <img
+                      src={`https://deviconapi.vercel.app/${skill}`}
+                      alt={skill}
+                      width={400}
+                      height={400}
+                      loading="eager"
+                      className="flex flex-1 w-full rounded-lg mt-4"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      </PinContainer>
-    </div>
+        </PinContainer>
+      </div>
+    </a>
   );
 };

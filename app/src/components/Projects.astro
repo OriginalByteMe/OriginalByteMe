@@ -1,8 +1,6 @@
 ---
-import Card from '@components/ui/Card.astro';
-import { PinContainer, ProjectPin } from './react/3d-pin.tsx';
+import { ProjectPin } from './react/3d-pin.tsx';
 import { getCollection } from 'astro:content';
-import type { loadConfigFromFile } from 'vite';
 
 const projects = await getCollection('projects', ({ data }) => {
 	return !data.inProgress;
@@ -16,7 +14,7 @@ const projects = await getCollection('projects', ({ data }) => {
 >
 	<h2 class="font-monospace text-2xl text-orange lg:text-4xl">Projects</h2>
 	<span class="mb-10 h-1 w-10 bg-orange"></span>
-	<div class="mb-10 flex w-full flex-col flex-wrap items-center md:flex-row">
+	<div class="mb-10 flex w-full h-full flex-col flex-wrap items-center md:flex-row">
 		{
 			projects.map((project) => (
 				<ProjectPin title={project.data.title} URL={project.data.link} URLTitle={project.data.title} description={project.data.description} skills={project.data.skills} imageUrl={project.data.img_url}  client:visible/>
