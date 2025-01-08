@@ -20,12 +20,12 @@ const projects = [
 
 export default function Projects() {
   return (
-    <section className="py-20 bg-black">
+    <section className="py-20 bg-white dark:bg-black">
       <div className="container mx-auto px-4">
         <h2 className="text-3xl font-bold mb-12">Projects</h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {projects.map((project, index) => (
-            <div key={index} className="bg-gray-900 rounded-lg overflow-hidden transition-transform hover:scale-105">
+            <div key={index} className="bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden transition-transform hover:scale-105">
               <Image
                 src={project.image}
                 alt={project.title}
@@ -35,7 +35,7 @@ export default function Projects() {
               />
               <div className="p-4">
                 <h3 className="text-xl font-semibold mb-2">{project.title}</h3>
-                <p className="text-gray-400">{project.description}</p>
+                <p className="text-gray-600 dark:text-gray-400">{project.description}</p>
               </div>
             </div>
           ))}
