@@ -203,9 +203,24 @@ const operatingSystems = [
   },
 ];
 
+
 const workHistory = [
-  { company: "Supa", role: "Full-Stack Developer", period: "2020 - Present" },
-]
+  {
+    company: "Supa",
+    role: "Full-Stack Developer",
+    period: "2020 - Present",
+    logo: "https://cdn.prod.website-files.com/63024b20439fa61d4aee344c/63030911c32fa796ec211265_SUPA.png",
+    url: "https://supa.so",
+  },
+  {
+    company: "Bowiq",
+    role: "CAD Designer & 3D Printing Engineer",
+    period: "2023 - Present",
+    logo: "https://bowiq.com/wp-content/themes/bowiq/img/local/logov2.png",
+    url: "https://bowiq.com",
+  },
+  // Add more work history items as needed
+];
 
 export default function About() {
   const [isDark, setIsDark] = useState(false);
@@ -285,13 +300,39 @@ export default function About() {
               {workHistory.map((job, index) => (
                 <li
                   key={index}
-                  className="border-l-2 border-gray-300 dark:border-gray-800 pl-4"
+                  className="border-l-2 border-gray-300 dark:border-gray-800 pl-4 flex items-start gap-4"
                 >
-                  <h4 className="font-semibold">{job.company}</h4>
-                  <p className="text-gray-600 dark:text-gray-400">{job.role}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-500">
-                    {job.period}
-                  </p>
+                  <Image
+                    src={job.logo}
+                    alt={`${job.company} logo`}
+                    width={40}
+                    height={40}
+                    className="w-10 h-10 rounded-lg"
+                  />
+                  <div>
+                    <h4 className="font-semibold flex items-center gap-2">
+                      {job.company}
+                      <a 
+                        href={job.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
+                      >
+                        <svg 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          viewBox="0 0 20 20" 
+                          fill="currentColor" 
+                          className="w-4 h-4"
+                        >
+                          <path fillRule="evenodd" d="M5.22 14.78a.75.75 0 001.06 0l7.22-7.22v5.69a.75.75 0 001.5 0v-7.5a.75.75 0 00-.75-.75h-7.5a.75.75 0 000 1.5h5.69l-7.22 7.22a.75.75 0 000 1.06z" />
+                        </svg>
+                      </a>
+                    </h4>
+                    <p className="text-gray-600 dark:text-gray-400">{job.role}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-500">
+                      {job.period}
+                    </p>
+                  </div>
                 </li>
               ))}
             </ul>
