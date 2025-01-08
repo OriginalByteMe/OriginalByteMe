@@ -24,7 +24,7 @@
   
 [![Readme Quotes](https://quotes-github-readme.vercel.app/api?type=vertical&theme=dark)](https://github.com/piyushsuthar/github-readme-quotes)
 
-## 🔭 I’m currently working on building React apps in typescript with nextjs!
+## 🔭 I've transitioned myself into a Ruby on Rails developer! Doing projects mainly in that and in Python for the AI side of things.
 [![Noah GitHub stats](https://github-readme-stats.vercel.app/api?username=OriginalByteMe&theme=dark&show_icons=true)](https://github.com/anuraghazra/github-readme-stats)
 
 <!-- ![Metrics](https://raw.githubusercontent.com/OriginalByteMe/OriginalByteMe/github-metrics/github-metrics.svg)
