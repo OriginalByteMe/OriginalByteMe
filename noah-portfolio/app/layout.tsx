@@ -2,6 +2,7 @@ import './globals.css'
 import { Inter } from 'next/font/google'
 import { ThemeProvider } from '../components/ThemeProvider'
 import { ThemeSwitch } from '../components/ThemeSwitch'
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -24,10 +25,11 @@ export default function RootLayout({
               <ThemeSwitch />
             </header>
             {children}
+            <SpeedInsights />
           </div>
         </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }
 
