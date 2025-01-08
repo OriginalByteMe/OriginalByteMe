@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --blob-primary: 220 70% 40%;    /* Lighter navy */
+    --blob-secondary: 225 80% 30%;   /* Navy blue */
+    --blob-tertiary: 230 85% 20%;    /* Dark navy */
+    --gradient-start: 0 0% 100%;     /* White */
+    --gradient-end: 225 80% 30%;     /* Navy blue */
+  }
+
+  .dark {
+    --blob-primary: 220 70% 30%;     /* Slightly brighter dark navy */
+    --blob-secondary: 225 75% 25%;   /* Slightly brighter darker navy */
+    --blob-tertiary: 230 80% 20%;    /* Slightly brighter darkest navy */
+    --gradient-start: 0 0% 0%;       /* Black */
+    --gradient-end: 225 75% 25%;     /* Slightly brighter dark navy */
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-white text-black transition-colors duration-300 ease-in-out;
+}
+
+body.dark {
+  @apply bg-black text-white;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-200 dark:bg-gray-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-400 dark:bg-gray-600;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500 dark:bg-gray-500;
+}
+
