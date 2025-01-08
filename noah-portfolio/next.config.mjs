@@ -22,6 +22,11 @@ const nextConfig = {
         hostname: "bowiq.com",
         pathname: "/wp-content/themes/bowiq/img/**",
       },
+      {
+        protocol: "https",
+        hostname: "registry.npmmirror.com",
+        pathname: "/**",
+      },
     ],
   },
 };
