@@ -7,8 +7,8 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'Developer Portfolio',
-  description: 'A sleek and minimalist developer portfolio',
+  title: 'Noah Rijkaard',
+  description: 'A little portfolio site for Noah Rijkaard',
 }
 
 export default function RootLayout({
