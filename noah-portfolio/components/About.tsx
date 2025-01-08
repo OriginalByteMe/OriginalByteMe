@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 const skillCategories = {
   "Programming Languages": [
@@ -377,6 +378,37 @@ export default function About() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+        <div className="mt-12">
+          <h3 className="text-2xl font-semibold mb-4 flex items-center">
+            <Code className="mr-2" /> Side Projects
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-gray-200 dark:bg-gray-800 p-6 rounded-xl shadow-sm">
+              <div className="flex items-center mb-4">
+                <Image
+                  src="/Noah Icon FA.svg"
+                  alt="3D Printing"
+                  width={64}
+                  height={64}
+                  className="w-16 h-16 mr-3"
+                />
+                <h4 className="text-lg font-semibold">3D Printing</h4>
+              </div>
+              <div className="flex items-center mb-4">
+                {/* <DotLottieReact
+                  src="https://lottie.host/ccaa3086-9bde-4416-894a-af43276c53b6/cjH4XYVlEa.lottie"
+                  loop
+                  autoplay
+                  className="w-16 h-16 mr-3"
+                /> */}
+              </div>
+              <p className="text-gray-700 dark:text-gray-300">
+                I have learned CAD design and use a variety of 3D printing methods and techniques to make my products work for different use cases. This includes FDM, SLA, and SLS printing technologies.
+              </p>
+            </div>
+            {/* Add more side projects as needed */}
           </div>
         </div>
       </div>
