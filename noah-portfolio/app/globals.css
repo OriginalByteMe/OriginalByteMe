@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    --blob-primary: 220 70% 40%;    /* Lighter navy */
+    --blob-secondary: 225 80% 30%;   /* Navy blue */
+    --blob-tertiary: 230 85% 20%;    /* Dark navy */
+    --gradient-start: 0 0% 100%;     /* White */
+    --gradient-end: 225 80% 30%;     /* Navy blue */
+  }
+
+  .dark {
+    --blob-primary: 220 85% 20%;     /* Dark navy */
+    --blob-secondary: 225 90% 15%;   /* Darker navy */
+    --blob-tertiary: 230 95% 10%;    /* Darkest navy */
+    --gradient-start: 0 0% 0%;       /* Black */
+    --gradient-end: 225 90% 15%;     /* Dark navy */
+  }
+}
+
 html {
   scroll-behavior: smooth;
 }
