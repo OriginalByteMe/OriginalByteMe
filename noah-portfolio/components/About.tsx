@@ -42,8 +42,6 @@ const skillCategories = {
       darkImage:
         "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-plain.svg",
     },
-  ],
-  "Frontend Frameworks": [
     {
       name: "React",
       lightImage:
@@ -51,6 +49,15 @@ const skillCategories = {
       darkImage:
         "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg",
     },
+    {
+      name: "Bash",
+      lightImage:
+        "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/bash/bash-original.svg",
+      darkImage:
+        "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/bash/bash-original.svg",
+    },
+  ],
+  "Frontend Frameworks": [
     {
       name: "Next.js",
       lightImage:
