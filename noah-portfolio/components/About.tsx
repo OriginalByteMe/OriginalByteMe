@@ -449,7 +449,7 @@ export default function About() {
                 <Link
                   href="https://blog.noahrijkaard.com"
                   target="_blank"
-                  rel="noopener norefferer"
+                  rel="noopener noreferer"
                 >
                   <h4 className="text-lg font-semibold hover:underline hover:text-blue-500 dark:hover:text-blue-400">
                     My blog!

@@ -66,7 +66,7 @@ export default function RootLayout({
               <Link
                 href="https://blog.noahrijkaard.com"
                 target="_blank"
-                rel="noopener norefferer"
+                rel="noopener noreferer"
               >
                 <div className="text-gray-800 dark:text-white hover:text-blue-500 dark:hover:text-blue-400 hover:underline transition-colors">
                   Blog
