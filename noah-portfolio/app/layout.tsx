@@ -34,18 +34,43 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <meta property="og:title" content={metadata.openGraph.title} />
-        <meta property="og:description" content={metadata.openGraph.description} />
+        <meta
+          property="og:description"
+          content={metadata.openGraph.description}
+        />
         <meta property="og:image" content={metadata.openGraph.images[0].url} />
-        <meta property="og:image:width" content={metadata.openGraph.images[0].width.toString()} />
-        <meta property="og:image:height" content={metadata.openGraph.images[0].height.toString()} />
-        <meta property="og:image:alt" content={metadata.openGraph.images[0].alt} />
+        <meta
+          property="og:image:width"
+          content={metadata.openGraph.images[0].width.toString()}
+        />
+        <meta
+          property="og:image:height"
+          content={metadata.openGraph.images[0].height.toString()}
+        />
+        <meta
+          property="og:image:alt"
+          content={metadata.openGraph.images[0].alt}
+        />
       </head>
       <body className={inter.className}>
         <ThemeProvider>
           <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white">
             <header className="fixed top-0 right-0 m-4 z-50 flex items-center space-x-4">
-              <Link href="https://github.com/OriginalByteMe" target="_blank" rel="noopener noreferrer">
+              <Link
+                href="https://github.com/OriginalByteMe"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <Github className="w-6 h-6 text-gray-800 dark:text-white hover:text-blue-500 dark:hover:text-blue-400 transition-colors" />
+              </Link>
+              <Link
+                href="https://blog.noahrijkaard.com"
+                target="_blank"
+                rel="noopener noreferer"
+              >
+                <div className="text-gray-800 dark:text-white hover:text-blue-500 dark:hover:text-blue-400 hover:underline transition-colors">
+                  Blog
+                </div>
               </Link>
               <ThemeSwitch />
             </header>
