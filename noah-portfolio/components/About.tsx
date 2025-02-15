@@ -1,14 +1,16 @@
 "use client";
 
-import { 
-  Code, 
-  Briefcase, 
-  Terminal, 
-  Layout, 
-  Server, 
-  Database 
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
+import {
+  Code,
+  Briefcase,
+  Terminal,
+  Layout,
+  Server,
+  Database,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 // import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
@@ -211,7 +213,6 @@ const operatingSystems = [
   },
 ];
 
-
 const workHistory = [
   {
     company: "Supa",
@@ -259,9 +260,9 @@ export default function About() {
       <div className="container mx-auto px-4">
         <h2 className="text-3xl font-bold mb-8">About Me</h2>
         <p className="text-gray-700 dark:text-gray-300 mb-12 max-w-2xl">
-          I&apos;m a passionate developer with a keen eye for design and a love for
-          creating efficient, scalable solutions. With years of experience in
-          both front-end and back-end technologies, I bring ideas to life
+          I&apos;m a passionate developer with a keen eye for design and a love
+          for creating efficient, scalable solutions. With years of experience
+          in both front-end and back-end technologies, I bring ideas to life
           through code.
         </p>
         <div className="grid md:grid-cols-2 gap-12">
@@ -273,10 +274,18 @@ export default function About() {
               {Object.entries(skillCategories).map(([category, skills]) => (
                 <div key={category}>
                   <h4 className="text-lg font-medium mb-2 text-gray-700 dark:text-gray-300 flex items-center">
-                    {category === "Programming Languages" && <Terminal className="mr-2 h-5 w-5" />}
-                    {category === "Frontend Frameworks" && <Layout className="mr-2 h-5 w-5" />}
-                    {category === "Infrastructure & DevOps" && <Server className="mr-2 h-5 w-5" />}
-                    {category === "Databases" && <Database className="mr-2 h-5 w-5" />}
+                    {category === "Programming Languages" && (
+                      <Terminal className="mr-2 h-5 w-5" />
+                    )}
+                    {category === "Frontend Frameworks" && (
+                      <Layout className="mr-2 h-5 w-5" />
+                    )}
+                    {category === "Infrastructure & DevOps" && (
+                      <Server className="mr-2 h-5 w-5" />
+                    )}
+                    {category === "Databases" && (
+                      <Database className="mr-2 h-5 w-5" />
+                    )}
                     {category}
                   </h4>
                   <div className="flex flex-wrap gap-2">
@@ -320,23 +329,28 @@ export default function About() {
                   <div>
                     <h4 className="font-semibold flex items-center gap-2">
                       {job.company}
-                      <a 
+                      <a
                         href={job.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
                       >
-                        <svg 
-                          xmlns="http://www.w3.org/2000/svg" 
-                          viewBox="0 0 20 20" 
-                          fill="currentColor" 
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
                           className="w-4 h-4"
                         >
-                          <path fillRule="evenodd" d="M5.22 14.78a.75.75 0 001.06 0l7.22-7.22v5.69a.75.75 0 001.5 0v-7.5a.75.75 0 00-.75-.75h-7.5a.75.75 0 000 1.5h5.69l-7.22 7.22a.75.75 0 000 1.06z" />
+                          <path
+                            fillRule="evenodd"
+                            d="M5.22 14.78a.75.75 0 001.06 0l7.22-7.22v5.69a.75.75 0 001.5 0v-7.5a.75.75 0 00-.75-.75h-7.5a.75.75 0 000 1.5h5.69l-7.22 7.22a.75.75 0 000 1.06z"
+                          />
                         </svg>
                       </a>
                     </h4>
-                    <p className="text-gray-600 dark:text-gray-400">{job.role}</p>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      {job.role}
+                    </p>
                     <p className="text-sm text-gray-500 dark:text-gray-500">
                       {job.period}
                     </p>
@@ -352,13 +366,17 @@ export default function About() {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {operatingSystems.map((environment) => (
-              <div 
+              <div
                 key={environment.name}
                 className="bg-gray-200 dark:bg-gray-800 p-6 rounded-xl shadow-sm" // Updated rounded corners and padding
               >
                 <div className="flex items-center mb-4">
                   <Image
-                    src={isDark ? environment.systems[0].darkImage : environment.systems[0].lightImage}
+                    src={
+                      isDark
+                        ? environment.systems[0].darkImage
+                        : environment.systems[0].lightImage
+                    }
                     alt={environment.systems[0].name}
                     width={32}
                     height={32}
@@ -412,9 +430,39 @@ export default function About() {
                 />
               </div> */}
               <p className="text-gray-700 dark:text-gray-300">
-                I have learned CAD design and use a variety of 3D printing methods and techniques to make my products work for different use cases. Namely in FDM printing at the moment, but with very high end materials and machines.
+                I have learned CAD design and use a variety of 3D printing
+                methods and techniques to make my products work for different
+                use cases. Namely in FDM printing at the moment, but with very
+                high end materials and machines.
               </p>
             </div>
+            <div className="bg-gray-200 dark:bg-gray-800 p-6 rounded-xl shadow-sm">
+              <div className="flex items-center mb-4">
+                <div className="flex items-center mb-4">
+                  <DotLottieReact
+                    src="https://lottie.host/ef9b2abd-0371-4525-ad25-ad50ff45c364/JSqmr4sTA8.lottie"
+                    loop
+                    autoplay
+                    className="w-16 h-16 mr-3"
+                  />
+                </div>
+                <Link
+                  href="https://blog.noahrijkaard.com"
+                  target="_blank"
+                  rel="noopener norefferer"
+                >
+                  <h4 className="text-lg font-semibold hover:underline hover:text-blue-500 dark:hover:text-blue-400">
+                    My blog!
+                  </h4>
+                </Link>
+              </div>
+              <p className="text-gray-700 dark:text-gray-300">
+                The tech diary of Noah Rijkaard, a Full-stack software engineer
+                working out of Kuala Lumpur Malaysia, it comprises of tutorials,
+                thoughts and existential crises.
+              </p>
+            </div>
+
             {/* Add more side projects as needed */}
           </div>
         </div>
