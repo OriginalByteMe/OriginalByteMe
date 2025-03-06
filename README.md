@@ -1,5 +1,6 @@
 # Hi there 👋
 
+<a href="https://app.daily.dev/byt3m3"><img src="https://api.daily.dev/devcards/v2/Pgah33k14s5bfcZ7fNlCS.png?r=tb7&type=wide" width="652" alt="Noah Rijkaard's Dev Card"/></a>
 <div align="left">
   <a href="">
     <img
@@ -7,14 +8,6 @@
         alt="LinkedIn"
         href="https://www.linkedin.com/in/noah-rijkaard-62837a149/"
       />
-  </a>
-  <a href="https://app.daily.dev/DailyDevTips" target="_blank">
-    <img
-      width="400"
-      alt="Noah Rijkaard's Dev card"
-      align="right"
-      src="https://github.com/OriginalByteMe/OriginalByteMe/blob/main/devcard.svg"
-    />
   </a>
  </div>
  
