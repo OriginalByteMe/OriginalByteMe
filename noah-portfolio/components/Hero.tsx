@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { TypeAnimation } from "react-type-animation";
+import SpotifyReveal from "./ui/spotify-reveal";
 
 export default function Hero() {
   return (
@@ -99,6 +100,7 @@ export default function Hero() {
             className="text-2xl text-gray-300"
           />
         </div>
+          <SpotifyReveal />
       </div>
     </section>
   );
