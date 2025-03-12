@@ -1,10 +1,10 @@
 "use client"
 
+import { SpotifyTrack, useSpotifyStore } from "@/lib/spotify-store"
 import { cn } from "@/lib/utils"
 import { Music, Wand2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTheme } from "../ThemeProvider"
-import { SpotifyTrack, useSpotifyStore } from "@/lib/spotify-store"
 
 export default function SpotifyPill({
   className,
@@ -16,7 +16,7 @@ export default function SpotifyPill({
   const { tracks } = useSpotifyStore()
   const [isHovered, setIsHovered] = useState(false)
   const [isJiggling, setIsJiggling] = useState(false)
-  const { theme } = useTheme()
+  const [showPalette, setShowPalette] = useState(false)
   
   // Use the provided track or the first track from the store
   const currentTrack = track || tracks[0]
@@ -24,6 +24,8 @@ export default function SpotifyPill({
   // Handle magic wand click
   const handleMagicWandClick = () => {
     setIsJiggling(true)
+    // Toggle between soundwave and palette view
+    setShowPalette(!showPalette)
     // Reset jiggling after animation completes
     setTimeout(() => setIsJiggling(false), 820)
   }
@@ -50,14 +52,49 @@ export default function SpotifyPill({
         gap: 2px;
       }
       
-      .soundwave-bar-static {
+      .soundwave-bar {
         width: 2px;
+        height: 3px;
         border-radius: 1px;
+        animation: soundwave 0.5s ease-in-out infinite alternate;
       }
       
       .magic-wand-jiggle {
         animation: jiggle 0.82s cubic-bezier(.36,.07,.19,.97) both;
         transform: translate3d(0, 0, 0);
+      }
+      
+      .palette-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(8px, 1fr));
+        gap: 3px;
+        min-width: 50px;
+        height: 16px;
+        padding: 0 2px;
+      }
+      
+      .palette-circle {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        transition: all 0.2s ease;
+        box-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
+        position: relative;
+      }
+      
+      .palette-circle:hover {
+        transform: scale(1.3);
+        z-index: 1;
+        box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+      }
+      
+      @keyframes soundwave {
+        0% {
+          height: 3px;
+        }
+        100% {
+          height: 12px;
+        }
       }
       
       @keyframes jiggle {
@@ -75,6 +112,20 @@ export default function SpotifyPill({
         
         40%, 60% {
           transform: translate3d(3px, 0, 0) rotate(5deg);
+        }
+      }
+      
+      @keyframes pop-in {
+        0% {
+          transform: scale(0);
+          opacity: 0;
+        }
+        70% {
+          transform: scale(1.2);
+        }
+        100% {
+          transform: scale(1);
+          opacity: 1;
         }
       }
     `
@@ -125,7 +176,7 @@ export default function SpotifyPill({
               className={cn(
                 "h-5 w-5 text-emerald-600 dark:text-emerald-400",
                 isJiggling && "magic-wand-jiggle"
-              )} 
+              )}
             />
           </button>
         )}
@@ -136,7 +187,9 @@ export default function SpotifyPill({
           <svg className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.36.12-.75-.12-.87-.48-.12-.36.12-.75.48-.87 4.56-1.02 8.52-.6 11.64 1.32.42.18.479.66.301 1.021zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-.959-.12-1.08-.6-.12-.48.12-.96.6-1.08C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.24 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
           </svg>
-          <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Spotify</span>
+          <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+            Spotify
+          </span>
         </div>
 
         <div className="truncate font-semibold text-sm sm:text-base">{currentTrack.title}</div>
@@ -145,16 +198,41 @@ export default function SpotifyPill({
       </div>
 
       <div className="flex-shrink-0 ml-1">
-        <div className="soundwave-container">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div
-              key={i}
-              className="soundwave-bar-static bg-emerald-500 dark:bg-emerald-400"
-              style={{
-                height: `${Math.max(3, Math.min(12, 4 + Math.sin(i * 0.8) * 4))}px`,
-              }}
-            />
-          ))}
+        <div className={cn("transition-opacity duration-300", {
+          "opacity-0 absolute": showPalette && currentTrack.colourPalette && currentTrack.colourPalette.length > 0,
+          "opacity-100": !showPalette || !currentTrack.colourPalette || currentTrack.colourPalette.length === 0
+        })}>
+          <div className="soundwave-container">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div
+                key={i}
+                className="soundwave-bar bg-emerald-500 dark:bg-emerald-400"
+                style={{
+                  animationDelay: `${i * 0.1}s`,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+        
+        <div className={cn("transition-opacity duration-300", {
+          "opacity-100": showPalette && currentTrack.colourPalette && currentTrack.colourPalette.length > 0,
+          "opacity-0 absolute": !showPalette || !currentTrack.colourPalette || currentTrack.colourPalette.length === 0
+        })}>
+          <div className="palette-grid">
+            {currentTrack.colourPalette && currentTrack.colourPalette.map((color, i) => (
+              <div
+                key={i}
+                className="palette-circle"
+                style={{
+                  backgroundColor: `rgb(${color[0]}, ${color[1]}, ${color[2]})`,
+                  animationDelay: `${i * 0.05}s`,
+                  animation: showPalette ? 'pop-in 0.3s forwards' : 'none'
+                }}
+                title={`RGB(${color[0]}, ${color[1]}, ${color[2]})`}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>
