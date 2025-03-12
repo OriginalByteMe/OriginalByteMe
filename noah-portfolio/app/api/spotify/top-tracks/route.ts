@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
       title: track.name,
       artist: track.artists.map((artist: { name: string }) => artist.name).join(', '),
       albumCover: track.album.images[0]?.url,
-      songUrl: track.external_urls.spotify
+      songUrl: track.external_urls.spotify,
+      colourPallete: []
     }));
 
     return NextResponse.json(
