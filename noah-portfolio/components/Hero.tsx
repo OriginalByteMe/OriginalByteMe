@@ -43,8 +43,10 @@ export default function Hero() {
           <Image
             src="/hero.png"
             alt="Developer"
-            layout="fill"
-            objectFit="cover"
+            fill
+            sizes="(max-width: 768px) 100vw, 192px"
+            priority
+            className="object-cover"
           />
         </div>
         <h1 className="text-4xl font-bold mb-4 text-white">Noah Rijkaard</h1>
