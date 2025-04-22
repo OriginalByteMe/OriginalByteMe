@@ -6,6 +6,7 @@ import { Music, Wand2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useSelector } from "react-redux"
 import { RootState } from "@/lib/store"
+import Image from "next/image"
 
 export default function SpotifyPill({
   className,
@@ -42,101 +43,6 @@ export default function SpotifyPill({
     }
   }, [])
 
-  // Add Spotify pill styles to globals.css
-  useEffect(() => {
-    const style = document.createElement('style')
-    style.innerHTML = `
-      .soundwave-container {
-        display: flex;
-        align-items: center;
-        height: 16px;
-        gap: 2px;
-      }
-      
-      .soundwave-bar {
-        width: 2px;
-        height: 3px;
-        border-radius: 1px;
-        animation: soundwave 0.5s ease-in-out infinite alternate;
-      }
-      
-      .magic-wand-jiggle {
-        animation: jiggle 0.82s cubic-bezier(.36,.07,.19,.97) both;
-        transform: translate3d(0, 0, 0);
-      }
-      
-      .palette-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(8px, 1fr));
-        gap: 3px;
-        min-width: 50px;
-        height: 16px;
-        padding: 0 2px;
-      }
-      
-      .palette-circle {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        transition: all 0.2s ease;
-        box-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
-        position: relative;
-      }
-      
-      .palette-circle:hover {
-        transform: scale(1.3);
-        z-index: 1;
-        box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
-      }
-      
-      @keyframes soundwave {
-        0% {
-          height: 3px;
-        }
-        100% {
-          height: 12px;
-        }
-      }
-      
-      @keyframes jiggle {
-        10%, 90% {
-          transform: translate3d(-1px, 0, 0);
-        }
-        
-        20%, 80% {
-          transform: translate3d(2px, 0, 0);
-        }
-        
-        30%, 50%, 70% {
-          transform: translate3d(-3px, 0, 0) rotate(-5deg);
-        }
-        
-        40%, 60% {
-          transform: translate3d(3px, 0, 0) rotate(5deg);
-        }
-      }
-      
-      @keyframes pop-in {
-        0% {
-          transform: scale(0);
-          opacity: 0;
-        }
-        70% {
-          transform: scale(1.2);
-        }
-        100% {
-          transform: scale(1);
-          opacity: 1;
-        }
-      }
-    `
-    document.head.appendChild(style)
-    
-    return () => {
-      document.head.removeChild(style)
-    }
-  }, [])
-
   // If no track data is available, return null or a loading state
   if (!currentTrack) {
     return null;
@@ -157,10 +63,13 @@ export default function SpotifyPill({
         className={cn("relative h-10 w-10 sm:h-12 sm:w-12 rounded-full overflow-hidden flex-shrink-0 bg-emerald-100 dark:bg-emerald-900")}
       >
         {currentTrack.albumCover ? (
-          <img
+          <Image
             src={currentTrack.albumCover || "/placeholder.svg"}
             alt={`${currentTrack.title} album cover`}
-            className="h-full w-full object-cover"
+            className="object-cover"
+            fill
+            sizes="(max-width: 768px) 40px, 48px"
+            priority={false}
           />
         ) : (
           <div className="h-full w-full flex items-center justify-center">
