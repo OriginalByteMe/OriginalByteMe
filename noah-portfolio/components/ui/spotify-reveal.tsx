@@ -58,7 +58,7 @@ export default function SpotifyReveal() {
           {isLoading ? (
             <div className="flex items-center justify-center p-6 w-full">
               <Loader2 className="h-8 w-8 text-emerald-500 animate-spin" />
-              <span className="ml-2 text-emerald-600 dark:text-emerald-400">Loading your top tracks...</span>
+              <span className="ml-2 text-emerald-600 dark:text-emerald-400">Loading Noah&apos;s top tracks...</span>
             </div>
           ) : error ? (
             <div className="text-red-500 p-4 text-center">
