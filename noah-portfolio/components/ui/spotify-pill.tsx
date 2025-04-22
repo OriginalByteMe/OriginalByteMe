@@ -4,10 +4,10 @@ import { SpotifyTrack } from "@/app/utils/interfaces"
 import { cn } from "@/lib/utils"
 import { Music, Wand2 } from "lucide-react"
 import { useEffect, useState } from "react"
-import { useSelector } from "react-redux"
+import { useDispatch, useSelector } from "react-redux";
+import useTheme from "@/lib/hooks/useTheme";
 import { RootState } from "@/lib/store"
 import Image from "next/image"
-import { useDispatch } from "react-redux"
 export default function SpotifyPill({
   className,
   track
@@ -20,27 +20,37 @@ export default function SpotifyPill({
   const [showPalette, setShowPalette] = useState(false)
   const {selectedTrack } = useSelector((state: RootState) => state.spotify)
   const dispatch = useDispatch();
+  const { applyPalette, resetPalette } = useTheme();
   
   // Use the provided track
   const currentTrack = track
 
-  // Reset palette view when selected track changes
-  useEffect(() => {
-    if (selectedTrack && currentTrack && selectedTrack.id !== currentTrack.id) {
-      setShowPalette(false)
-    }
-  }, [selectedTrack, currentTrack])
-  
   // Handle magic wand click
   const handleMagicWandClick = () => {
+    if (!currentTrack) return;
+    
+    if (selectedTrack?.id === currentTrack.id) {
+      dispatch({ type: 'spotify/setSelectedTrack', payload: null });
+      resetPalette();
+      setShowPalette(false);
+    } else {
+      dispatch({ type: 'spotify/setSelectedTrack', payload: currentTrack });
+      if (currentTrack.colourPalette) {
+        applyPalette(currentTrack.colourPalette);
+      }
+      setShowPalette(true);
+    }
     setIsJiggling(true)
-    // Toggle between soundwave and palette view
-    setShowPalette(!showPalette)
     // Reset jiggling after animation completes
     setTimeout(() => setIsJiggling(false), 820)
-    // Set the selected track
-    dispatch({ type: "spotify/setSelectedTrack", payload: currentTrack || null })
-  }
+  };
+
+  
+  useEffect(() => {
+    if (selectedTrack && currentTrack && selectedTrack.id !== currentTrack.id) {
+      setShowPalette(false);
+    }
+  }, [selectedTrack, currentTrack]);
 
   // Check if device is touch-enabled
   useEffect(() => {

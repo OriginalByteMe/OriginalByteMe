@@ -1,11 +1,15 @@
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 
 import spotifySlice from "@/lib/store/slices/spotify-slice";
+import themeSlice from "@/lib/store/slices/theme-slice";
 
 // State type
 export type RootState = ReturnType<typeof combinedReducer>;
 
-export const combinedReducer = combineReducers({ spotify: spotifySlice });
+export const combinedReducer = combineReducers({ 
+  spotify: spotifySlice,
+  theme: themeSlice
+});
 
 // Create store with optional preloaded state
 export function makeStore(preloadedState?: Partial<RootState>) {
