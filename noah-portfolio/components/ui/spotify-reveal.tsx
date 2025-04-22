@@ -1,15 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AiOutlineSpotify } from "react-icons/ai";
 import { X, Loader2 } from "lucide-react";
 import SpotifyPill from "./spotify-pill";
 import { cn } from "@/lib/utils";
-import { useSpotifyStore } from "@/lib/spotify-store";
+import { useSelector } from "react-redux";
+import { RootState } from "@/lib/store";
+import useSpotify from "@/lib/hooks/useSpotify";
 
 export default function SpotifyReveal() {
   const [isOpen, setIsOpen] = useState(false);
-  const { tracks, isLoading, error } = useSpotifyStore();
+  const { tracks, isLoading, error } = useSelector((state: RootState) => state.spotify);
+  const { fetchSpotifyTracksAndPalettes } = useSpotify();
+
+  // Fetch tracks when the reveal is opened
+  useEffect(() => {
+    if (isOpen && tracks.length === 0 && !isLoading) {
+      fetchSpotifyTracksAndPalettes();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const toggleOpen = () => {
     setIsOpen(!isOpen);

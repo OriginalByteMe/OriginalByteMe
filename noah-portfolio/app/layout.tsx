@@ -5,7 +5,8 @@ import { ThemeSwitch } from '../components/ThemeSwitch'
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import Link from 'next/link'
 import { Github } from 'lucide-react'
-import { SpotifyStoreProvider } from '../lib/spotify-store'
+import StoreProvider from '@/app/StoreProvider'
+
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -55,7 +56,7 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <ThemeProvider>
-          <SpotifyStoreProvider>
+          <StoreProvider>
             <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white">
               <header className="fixed top-0 right-0 m-4 z-50 flex items-center space-x-4">
                 <Link
@@ -79,7 +80,7 @@ export default function RootLayout({
               {children}
               <SpeedInsights />
             </div>
-          </SpotifyStoreProvider>
+          </StoreProvider>
         </ThemeProvider>
       </body>
     </html>

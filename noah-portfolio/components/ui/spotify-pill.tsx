@@ -1,10 +1,11 @@
 "use client"
 
-import { SpotifyTrack, useSpotifyStore } from "@/lib/spotify-store"
+import { SpotifyTrack } from "@/app/utils/interfaces"
 import { cn } from "@/lib/utils"
 import { Music, Wand2 } from "lucide-react"
 import { useEffect, useState } from "react"
-import { useTheme } from "../ThemeProvider"
+import { useSelector } from "react-redux"
+import { RootState } from "@/lib/store"
 
 export default function SpotifyPill({
   className,
@@ -13,10 +14,10 @@ export default function SpotifyPill({
   className?: string
   track?: SpotifyTrack
 }) {
-  const { tracks } = useSpotifyStore()
   const [isHovered, setIsHovered] = useState(false)
   const [isJiggling, setIsJiggling] = useState(false)
   const [showPalette, setShowPalette] = useState(false)
+  const { tracks } = useSelector((state: RootState) => state.spotify)
   
   // Use the provided track or the first track from the store
   const currentTrack = track || tracks[0]
