@@ -5,6 +5,7 @@ const initialState: ISpotifyState = {
   tracks: [],
   isLoading: false,
   error: null,
+  selectedTrack: null
 };
 
 const spotifySlice = createSlice({
@@ -20,6 +21,9 @@ const spotifySlice = createSlice({
     setError: (state, action: PayloadAction<string | null>) => {
       state.error = action.payload;
     },
+    setSelectedTrack: (state, action: PayloadAction<SpotifyTrack | null>) => {
+      state.selectedTrack = action.payload;
+    }
   },
 });
 

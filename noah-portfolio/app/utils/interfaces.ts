@@ -3,6 +3,7 @@ export interface ISpotifyState {
   tracks: SpotifyTrack[];
   isLoading: boolean;
   error: string | null;
+  selectedTrack: SpotifyTrack | null;
 }
 
 export interface SpotifyTrack {
@@ -18,4 +19,5 @@ export interface SpotifyStoreContextType {
   tracks: SpotifyTrack[];
   isLoading: boolean;
   error: string | null;
+  selectedTrack: SpotifyTrack | null;
 }

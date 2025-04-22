@@ -7,7 +7,7 @@ import { useEffect, useState } from "react"
 import { useSelector } from "react-redux"
 import { RootState } from "@/lib/store"
 import Image from "next/image"
-
+import { useDispatch } from "react-redux"
 export default function SpotifyPill({
   className,
   track
@@ -18,10 +18,18 @@ export default function SpotifyPill({
   const [isHovered, setIsHovered] = useState(false)
   const [isJiggling, setIsJiggling] = useState(false)
   const [showPalette, setShowPalette] = useState(false)
-  const { tracks } = useSelector((state: RootState) => state.spotify)
+  const {selectedTrack } = useSelector((state: RootState) => state.spotify)
+  const dispatch = useDispatch();
   
-  // Use the provided track or the first track from the store
-  const currentTrack = track || tracks[0]
+  // Use the provided track
+  const currentTrack = track
+
+  // Reset palette view when selected track changes
+  useEffect(() => {
+    if (selectedTrack && currentTrack && selectedTrack.id !== currentTrack.id) {
+      setShowPalette(false)
+    }
+  }, [selectedTrack, currentTrack])
   
   // Handle magic wand click
   const handleMagicWandClick = () => {
@@ -30,6 +38,8 @@ export default function SpotifyPill({
     setShowPalette(!showPalette)
     // Reset jiggling after animation completes
     setTimeout(() => setIsJiggling(false), 820)
+    // Set the selected track
+    dispatch({ type: "spotify/setSelectedTrack", payload: currentTrack || null })
   }
 
   // Check if device is touch-enabled
