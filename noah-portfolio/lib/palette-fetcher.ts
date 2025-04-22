@@ -10,7 +10,7 @@ export const fetchColourPaletteFromImage = async (imageUrl: string) => {
       body: imageUrl,
     })
     if (!response.ok) {
-      throw new Error(`Failed to fetch palette: ${response.status} ${response.statusText}`)
+      throw new Error(`Failed to fetch palette: ${response}`)
     }
 
     const data = await response.json()

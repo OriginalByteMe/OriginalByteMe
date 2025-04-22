@@ -7,8 +7,15 @@ import { spotifyFetch } from '@/lib/spotify';
  */
 export async function GET(request: NextRequest) {
   try {
-    // Get the 5 most recently played tracks
-    const response = await spotifyFetch('/me/player/recently-played?limit=5');
+    // Get the limit from URL params or default to 5
+    const { searchParams } = new URL(request.url);
+    let limit = parseInt(searchParams.get('limit') || '5');
+    
+    // Ensure limit is between 1 and 50
+    limit = Math.min(Math.max(limit, 1), 50);
+
+    // Get the specified number of recently played tracks
+    const response = await spotifyFetch(`/me/player/recently-played?limit=${limit}`);
     
     if (!response || !response.items || response.items.length === 0) {
       return NextResponse.json(

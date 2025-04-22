@@ -70,13 +70,10 @@ export default function SpotifyReveal() {
                 key={track.id} 
                 track={track}
                 className={cn(
-                  "animate-in fade-in slide-in-from-bottom-4", 
-                  {
-                    "delay-150": index === 1,
-                    "delay-300": index === 2,
-                    "delay-500": index === 3,
-                    "delay-700": index === 4
-                  }
+                  "animate-in fade-in slide-in-from-bottom-4",
+                  // Calculate delay based on index, increasing by ~150ms each time
+                  // but capping at 1000ms to avoid too long delays
+                  `delay-[${Math.min(index * 150, 1000)}ms]`
                 )} 
               />
             ))

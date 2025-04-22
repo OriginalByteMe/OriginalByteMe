@@ -78,9 +78,9 @@ const useSpotify = () => {
     }
   
   // Fetch recently played tracks with palettes
-  async function fetchRecentlyPlayedTracksFromApi(): Promise<SpotifyTrack[]> {
+  async function fetchRecentlyPlayedTracksFromApi(limit: number = 15): Promise<SpotifyTrack[]> {
     try {
-      const res = await fetch('/api/spotify/recently-played');
+      const res = await fetch(`/api/spotify/recently-played?limit=${limit}`);
       if (!res.ok) throw new Error('Failed to fetch recently played tracks');
       const data = await res.json();
       if (data.tracks && data.tracks.length > 0) {
@@ -96,7 +96,7 @@ const useSpotify = () => {
   async function fetchSpotifyTracksAndPalettes() {
     dispatch({ type: 'spotify/setLoading', payload: true });
     try {
-      const trackData = await fetchRecentlyPlayedTracksFromApi() as SpotifyTrack[];
+      const trackData = await fetchRecentlyPlayedTracksFromApi(8) as SpotifyTrack[];
       const updatedTracks = await Promise.all(
         trackData.map(async (track) => {
           try {
