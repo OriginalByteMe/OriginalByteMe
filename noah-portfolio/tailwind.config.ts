@@ -91,6 +91,24 @@ const config: Config = {
           "50%": { transform: "translate(-50%, 100%) scale(0.8)" },
           "75%": { transform: "translate(90%, 80%) scale(1.2)" },
         },
+        blob6: {
+          "0%, 100%": { transform: "translate(0, 0) scale(1.2)" },
+          "25%": { transform: "translate(-120%, -80%) scale(0.9)" },
+          "50%": { transform: "translate(-80%, 100%) scale(1.1)" },
+          "75%": { transform: "translate(-100%, -50%) scale(0.8)" },
+        },
+        blob7: {
+          "0%, 100%": { transform: "translate(0, 0) scale(0.8)" },
+          "25%": { transform: "translate(80%, -120%) scale(1.1)" },
+          "50%": { transform: "translate(-100%, -80%) scale(0.9)" },
+          "75%": { transform: "translate(120%, -100%) scale(1.2)" },
+        },
+        blob8: {
+          "0%, 100%": { transform: "translate(0, 0) scale(1.1)" },
+          "25%": { transform: "translate(-60%, 100%) scale(0.8)" },
+          "50%": { transform: "translate(100%, 60%) scale(1.2)" },
+          "75%": { transform: "translate(-80%, -60%) scale(0.9)" },
+        }
       },
       borderRadius: {
         lg: "var(--radius)",

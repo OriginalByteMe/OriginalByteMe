@@ -2,39 +2,11 @@
 
 import Image from "next/image";
 import { TypeAnimation } from "react-type-animation";
+import SpotifyReveal from "./ui/spotify-reveal";
 
 export default function Hero() {
   return (
-    <section className="relative flex flex-col items-center justify-center min-h-screen overflow-hidden">
-      {/* Lava Lamp Background */}
-      <div className="absolute inset-0 w-full h-full">
-        <div className="absolute inset-0 bg-gradient-to-br from-gradient-start to-gradient-end opacity-80" />
-
-        <div className="absolute inset-0">
-          <div
-            className="absolute w-96 h-96 bg-blob-primary rounded-full blur-xl opacity-60
-            animate-[blob1_55s_infinite] left-0 top-0"
-          />
-          <div
-            className="absolute w-[30rem] h-[30rem] bg-blob-secondary rounded-full blur-xl opacity-60
-            animate-[blob2_48s_infinite] right-0 bottom-1/4"
-          />
-          <div
-            className="absolute w-[28rem] h-[28rem] bg-blob-tertiary rounded-full blur-xl opacity-50
-            animate-[blob3_39s_infinite] left-1/4 bottom-0"
-          />
-          <div
-            className="absolute w-[34rem] h-[34rem] bg-blob-primary rounded-full blur-xl opacity-40
-            animate-[blob4_42s_infinite] right-1/4 top-1/4"
-          />
-          <div
-            className="absolute w-[26rem] h-[26rem] bg-blob-secondary rounded-full blur-xl opacity-50
-            animate-[blob5_87s_infinite] left-1/3 top-1/3"
-          />
-        </div>
-
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/40" />
-      </div>
+    <section className="relative flex flex-col items-center justify-center min-h-screen">
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center text-center">
@@ -42,8 +14,10 @@ export default function Hero() {
           <Image
             src="/hero.png"
             alt="Developer"
-            layout="fill"
-            objectFit="cover"
+            fill
+            sizes="(max-width: 768px) 100vw, 192px"
+            priority
+            className="object-cover"
           />
         </div>
         <h1 className="text-4xl font-bold mb-4 text-white">Noah Rijkaard</h1>
@@ -99,6 +73,7 @@ export default function Hero() {
             className="text-2xl text-gray-300"
           />
         </div>
+          <SpotifyReveal />
       </div>
     </section>
   );

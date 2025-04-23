@@ -27,6 +27,11 @@ const nextConfig = {
         hostname: "registry.npmmirror.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "i.scdn.co",
+        pathname: "/**",
+      },
     ],
   },
 };
