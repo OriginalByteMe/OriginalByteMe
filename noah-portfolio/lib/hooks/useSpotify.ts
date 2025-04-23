@@ -96,7 +96,7 @@ const useSpotify = () => {
   async function fetchSpotifyTracksAndPalettes() {
     dispatch({ type: 'spotify/setLoading', payload: true });
     try {
-      const trackData = await fetchRecentlyPlayedTracksFromApi(8) as SpotifyTrack[];
+      const trackData = await fetchRecentlyPlayedTracksFromApi(4) as SpotifyTrack[];
       const updatedTracks = await Promise.all(
         trackData.map(async (track) => {
           try {
