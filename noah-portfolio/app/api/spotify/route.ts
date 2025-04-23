@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAccessToken, spotifyFetch, invalidateToken } from '@/lib/spotify';
+import { getAccessToken, invalidateToken } from '@/lib/spotify';
 
 /**
  * GET handler for retrieving a new access token
  * @param request The incoming request
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const tokenData = await getAccessToken();
     return NextResponse.json(

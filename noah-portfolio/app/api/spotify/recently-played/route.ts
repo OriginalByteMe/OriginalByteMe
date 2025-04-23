@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
     limit = Math.min(Math.max(limit, 1), 50);
 
     // Get the specified number of recently played tracks
-    const response = await spotifyFetch(`/me/player/recently-played?limit=${limit}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response: any = await spotifyFetch(`/me/player/recently-played?limit=${limit}`);
     
     if (!response || !response.items || response.items.length === 0) {
       return NextResponse.json(
@@ -26,6 +27,7 @@ export async function GET(request: NextRequest) {
 
     // The recently played endpoint returns items with a different structure
     // Each item has a 'track' property containing the track data
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tracks = response.items.map((item: any) => {
       const track = item.track;
       return {

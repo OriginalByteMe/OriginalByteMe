@@ -1,13 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { spotifyFetch } from '@/lib/spotify';
 
 /**
  * GET handler for retrieving the currently playing track
  * @param request The incoming request
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const response = await spotifyFetch('/me/player/currently-playing');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response: any = await spotifyFetch('/me/player/currently-playing');
     
     if (!response || !response.item) {
       return NextResponse.json(

@@ -62,7 +62,7 @@ export const getAccessToken = async (): Promise<{ access_token: string; expires_
  * @param {RequestInit} options - Additional fetch options
  * @returns {Promise<any>} - The JSON response from the API
  */
-export const spotifyFetch = async (endpoint: string, options: RequestInit = {}): Promise<any> => {
+export const spotifyFetch = async (endpoint: string, options: RequestInit = {}): Promise<unknown> => {
   const { access_token } = await getAccessToken();
 
   const response = await fetch(`${SPOTIFY_API_ENDPOINT}${endpoint}`, {

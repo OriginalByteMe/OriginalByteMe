@@ -1,15 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { spotifyFetch } from '@/lib/spotify';
 
 /**
  * GET handler for retrieving the user's top 5 tracks
  * @param request The incoming request
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Get the top 5 tracks from the user's profile
     // time_range can be: short_term (4 weeks), medium_term (6 months), long_term (years)
-    const response = await spotifyFetch('/me/top/tracks?limit=5&time_range=medium_term');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response: any = await spotifyFetch('/me/top/tracks?limit=5&time_range=medium_term');
     
     if (!response || !response.items || response.items.length === 0) {
       return NextResponse.json(
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tracks = response.items.map((track: any) => ({
       id: track.id,
       title: track.name,
