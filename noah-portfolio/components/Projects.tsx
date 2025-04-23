@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 
+
 const projects = [
   {
     title: "AI Image Cutout Tool",
@@ -125,7 +126,7 @@ export default function Projects() {
   }, []);
 
   return (
-    <section className="py-20 bg-white dark:bg-black">
+    <section className="relative flex flex-col items-center justify-center min-h-screen">
       <div className="container mx-auto px-4">
         <h2 className="text-3xl font-bold mb-12">Projects</h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -179,4 +180,3 @@ export default function Projects() {
     </section>
   )
 }
-
