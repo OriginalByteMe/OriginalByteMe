@@ -9,6 +9,7 @@ import {
   Server,
   Database,
 } from "lucide-react";
+import FrostedGlassBox from "@/components/ui/frosted-glass-box";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -291,9 +292,12 @@ export default function About() {
                   </h4>
                   <div className="flex flex-wrap gap-2">
                     {skills.map((skill) => (
-                      <span
+                      <FrostedGlassBox
                         key={skill.name}
-                        className="bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-white px-3 py-1 rounded-full text-sm flex items-center gap-2"
+                        className="px-3 py-1 rounded-full text-sm flex items-center gap-2 w-max m-0"
+                        variant="blue"
+                        hoverEffect="lift"
+                        glassOpacity="light"
                       >
                         <Image
                           src={isDark ? skill.darkImage : skill.lightImage}
@@ -303,7 +307,7 @@ export default function About() {
                           className="w-5 h-5"
                         />
                         {skill.name}
-                      </span>
+                      </FrostedGlassBox>
                     ))}
                   </div>
                 </div>
@@ -367,11 +371,8 @@ export default function About() {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {operatingSystems.map((environment) => (
-              <div
-                key={environment.name}
-                className="bg-gray-200 dark:bg-gray-800 p-6 rounded-xl shadow-sm" // Updated rounded corners and padding
-              >
-                <div className="flex items-center mb-4">
+              <FrostedGlassBox className="p-6 rounded-xl shadow-sm" variant="blue" hoverEffect="lift" glassOpacity="heavy" key={environment.name}>
+                <div className="flex items-center justify-center">
                   <Image
                     src={
                       isDark
@@ -387,9 +388,9 @@ export default function About() {
                 </div>
                 <div className="flex flex-wrap gap-3">
                   {environment.systems.slice(1).map((system) => (
-                    <span
+                    <FrostedGlassBox
                       key={system.name}
-                      className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 hover:shadow-md transition-all duration-200"
+                      className="  px-3 py-1 rounded-full text-sm  w-max h-max"
                     >
                       <Image
                         src={isDark ? system.darkImage : system.lightImage}
@@ -399,10 +400,10 @@ export default function About() {
                         className="w-5 h-5"
                       />
                       {system.name}
-                    </span>
+                    </FrostedGlassBox>
                   ))}
                 </div>
-              </div>
+              </FrostedGlassBox>
             ))}
           </div>
         </div>
@@ -411,7 +412,7 @@ export default function About() {
             <Code className="mr-2" /> Side Projects
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gray-200 dark:bg-gray-800 p-6 rounded-xl shadow-sm">
+            <FrostedGlassBox className="p-6 rounded-xl shadow-sm" variant="blue" hoverEffect="lift" glassOpacity="heavy">
               <div className="flex items-center mb-4">
                 <Image
                   src="/Noah Icon FA.svg"
@@ -436,8 +437,8 @@ export default function About() {
                 use cases. Namely in FDM printing at the moment, but with very
                 high end materials and machines.
               </p>
-            </div>
-            <div className="bg-gray-200 dark:bg-gray-800 p-6 rounded-xl shadow-sm">
+            </FrostedGlassBox>
+            <FrostedGlassBox className="p-6 rounded-xl shadow-sm" variant="blue" hoverEffect="lift" glassOpacity="heavy" onClick={() => window.open("https://blog.noahrijkaard.com", "_blank")}>
               <div className="flex items-center mb-4">
                 <div className="flex items-center mb-4">
                   <DotLottieReact
@@ -447,22 +448,16 @@ export default function About() {
                     className="w-16 h-16 mr-3"
                   />
                 </div>
-                <Link
-                  href="https://blog.noahrijkaard.com"
-                  target="_blank"
-                  rel="noopener noreferer"
-                >
-                  <h4 className="text-lg font-semibold hover:underline hover:text-blue-500 dark:hover:text-blue-400">
-                    My blog!
-                  </h4>
-                </Link>
+                <h4 className="text-lg font-semibold hover:underline hover:text-blue-500 dark:hover:text-blue-400">
+                  My blog!
+                </h4>
               </div>
               <p className="text-gray-700 dark:text-gray-300">
                 The tech diary of Noah Rijkaard, a Full-stack software engineer
                 working out of Kuala Lumpur Malaysia, it comprises of tutorials,
                 thoughts and existential crises.
               </p>
-            </div>
+            </FrostedGlassBox>
 
             {/* Add more side projects as needed */}
           </div>
