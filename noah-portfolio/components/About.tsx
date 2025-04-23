@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import FrostedGlassBox from "@/components/ui/frosted-glass-box";
 import Image from "next/image";
-import Link from "next/link";
 
 import { useEffect, useState } from "react";
 // import { DotLottieReact } from '@lottiefiles/dotlottie-react';
