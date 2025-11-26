@@ -12,7 +12,7 @@
  </div>
  
  ## I am Noah Christophe Rijkaard
-- Developer at [SUPA](https://www.supa.so)
+- Developer at [MerchantSpring](https://merchantspring.io/)
 - I had a dream where I woke up one morning and had a whole day without any compilation errors...
   
 [![Readme Quotes](https://quotes-github-readme.vercel.app/api?type=vertical&theme=dark)](https://github.com/piyushsuthar/github-readme-quotes)
