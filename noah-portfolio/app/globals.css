@@ -169,6 +169,16 @@ body.dark {
   }
 }
 
+.marching-ants {
+  animation: marching-ants 0.9s linear infinite;
+}
+
+@keyframes marching-ants {
+  to {
+    stroke-dashoffset: -8.8;
+  }
+}
+
 .terminal-cursor::after {
   content: "█";
   animation: cursor-blink 1.1s steps(1) infinite;

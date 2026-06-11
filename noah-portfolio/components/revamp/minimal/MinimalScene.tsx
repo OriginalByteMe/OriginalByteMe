@@ -3,7 +3,8 @@
 import { Suspense, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import ProfileOrbit from "../three/ProfileOrbit";
+import OrbitRig from "../three/OrbitRig";
+import NoahAvatar from "../three/NoahAvatar";
 
 interface ShapeProps {
   position: [number, number, number];
@@ -79,8 +80,13 @@ export default function MinimalScene() {
         dpr={[1, 1.75]}
         gl={{ antialias: true, alpha: true }}
       >
+        {/* Soft studio lighting for the vinyl-toy avatar */}
+        <ambientLight intensity={0.9} />
+        <directionalLight position={[3, 5, 6]} intensity={1.4} />
+        <directionalLight position={[-4, 2, -2]} intensity={0.45} />
+
         <Suspense fallback={null}>
-          <ProfileOrbit
+          <OrbitRig
             theme={{
               ring: "#9b9ba3",
               ringAlt: "#6e6e76",
@@ -88,7 +94,9 @@ export default function MinimalScene() {
               halo: "#a1a1aa",
               glow: 0,
             }}
-          />
+          >
+            <NoahAvatar />
+          </OrbitRig>
         </Suspense>
         <QuietGeometry />
       </Canvas>
