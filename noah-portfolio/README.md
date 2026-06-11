@@ -1,5 +1,25 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Design variants
+
+The site ships three switchable designs (pill switcher at the bottom of the page,
+persisted in `localStorage`):
+
+- **Terminal** — CRT phosphor green, boot sequence, scanlines, synthwave grid floor.
+- **Neural** — agentic constellation: 3D neural network particle field with glass cards.
+- **Mono** — clean studio monochrome with quiet floating wireframe geometry.
+
+All three share a 3D hero built with React Three Fiber: the profile picture flies in
+on a disc surrounded by counter-rotating rings of circular text that cycle through
+roles, with pointer parallax and scroll-linked motion (Lenis smooth scrolling +
+Framer Motion reveals).
+
+Key directories:
+
+- `components/revamp/` — design variants, shared 3D pieces (`three/`), switcher, reveals.
+- `lib/portfolio-data.ts` — all copy/roles/projects in one place.
+- `lib/design-context.tsx` — design switching state.
+
 ## Getting Started
 
 First, run the development server:

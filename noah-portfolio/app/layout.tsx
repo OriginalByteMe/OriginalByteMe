@@ -1,5 +1,6 @@
 import './globals.css'
 import { Inter } from 'next/font/google'
+import { geistMono, geistSans } from './fonts'
 import { ThemeProvider } from '../components/ThemeProvider'
 import { ThemeSwitch } from '../components/ThemeSwitch'
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -54,7 +55,9 @@ export default function RootLayout({
           content={metadata.openGraph.images[0].alt}
         />
       </head>
-      <body className={inter.className}>
+      <body
+        className={`${inter.className} ${geistSans.variable} ${geistMono.variable}`}
+      >
         <ThemeProvider>
           <StoreProvider>
             <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white">
