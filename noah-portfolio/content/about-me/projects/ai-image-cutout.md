@@ -1,0 +1,25 @@
+---
+title: "AI Image Cutout Tool"
+image: "/cutout_project.jpeg"
+url: "https://github.com/OriginalByteMe/AI_Image_cutout_maker"
+technologies:
+  - name: "Python"
+    lightIcon: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg"
+    darkIcon: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg"
+  - name: "AWS"
+    lightIcon: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/amazonwebservices/amazonwebservices-original-wordmark.svg"
+    darkIcon: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/amazonwebservices/amazonwebservices-plain-wordmark.svg"
+  - name: "Docker"
+    lightIcon: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/docker/docker-original.svg"
+    darkIcon: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/docker/docker-plain.svg"
+  - name: "Pytorch"
+    lightIcon: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/pytorch/pytorch-original.svg"
+    darkIcon: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/pytorch/pytorch-original.svg"
+  - name: "Terraform"
+    lightIcon: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/terraform/terraform-original.svg"
+    darkIcon: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/terraform/terraform-original.svg"
+  - name: "React"
+    lightIcon: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg"
+    darkIcon: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg"
+---
+A fun little app that uses segment anything to cut people and objects out of images to use as stickers!
