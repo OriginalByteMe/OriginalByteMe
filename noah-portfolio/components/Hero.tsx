@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { TypeAnimation } from "react-type-animation";
 import SpotifyReveal from "./ui/spotify-reveal";
+import ChatBox from "./ChatBox";
 
 export default function Hero() {
   return (
@@ -74,6 +75,7 @@ export default function Hero() {
           />
         </div>
           <SpotifyReveal />
+          <ChatBox />
       </div>
     </section>
   );

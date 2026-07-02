@@ -1,20 +1,18 @@
 import Hero from "@/components/Hero";
-import About from "@/components/About";
-import Projects from "@/components/Projects";
-import Contact from '@/components/Contact'
 import LavaLampBackground from "@/components/LavaLampBackground";
+import PortfolioCanvas from "@/components/PortfolioCanvas";
+import { AskMeProvider } from "@/components/AskMeProvider";
 
 export default function Home() {
   return (
     <main className="relative min-h-screen overflow-hidden">
       <LavaLampBackground />
       <div className="relative z-10">
-        <Hero />
-        <About />
-        <Projects />
-        <Contact />
+        <AskMeProvider>
+          <Hero />
+          <PortfolioCanvas />
+        </AskMeProvider>
       </div>
     </main>
-  )
+  );
 }
-
