@@ -602,7 +602,8 @@ import { registry } from "@/lib/jsonui/registry";
 import { JsonUiProvider } from "@/components/JsonUiProvider";
 
 it("renders a bound CareerTimeline through the registry", () => {
-  const spec = { root: { type: "CareerTimeline", props: { statePath: "/corpus/careerTimeline" }, children: [] } };
+  // v0.19 spec format is FLAT: root is an element KEY, elements is a keyed map (children = arrays of keys).
+  const spec = { root: "t", elements: { t: { type: "CareerTimeline", props: { statePath: "/corpus/careerTimeline" }, children: [] } } };
   const initialState = { "/corpus/careerTimeline": [{ company: "Supa", role: "Full-Stack Developer", period: "2020 - Present", logo: "", url: "#" }] };
   render(<JsonUiProvider initialState={initialState}><Renderer spec={spec as any} registry={registry} /></JsonUiProvider>);
   expect(screen.getByText("Supa")).toBeInTheDocument();
