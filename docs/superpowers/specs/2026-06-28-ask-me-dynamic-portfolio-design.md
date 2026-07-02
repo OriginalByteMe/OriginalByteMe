@@ -36,7 +36,7 @@ The dynamic site **is** the real site — not a separate widget. One renderer dr
 | # | Decision | Choice | Why |
 |---|---|---|---|
 | 1 | Default vs dynamic | **One renderer, two specs.** Persistent React shell; body is a json-render canvas rendering either `homeSpec` (default) or a streamed answer spec. The default view **reuses the existing components** adapted into registry impls. | The dynamic site is the real site; LLM reuses every building block; "restructure" = swap spec; home view stays today's page. |
-| 2 | Corpus model | **Markdown knowledge base, state-bound.** `content/about-me/*.md`: frontmatter = structured bindable records → `/corpus/*`; prose body = narrative knowledge → prompt. Model emits structure + `$state` bindings + connective prose. | Human-authored docs precedent; hard facts come from parsed data, not the model → near-zero fabrication; grounded. |
+| 2 | Corpus model | **Markdown knowledge base, state-bound.** `content/about-me/*.md`: frontmatter = structured bindable records → `/corpus/*`; prose body = narrative knowledge → prompt. Model emits structure + literal `/corpus/*` `statePath` pointers + connective prose. | Human-authored docs precedent; hard facts come from parsed data, not the model → near-zero fabrication; grounded. |
 | 3 | Provider + model | **OpenRouter open-weight model** (default `deepseek/deepseek-v4-flash`) via **Vercel AI SDK** + `@openrouter/ai-sdk-provider`, `OPENROUTER_API_KEY`. **Progressive JSONL streaming.** | Cheap (~$0.09/$0.18 per M), fast (~100 t/s, prefix caching), structured-output-capable, 1M context, slug swappable in one line; streaming = the self-assembly "wow." |
 | 4 | Animation | **framer-motion** core (enter/exit/layout, `AnimatePresence`, stagger). Keep Lottie + CSS blob background. | Purpose-built for orchestrated enter/exit/reflow; makes streaming look intentional. |
 | 5 | Cache storage | **Cloudflare Workers KV via REST** from the Next API route. Key = `normalize(question) + catalogVersion`. | Free at this scale (100k reads / 1k writes per day, 1 GB); REST `PUT` is imperative, so streaming-on-miss survives. Matches user's stack. |
@@ -45,7 +45,7 @@ The dynamic site **is** the real site — not a separate widget. One renderer dr
 
 ### Review answers (resolved)
 
-- **Home view = one system, by adapting existing components.** Lift the current `Hero`/`About`/`Projects`/`Contact` JSX (and sub-pieces — project cards, skill categories, work history, frosted-glass, Spotify reveal) into the json-render **registry implementations**, refactored only to take data via props/`$state` instead of inline arrays. The home view is literally today's page rendered through the catalog. "Let's see what's possible first": Phase 1 step 3 includes a fidelity check; anything the catalog can't yet express 1:1 is kept as a registered React escape-hatch component rather than redesigned.
+- **Home view = one system, by adapting existing components.** Lift the current `Hero`/`About`/`Projects`/`Contact` JSX (and sub-pieces — project cards, skill categories, work history, frosted-glass, Spotify reveal) into the json-render **registry implementations**, refactored only to take data via props (fact blocks receive a literal `statePath` pointer they resolve with `useStateValue`) instead of inline arrays. The home view is literally today's page rendered through the catalog. "Let's see what's possible first": Phase 1 step 3 includes a fidelity check; anything the catalog can't yet express 1:1 is kept as a registered React escape-hatch component rather than redesigned.
 - **Catalog = the basic list in §6 for Phase 1.** Charting/dashboard + external-API sources are deferred (§6 note, §15).
 - **Default model = `deepseek/deepseek-v4-flash`** (validated cheapest-fast open option; see §8). GLM-5.2 is the lowest-TTFT swap.
 - **Corpus seed = the current hardcoded data**, extracted into `content/about-me/*.md`; augmented later (blog/LinkedIn ingestion — §15).
@@ -74,7 +74,7 @@ flowchart TD
     Render --> Canvas["Animated answer canvas"]
 ```
 
-Two specs flow through **one** `Renderer`: `homeSpec` (static default, built from the adapted existing components) and the streamed/cached answer spec. Structured facts live in the StateStore at `/corpus/*` (parsed from frontmatter); the model never emits raw facts, only structure + bindings + prose.
+Two specs flow through **one** `Renderer`: `homeSpec` (static default, built from the adapted existing components) and the streamed/cached answer spec. Structured facts live in the StateStore at `/corpus/*` (parsed from frontmatter); the model never emits raw facts, only structure + literal `statePath` pointers + prose (fact components resolve their `statePath` against the StateStore via `useStateValue`).
 
 ## 5. Module / file layout (`noah-portfolio/`)
 
@@ -103,17 +103,17 @@ Two specs flow through **one** `Renderer`: `homeSpec` (static default, built fro
 **Changed**
 - `app/page.tsx` — `<LavaLampBackground/>`, `<Hero/>` (now with `ChatBox`), `<PortfolioCanvas/>`.
 - `components/Hero.tsx` — add `ChatBox`; otherwise unchanged.
-- `app/StoreProvider.tsx` / providers — mount json-render `StateProvider` (seeded with `corpusState()`), `ActionProvider`, `VisibilityProvider`.
+- `components/JsonUiProvider.tsx` (client) — mounts json-render `StateProvider` (seeded from a serializable `initialState` prop), `ActionProvider`, `VisibilityProvider`. `corpusState()` is computed in the **server** `app/layout.tsx` and passed in as that prop — never import `@/lib/corpus` from a `"use client"` module, or the `node:fs` loader lands in the client bundle and breaks the build.
 
 **Adapted (reused, not rebuilt)** — to retain the current design exactly:
-- `components/About.tsx`, `components/Projects.tsx`, `components/Contact.tsx` — their JSX/Tailwind/Lottie markup is **lifted into registry component impls** (`SkillGrid`/`SkillCloud`, `ProjectShowcase`, `CareerTimeline`, `ContactCard`, etc.), refactored to take data via props/`$state` instead of inline `skillCategories`/`workHistory`/`projects` arrays (those move to the corpus). Existing sub-components (`ui/frosted-glass-box`, `ui/spotify-reveal`, `ui/spotify-pill`) are reused inside the impls. Any piece the catalog can't yet express 1:1 stays as a registered escape-hatch component.
+- `components/About.tsx`, `components/Projects.tsx`, `components/Contact.tsx` — their JSX/Tailwind/Lottie markup is **lifted into registry component impls** (`SkillGrid`/`SkillCloud`, `ProjectShowcase`, `CareerTimeline`, `ContactCard`, etc.), refactored to take data via props (a literal `statePath` pointer resolved with `useStateValue`) instead of inline `skillCategories`/`workHistory`/`projects` arrays (those move to the corpus). Existing sub-components (`ui/frosted-glass-box`, `ui/spotify-reveal`, `ui/spotify-pill`) are reused inside the impls. Any piece the catalog can't yet express 1:1 stays as a registered escape-hatch component.
 
 **New deps:** `@json-render/core`, `@json-render/react`, `framer-motion`, `ai`, `@openrouter/ai-sdk-provider`, `gray-matter`. (Phase 2: `@json-render/remotion`, `@remotion/player`, `remotion`.)
 **New env:** `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` (optional override), CF KV REST creds (`CF_ACCOUNT_ID`, `CF_KV_NAMESPACE_ID`, `CF_KV_TOKEN`).
 
 ## 6. The catalog
 
-~15 components. Each = a typed `defineCatalog` entry (zod props + a description that teaches the model when to use it) and a framer-motion-animated React impl (mostly the adapted existing components). Fact-blocks read from `/corpus/*` via `$state`, so the model can only arrange/select real data.
+~15 components. Each = a typed `defineCatalog` entry (zod props + a description that teaches the model when to use it) and a framer-motion-animated React impl (mostly the adapted existing components). Fact-blocks read from `/corpus/*` via a literal `statePath` pointer (resolved with `useStateValue`), so the model can only arrange/select real data.
 
 | Component | Group | Purpose | Data |
 |---|---|---|---|
@@ -153,7 +153,7 @@ I work mostly across backend and infra... (prose the model can quote/paraphrase)
 
 The loader parses **all** frontmatter into the typed structured corpus (`careerTimeline`, `projects`, `skills`, `operatingSystems`, `contact`, `bio`, `funFacts`) loaded into a `createStateStore` at `/corpus/*`, and concatenates the **prose bodies** into a `knowledge` string injected into the system prompt. So:
 
-- **Fact-blocks bind to parsed frontmatter** (`CareerTimeline` → `/corpus/careerTimeline`) — grounded, no hallucination.
+- **Fact-blocks read parsed frontmatter** through a literal `statePath` pointer (`CareerTimeline` ← `/corpus/careerTimeline`) — grounded, no hallucination.
 - **The model writes narrative** informed by the prose knowledge — adapts the voice to the question.
 - **`homeSpec` and answers consume the same `/corpus/*` paths** → zero data drift.
 
@@ -167,7 +167,7 @@ Corpus state is kept in json-render's own `StateStore` (the existing Redux store
 1. Read + validate input (≤280 chars).
 2. `cacheKey = cacheKey(normalizeQuestion(q), CATALOG_VERSION)`; CF KV REST `GET`.
 3. **Hit** → return stored spec as a single-shot stream chunk (uniform client path).
-4. **Miss** → `system = catalog.prompt({ customRules })` + `knowledge()` (corpus prose) + rules (only bind to `/corpus/*`; off-topic → redirect layout); `user = buildUserPrompt({ prompt, state: corpusSnapshot() })`; call the OpenRouter model via Vercel AI SDK (`@openrouter/ai-sdk-provider`), stream JSONL spec patches.
+4. **Miss** → `system = catalog.prompt({ customRules })` + `knowledge()` (corpus prose) + rules (set each fact-block's `statePath` to the literal `/corpus/*` pointer, never a `$state` binding; off-topic → redirect layout); `user = buildUserPrompt({ prompt, state: corpusSnapshot() })`; call the OpenRouter model via Vercel AI SDK (`@openrouter/ai-sdk-provider`), stream JSONL spec patches.
 5. Client: `useUIStream` + `createSpecStreamCompiler` assemble the live spec; components mount as patches arrive (self-assembly).
 6. On settle: `validateSpec` → `autoFixSpec` (withhold lossy fixes until retries exhausted) guarantees a renderable final frame; on a miss, CF KV REST `PUT` the final spec.
 
@@ -190,7 +190,7 @@ Optional: enable the provider's **Response Healing** plugin as an extra malforme
 - **Key:** `normalize(question) + ":" + CATALOG_VERSION`. Normalization: lowercase, trim, collapse internal whitespace.
 - **Read-heavy:** repeat/similar questions hit the cache and skip the LLM — the primary cost lever.
 - **Consistency:** KV is eventually consistent (~60s). Acceptable for a cache: two visitors asking the *same brand-new* question within ~60s may both trigger a generation. Harmless.
-- **Invalidation:** because facts are `$state`-bound, cached specs hold *structure + bindings*, not raw facts — editing the corpus needs **no** cache flush (specs re-bind to fresh data at render time). Only catalog/schema changes invalidate, handled by bumping `CATALOG_VERSION` (changes the key → instant global miss, no flush).
+- **Invalidation:** because fact-blocks reference corpus data by a literal `statePath` pointer, cached specs hold *structure + pointers*, not raw facts — editing the corpus needs **no** cache flush (components re-read fresh data at render time). Only catalog/schema changes invalidate, handled by bumping `CATALOG_VERSION` (changes the key → instant global miss, no flush).
 
 ## 10. Client orchestration
 
@@ -212,7 +212,7 @@ Optional: enable the provider's **Response Healing** plugin as an extra malforme
 
 **Phase 1 — core (ships the whole vision)**
 1. Corpus: author `content/about-me/*.md` (extract current hardcoded data into frontmatter + prose) + `lib/corpus` loader/types.
-2. Catalog + registry — adapt existing `Hero`/`About`/`Projects`/`Contact` components into framer-motion registry impls (props/`$state`-driven).
+2. Catalog + registry — adapt existing `Hero`/`About`/`Projects`/`Contact` components into framer-motion registry impls (props-driven; fact blocks resolve a literal `statePath` pointer).
 3. `homeSpec` composing the catalog into today's layout + fidelity check vs current page (escape-hatch any gaps).
 4. `StateProvider`/`ActionProvider`/`VisibilityProvider` wiring with corpus state.
 5. `/api/generate` (prompt assembly + OpenRouter streaming, `deepseek-v4-flash`).
@@ -228,7 +228,7 @@ Optional: enable the provider's **Response Healing** plugin as an extra malforme
 ## 13. Testing strategy
 
 - **Unit:** catalog zod prop schemas accept/reject; `validateSpec`/`autoFixSpec` on crafted-malformed specs; cache key normalization; corpus loader (frontmatter → typed state, prose → knowledge); corpus typing.
-- **Renderer:** each registry component renders + binds a `/corpus/*` value (React Testing Library); home-view fidelity smoke check.
+- **Renderer:** each registry component renders + reads a `/corpus/*` value via its `statePath` (React Testing Library); home-view fidelity smoke check.
 - **Pipeline (model mocked):** feed a recorded JSONL stream → assert the compiler builds the expected spec and the canvas mounts the right components; assert cache hit path returns the stored spec without an LLM call. No live-LLM tests in CI.
 - **E2E (Playwright):** type a question → canvas transitions → `?q=` populates → reload reproduces; "↺ home" restores default; forced LLM error falls back to `homeSpec`.
 

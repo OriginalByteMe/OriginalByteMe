@@ -4,7 +4,7 @@
 
 **Goal:** Make the portfolio re-compose itself around a visitor's question — a hero chat box generates a json-render spec (OpenRouter, streamed) that animates the page body from a catalog of Noah's own (adapted) components, grounded in a markdown corpus, with Cloudflare KV caching.
 
-**Architecture:** A persistent React shell (lava-lamp bg, theme, header, hero+chat) wraps a single json-render canvas. The canvas renders either a hand-authored `homeSpec` (the current page, rebuilt by *adapting existing components* into the registry) or a streamed answer spec. Facts live in a json-render `StateStore` at `/corpus/*` (parsed from `content/about-me/*.md` frontmatter); the model emits structure + `$state` bindings + prose only. Repeat questions are served from CF KV.
+**Architecture:** A persistent React shell (lava-lamp bg, theme, header, hero+chat) wraps a single json-render canvas. The canvas renders either a hand-authored `homeSpec` (the current page, rebuilt by *adapting existing components* into the registry) or a streamed answer spec. Facts live in a json-render `StateStore` at `/corpus/*` (parsed from `content/about-me/*.md` frontmatter); the model emits structure + literal `/corpus/*` `statePath` pointers + prose only (fact components resolve their `statePath` via `useStateValue`; specs never use a `$state` binding). Repeat questions are served from CF KV.
 
 **Tech Stack:** Next.js 15 (App Router) · React 18 · TypeScript · Tailwind 3.4 · `@json-render/core` + `@json-render/react` · `framer-motion` · Vercel AI SDK (`ai`) + `@openrouter/ai-sdk-provider` (model `deepseek/deepseek-v4-flash`) · `gray-matter` · Cloudflare Workers KV (REST).
 
@@ -18,7 +18,7 @@
 - **Env vars:** `OPENROUTER_API_KEY` (required), `OPENROUTER_MODEL` (optional), `CF_ACCOUNT_ID`, `CF_KV_NAMESPACE_ID`, `CF_KV_TOKEN` (cache; if absent, cache is a no-op — never crash).
 - **No rate limiter.** Input cap = 280 chars. On any LLM/spec error → fall back to `homeSpec`, never blank.
 - **Cache key** = `normalizeQuestion(q) + ":" + CATALOG_VERSION`. Bump `CATALOG_VERSION` on any catalog/schema change.
-- **Reuse, don't redesign:** registry impls lift the existing `Hero`/`About`/`Projects`/`Contact` JSX/Tailwind verbatim, refactored only to take data via props/`$state`. Reuse `lib/hooks/useTheme.ts`, `components/ui/frosted-glass-box`, `components/ui/spotify-reveal`.
+- **Reuse, don't redesign:** registry impls lift the existing `Hero`/`About`/`Projects`/`Contact` JSX/Tailwind verbatim, refactored only to take data via props (fact blocks receive a literal `statePath` pointer they resolve with `useStateValue`). Reuse `lib/hooks/useTheme.ts`, `components/ui/frosted-glass-box`, `components/ui/spotify-reveal`.
 - **PRE-FLIGHT (do before Task 9+):** json-render is fast-moving — after install, open the installed `@json-render/react` and `@json-render/core` `.d.ts` files and confirm the exact signatures of `defineRegistry`, `Renderer`, `useUIStream`, `createSpecStreamCompiler`, `createJsonRenderTransform`, `StateProvider`, `createStateStore`, `buildUserPrompt`, `catalog.prompt`, `validateSpec`, `autoFixSpec`. The code below targets the documented surface; reconcile any signature drift before writing streaming code.
 - **TDD:** Vitest + React Testing Library for unit/component; Playwright for E2E. Mock the model and KV in tests — no live-LLM calls in CI.
 
@@ -330,7 +330,7 @@ describe("catalog", () => {
 
 - [ ] **Step 4: Run — expect FAIL.**
 
-- [ ] **Step 5: Implement `lib/jsonui/catalog.ts`** (zod props + descriptions; fact-blocks take a `statePath` string bound via `$state` in specs). Example shape — define ALL components:
+- [ ] **Step 5: Implement `lib/jsonui/catalog.ts`** (zod props + descriptions; fact-blocks take a literal `statePath` pointer string — e.g. `"/corpus/projects"` — that the component resolves via `useStateValue`, never a `$state` binding). Example shape — define ALL components:
 
 ```ts
 import { defineCatalog } from "@json-render/core";
@@ -339,23 +339,23 @@ import { z } from "zod";
 
 export const catalog = defineCatalog(schema, {
   components: {
-    Section:  { props: z.object({ title: z.string().nullable() }), description: "Full-width vertical section with optional heading." },
-    Stack:    { props: z.object({ gap: z.enum(["sm","md","lg"]).nullable() }), description: "Vertical stack of children." },
+    Section:  { props: z.object({ title: z.string().nullable().optional() }), description: "Full-width vertical section with optional heading." },
+    Stack:    { props: z.object({ gap: z.enum(["sm","md","lg"]).nullable().optional() }), description: "Vertical stack of children." },
     Columns:  { props: z.object({ count: z.number().min(1).max(3) }), description: "Responsive multi-column grid (1-3)." },
     Grid:     { props: z.object({ cols: z.number().min(1).max(4) }), description: "Card grid." },
     Prose:    { props: z.object({ text: z.string() }), description: "A paragraph of narrative text written by you." },
     Heading:  { props: z.object({ text: z.string(), level: z.number().min(1).max(4) }), description: "Section heading." },
-    Callout:  { props: z.object({ text: z.string(), tone: z.enum(["info","success","warn"]).nullable() }), description: "Highlighted callout." },
-    Quote:    { props: z.object({ text: z.string(), cite: z.string().nullable() }), description: "Pull quote." },
-    CareerTimeline:  { props: z.object({ statePath: z.string() }), description: "Animated company/role timeline. Bind statePath to /corpus/careerTimeline." },
-    ProjectShowcase: { props: z.object({ statePath: z.string(), slug: z.string().nullable() }), description: "Project cards (image, desc, tech, link). Bind statePath to /corpus/projects; optional slug filters to one." },
-    SkillGrid:  { props: z.object({ statePath: z.string() }), description: "Categorized skills grid. Bind to /corpus/skills." },
-    SkillCloud: { props: z.object({ statePath: z.string() }), description: "Compact skill pills. Bind to /corpus/skills." },
+    Callout:  { props: z.object({ text: z.string(), tone: z.enum(["info","success","warn"]).nullable().optional() }), description: "Highlighted callout." },
+    Quote:    { props: z.object({ text: z.string(), cite: z.string().nullable().optional() }), description: "Pull quote." },
+    CareerTimeline:  { props: z.object({ statePath: z.string() }), description: "Animated company/role timeline. Set statePath to the literal string \"/corpus/careerTimeline\"." },
+    ProjectShowcase: { props: z.object({ statePath: z.string(), slug: z.string().nullable().optional() }), description: "Project cards (image, desc, tech, link). Set statePath to the literal string \"/corpus/projects\"; optional slug filters to one." },
+    SkillGrid:  { props: z.object({ statePath: z.string() }), description: "Categorized skills grid. Set statePath to the literal string \"/corpus/skills\"." },
+    SkillCloud: { props: z.object({ statePath: z.string() }), description: "Compact skill pills. Set statePath to the literal string \"/corpus/skills\"." },
     StatCallout:{ props: z.object({ value: z.string(), label: z.string() }), description: "Big number + label." },
-    ContactCard:{ props: z.object({ statePath: z.string() }), description: "Email/GitHub/LinkedIn cards. Bind to /corpus/contact." },
-    LottieFigure:{ props: z.object({ src: z.string(), caption: z.string().nullable() }), description: "Decorative Lottie animation." },
+    ContactCard:{ props: z.object({ statePath: z.string() }), description: "Email/GitHub/LinkedIn cards. Set statePath to the literal string \"/corpus/contact\"." },
+    LottieFigure:{ props: z.object({ src: z.string(), caption: z.string().nullable().optional() }), description: "Decorative Lottie animation." },
     SpotifyNowPlaying:{ props: z.object({}), description: "Noah's current Spotify track reveal." },
-    ImageBlock: { props: z.object({ src: z.string(), alt: z.string(), caption: z.string().nullable() }), description: "Image with caption." },
+    ImageBlock: { props: z.object({ src: z.string(), alt: z.string(), caption: z.string().nullable().optional() }), description: "Image with caption." },
     StepFlow:   { props: z.object({ steps: z.array(z.object({ title: z.string(), body: z.string() })) }), description: "Animated numbered steps to explain how something works." },
   },
 });
@@ -585,13 +585,13 @@ git commit -m "feat(jsonui): personality + StepFlow explainer components"
 
 **Files:**
 - Create: `noah-portfolio/lib/jsonui/registry.tsx` (combine all component maps via `defineRegistry`)
-- Create: `noah-portfolio/components/JsonUiProvider.tsx` (StateProvider seeded with corpus + Action/Visibility)
-- Modify: `noah-portfolio/app/StoreProvider.tsx` (or `app/layout.tsx`) to mount `JsonUiProvider` around the page
+- Create: `noah-portfolio/components/JsonUiProvider.tsx` (client; StateProvider seeded from a serializable `initialState` prop + Action/Visibility)
+- Modify: `noah-portfolio/app/layout.tsx` (server component) to compute corpus state and mount `JsonUiProvider` around the page, passing it as the `initialState` prop
 - Test: `noah-portfolio/lib/jsonui/__tests__/registry.test.tsx`
 
 **Interfaces:**
 - Consumes: `primitiveComponents`, `factComponents`, `extraComponents`, `catalog`, `corpusState()`.
-- Produces: `registry` (from `defineRegistry`); `JsonUiProvider` React component.
+- Produces: `registry` (from `defineRegistry`); `JsonUiProvider` client component (accepts a serializable `initialState` prop).
 
 - [ ] **Step 1: Failing test** — render a tiny spec through `Renderer` + `registry` inside the provider; assert a `/corpus/*`-bound component shows a real value.
 
@@ -602,8 +602,9 @@ import { registry } from "@/lib/jsonui/registry";
 import { JsonUiProvider } from "@/components/JsonUiProvider";
 
 it("renders a bound CareerTimeline through the registry", () => {
-  const spec = { root: { type: "CareerTimeline", props: { statePath: { $state: "/corpus/careerTimeline" } }, children: [] } };
-  render(<JsonUiProvider><Renderer spec={spec as any} registry={registry} /></JsonUiProvider>);
+  const spec = { root: { type: "CareerTimeline", props: { statePath: "/corpus/careerTimeline" }, children: [] } };
+  const initialState = { "/corpus/careerTimeline": [{ company: "Supa", role: "Full-Stack Developer", period: "2020 - Present", logo: "", url: "#" }] };
+  render(<JsonUiProvider initialState={initialState}><Renderer spec={spec as any} registry={registry} /></JsonUiProvider>);
   expect(screen.getByText("Supa")).toBeInTheDocument();
 });
 ```
@@ -629,11 +630,19 @@ export const { registry } = defineRegistry(catalog, {
 ```tsx
 "use client";
 import { StateProvider, ActionProvider, VisibilityProvider, createStateStore } from "@json-render/react";
-import { corpusState } from "@/lib/corpus";
 import { useMemo } from "react";
 
-export function JsonUiProvider({ children }: { children: React.ReactNode }) {
-  const store = useMemo(() => createStateStore(buildInitialState()), []);
+// `initialState` is the serializable output of corpusState() (JSON-pointer keys),
+// computed in a SERVER component and passed down. Never import @/lib/corpus here:
+// "use client" would drag the node:fs corpus loader into the client bundle.
+export function JsonUiProvider({
+  initialState,
+  children,
+}: {
+  initialState: Record<string, unknown>;
+  children: React.ReactNode;
+}) {
+  const store = useMemo(() => createStateStore(buildInitialState(initialState)), [initialState]);
   return (
     <StateProvider store={store}>
       <ActionProvider><VisibilityProvider>{children}</VisibilityProvider></ActionProvider>
@@ -642,21 +651,20 @@ export function JsonUiProvider({ children }: { children: React.ReactNode }) {
 }
 
 // createStateStore takes a plain nested object; corpusState() returns JSON-pointer keys.
-function buildInitialState() {
-  const flat = corpusState();
+function buildInitialState(flat: Record<string, unknown>) {
   const out: any = { corpus: {} };
   for (const [k, v] of Object.entries(flat)) out.corpus[k.replace("/corpus/", "")] = v;
   return out;
 }
 ```
-> Confirm against the PRE-FLIGHT: whether `createStateStore` wants nested state (`{ corpus: {...} }`) or pointer-keyed — adjust `buildInitialState` accordingly so `{ $state: "/corpus/careerTimeline" }` resolves.
+> Confirm against the PRE-FLIGHT: whether `createStateStore` wants nested state (`{ corpus: {...} }`) or pointer-keyed — adjust `buildInitialState` accordingly so a fact component's `useStateValue("/corpus/careerTimeline")` lookup resolves.
 
-- [ ] **Step 5: Mount the provider** around the page in `app/StoreProvider.tsx` (wrap `children`).
+- [ ] **Step 5: Mount the provider** from the **server** `app/layout.tsx`: import `corpusState` from `@/lib/corpus` (server-only) and wrap the page — `<JsonUiProvider initialState={corpusState()}>{children}</JsonUiProvider>`. Never import `@/lib/corpus` from `app/StoreProvider.tsx` or any other `"use client"` module — that pulls the `node:fs` loader into the client bundle and breaks the build.
 
 - [ ] **Step 6: Run — expect PASS**, commit.
 
 ```bash
-git add lib/jsonui/registry.tsx components/JsonUiProvider.tsx app/StoreProvider.tsx lib/jsonui/__tests__/registry.test.tsx
+git add lib/jsonui/registry.tsx components/JsonUiProvider.tsx app/layout.tsx lib/jsonui/__tests__/registry.test.tsx
 git commit -m "feat(jsonui): registry assembly + StateStore/Action/Visibility providers seeded with corpus"
 ```
 
@@ -685,7 +693,7 @@ it("homeSpec is structurally valid", () => {
 
 - [ ] **Step 2: Run — expect FAIL.**
 
-- [ ] **Step 3: Author `homeSpec.ts`** — reproduce today's layout: an "About Me" `Section` (Prose bio + `Columns`(2) with `SkillGrid` bound to `/corpus/skills` and `CareerTimeline` bound to `/corpus/careerTimeline`), an OS grid, a "Projects" `Section` with `ProjectShowcase` bound to `/corpus/projects`, and a "Contact Me" `Section` with `ContactCard` bound to `/corpus/contact`. Bindings use `{ "$state": "/corpus/..." }`.
+- [ ] **Step 3: Author `homeSpec.ts`** — reproduce today's layout: an "About Me" `Section` (Prose bio + `Columns`(2) with `SkillGrid` (statePath `"/corpus/skills"`) and `CareerTimeline` (statePath `"/corpus/careerTimeline"`)), an OS grid, a "Projects" `Section` with `ProjectShowcase` (statePath `"/corpus/projects"`), and a "Contact Me" `Section` with `ContactCard` (statePath `"/corpus/contact"`). Set `statePath` to the literal pointer string (e.g. `props: { statePath: "/corpus/projects" }`) — the fact components resolve it internally via `useStateValue`; never wrap it in `{ "$state": ... }`.
 
 - [ ] **Step 4: Run — expect PASS.**
 
@@ -743,7 +751,7 @@ import { knowledge, corpusSnapshot } from "@/lib/corpus";
 
 const RULES = [
   "Compose ONLY from the catalog components.",
-  "For factual data, bind props to /corpus/* via {\"$state\":\"/corpus/...\"} — never write facts inline.",
+  "For factual data, set each fact component's statePath prop to the literal /corpus/* pointer string (e.g. \"/corpus/projects\") — never wrap it in a {\"$state\":...} binding and never write facts inline.",
   "Write narrative/connective text in Prose/Heading/Callout, first person as Noah.",
   "If the question is off-topic or hostile, return a brief Section that politely redirects and shows the about/projects/contact content.",
 ];
