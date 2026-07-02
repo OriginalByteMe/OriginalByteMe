@@ -77,4 +77,5 @@ export const catalog = defineCatalog(schema, {
       description: "Animated numbered steps to explain how something works.",
     },
   },
+  actions: {},
 });
