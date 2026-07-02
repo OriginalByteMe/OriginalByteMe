@@ -6,6 +6,8 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import Link from 'next/link'
 import { Github } from 'lucide-react'
 import StoreProvider from '@/app/StoreProvider'
+import { JsonUiProvider } from '@/components/JsonUiProvider'
+import { corpusState } from '@/lib/corpus'
 
 
 const inter = Inter({ subsets: ['latin'] })
@@ -57,6 +59,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider>
           <StoreProvider>
+            <JsonUiProvider initialState={corpusState()}>
             <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white">
               <header className="fixed top-0 right-0 m-4 z-50 flex items-center space-x-4">
                 <Link
@@ -80,6 +83,7 @@ export default function RootLayout({
               {children}
               <SpeedInsights />
             </div>
+            </JsonUiProvider>
           </StoreProvider>
         </ThemeProvider>
       </body>
