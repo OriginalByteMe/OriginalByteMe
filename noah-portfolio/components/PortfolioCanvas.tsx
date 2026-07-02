@@ -40,6 +40,10 @@ export default function PortfolioCanvas() {
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.35 }}
             layout
+            // Generated answers are prose-shaped (a paragraph + a block or two),
+            // so give them a centered reading column. The home view keeps its
+            // full-width design (its sections own their own grids/containers).
+            className={mode === "answer" ? "mx-auto w-full max-w-3xl px-4 py-16" : undefined}
           >
             <Renderer spec={spec} registry={registry} />
           </motion.div>
