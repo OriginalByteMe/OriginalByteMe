@@ -48,7 +48,8 @@ export const catalog = defineCatalog(schema, {
     },
     Quote: {
       props: z.object({ text: z.string(), cite: z.string().nullable().optional() }),
-      description: "Pull quote.",
+      description:
+        "Pull quote with an optional cite footer. Use to lift a single memorable line in Noah's voice instead of burying it in Prose — a display moment, not a paragraph.",
     },
     CareerTimeline: {
       props: z.object({ statePath: z.string(), title: z.string().nullable().optional() }),
@@ -70,7 +71,8 @@ export const catalog = defineCatalog(schema, {
     },
     StatCallout: {
       props: z.object({ value: z.string(), label: z.string() }),
-      description: "Big number + label.",
+      description:
+        "Big number + label. Use for a single impactful metric inside a StaticComposition or dense scene; for scroll-triggered count-up moments prefer StatReveal instead.",
     },
     ContactCard: {
       props: z.object({ statePath: z.string() }),
@@ -79,7 +81,7 @@ export const catalog = defineCatalog(schema, {
     OperatingSystemsGrid: {
       props: z.object({ statePath: z.string(), title: z.string().nullable().optional() }),
       description:
-        'Frosted-glass cards of OS environments with per-system pills. Bind statePath to the literal string "/corpus/operatingSystems". Optional title renders a code-icon sub-heading (e.g. "Operating Systems").',
+        'Matte cards of OS environments with per-system pills. Bind statePath to the literal string "/corpus/operatingSystems". Optional title renders a code-icon sub-heading (e.g. "Operating Systems").',
     },
     SideProjects: {
       props: z.object({ title: z.string().nullable().optional() }),
