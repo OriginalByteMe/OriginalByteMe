@@ -1,0 +1,5 @@
+# Development plans, specs, and audits — not part of the shipped product
+docs/superpowers/
+
+# Root-level dependencies (sub-project ignores live in their own dirs)
+node_modules/
