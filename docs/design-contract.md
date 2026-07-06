@@ -1,154 +1,328 @@
-# Ask-Me Component Library Design Contract
+# Ask-Me Component Library Design Contract — v2
 
-> **Scope:** This contract defines the shared visual language for every component in the json-render catalog. It is the source of truth for [#29 Adapt components to match original fidelity](https://github.com/OriginalByteMe/OriginalByteMe/issues/29) and [#30 Expand catalog with shadcn primitives](https://github.com/OriginalByteMe/OriginalByteMe/issues/30).
+> **Version:** v2 (pastel / matte / dither). Supersedes v1 (frosted-glass-over-lava-lamp), which is retired — see §14.
 >
-> **Branch:** `feat/ask-me-dynamic-portfolio`  
-> **Written against:** Tailwind CSS v3.4 + shadcn/ui baseline (to be migrated to v4 in #25; contract uses stable utility classes that survive the migration).  
-> **Prototype:** See `noah-portfolio/lib/jsonui/components/_prototype.tsx` and the runnable page at `/design-contract`.
+> **Scope:** The shared visual language for every component in the json-render **Catalog**, and the motion language for **Story**/**Scene** compositions. Source of truth for component adaptation ([#29](https://github.com/OriginalByteMe/OriginalByteMe/issues/29)) and catalog expansion ([#30](https://github.com/OriginalByteMe/OriginalByteMe/issues/30)).
+>
+> **Branch:** `feat/ask-me-dynamic-portfolio`
+>
+> **Written against:** Tailwind CSS v4 (`tailwindcss@^4.3.2`), `framer-motion@^12`, `lucide-react@^0.469`, `@paper-design/shaders-react@0.0.77` (exact pin). The v1 Tailwind-v4 migration ([#25](https://github.com/OriginalByteMe/OriginalByteMe/issues/25)) has landed; all classes below are v4-safe arbitrary/utility values.
+>
+> **Prototypes (ground truth for this contract):**
+> - Aesthetic: `noah-portfolio/app/aesthetic-prototype/_aesthetic-prototype.tsx` at `/aesthetic-prototype` — the winning candidates from [#35](https://github.com/OriginalByteMe/OriginalByteMe/issues/35). Every hex/class in §2–§8 is lifted from this file.
+> - Scene/motion: `app/scene-prototype/page.tsx` + `lib/jsonui/components/_scene-prototype.tsx` at `/scene-prototype` — the resolved motion findings from [#37](https://github.com/OriginalByteMe/OriginalByteMe/issues/37), codified in §9.
+>
+> **Reference tickets:** #36 (this contract), #37 (scene findings → §9), #42 (Night Matte Bento as a future Backdrop **Preset**/**Theme** → §8.3, §10), #34 (Paper Shaders backdrop research → §10), #29/#30 (component adaptation to these tokens), #25 (Tailwind v4 — landed).
+>
+> **Prototype-only scaffolding — do NOT copy:** the aesthetic prototype's `CandidateChip` debug label and the intro `<header>` strip (`bg-[#f2f0eb] dark:bg-[#141317]`) are throwaway route chrome, not part of the language.
 
-## 1. Tokens
+## 1. Overview — one base language, two registers
 
-### 1.1 Color
+The design language is **Candidate A "Soft Field"**: an airy editorial pastel look with a `GrainGradient`-family **Backdrop**, serif display moments, dithered/halftone image treatment, matte (no-blur) surfaces, and lucide 1.5-stroke icons. It is the base everywhere, in **both** light and dark.
 
-The portfolio background is a full-screen animated lava-lamp (navy blobs). Components sit **above** that background, so every surface must be translucent or low-contrast enough to let the blobs read through.
+**Candidate C "Night Matte Bento"** is a **layout register**, not a dark mode. Its bento-grid composition, sphere-gradient accent, hex-halftone tiles, and violet/mint accents are sanctioned for **dense, stat-heavy moments** — the `StaticComposition` short-answer fallback, stat scenes, dashboard-ish chapters — in **both** color schemes (§8.3). Candidate C's *full* look (its exact backdrop + palette) is additionally preserved as a future Backdrop **Preset** / **Theme** (#42, §10).
 
-| Token | Light mode | Dark mode | Usage |
-|-------|------------|-----------|-------|
-| Page background | `bg-white` / `body` | `body.dark bg-black` | Never used inside a catalog component; the lava-lamp is the backdrop. |
-| Primary text | `text-gray-900` | `dark:text-white` | Headings, strong body text. |
-| Secondary text | `text-gray-700` | `dark:text-gray-300` | Body paragraphs, descriptions. |
-| Tertiary text | `text-gray-500` | `dark:text-gray-400` | Captions, dates, metadata. |
-| Muted text | `text-gray-400` | `dark:text-gray-500` | Disabled/placeholder hints. |
-| Accent / links | `text-blue-500 hover:text-blue-600` | `dark:text-blue-400 dark:hover:text-blue-300` | External links, inline CTAs. |
-| Card surface (solid) | `bg-gray-100` | `dark:bg-gray-900` | Media cards that need opaque backing for images. |
-| Pill surface (solid) | `bg-gray-200` | `dark:bg-gray-800` | Technology / metadata pills on solid cards. |
+| Register | When | Backdrop shape | Display type | Surface | Grid |
+|----------|------|----------------|--------------|---------|------|
+| **Base — Soft Field** | Everything by default; prose, hero, story scenes | `GrainGradient shape="wave"` | `font-serif` | matte card `rounded-3xl` (§3.1) | asymmetric cluster (§8.2) |
+| **Density — Night Matte Bento** | Dense/stat/dashboard moments; short-answer `mode:"static"` fallback | `GrainGradient shape="sphere"` | sans `font-bold` | matte tile `rounded-2xl` (§3.2) | bento (§8.3) |
 
-**Frosted-glass palette** (via `<FrostedGlassBox variant="...">`):
+Both registers are matte in both schemes; neither uses `backdrop-blur`.
 
-| Variant | Role |
-|---------|------|
-| `blue` | **Default.** Info cards, contact cards, skill pills, callouts. Matches the navy blob theme. |
-| `emerald` | Success states, Spotify accents, positive callouts. |
-| `purple` | Personality blocks, Lottie figures, creative flourishes. |
-| `amber` / `gold` | Warnings, highlights, achievements. |
-| `rose` | Errors, destructive actions. |
-| `gray` | Neutral dividers, low-emphasis containers. |
+## 2. Color tokens
 
-### 1.2 Spacing
+All values are arbitrary hex utilities (`text-[#...]`, `bg-[#...]`) lifted verbatim from the prototype. Never introduce a bright saturated accent (the v1 `blue-500` link color is retired, §14).
 
-Use the Tailwind default scale. The following sizes are the **canonical** ones for generated layouts:
+### 2.1 Base palette — Soft Field (light + dark)
+
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| Ink / primary | `text-[#37304a]` | `dark:text-[#eae6f2]` | Root text color on the base section, headings, strong body. |
+| Body / muted | `text-[#5d5673]` | `dark:text-[#bdb6d0]` | Prose, lead paragraph, card list body. |
+| Label / eyebrow | `text-[#6f6885]` | `dark:text-[#a9a2bd]` | Mono kickers, figcaptions, metadata. |
+| Card surface | `bg-[#fffdf8]` | `dark:bg-[#2b2830]` | Matte cards (§3.1). |
+| Tinted surface | `bg-[#f4ecdf]` | `dark:bg-[#26232c]` | Figure/image cards behind a dithered image. |
+| Halftone track | `bg-[#efe6da]` | `dark:bg-[#2a2630]` | Container behind a `HalftoneDots` rule accent (§4.2). |
+| Hairline border | `border-[#37304a]/10` | `dark:border-white/10` | Card borders, internal dividers. |
+| Card shadow | `shadow-[0_16px_40px_-24px_rgba(58,51,69,0.35)]` | (same) | Soft matte lift; never a hard drop shadow. |
+| Backdrop CSS fallback | `bg-gradient-to-br from-[#f2e7d9] via-[#e7dcf1] to-[#dcead9]` | `dark:from-[#252129] dark:via-[#2a2430] dark:to-[#232820]` | Painted under the shader for pre-hydration / WebGL-unavailable (§10). |
+
+**Base Backdrop shader palette** (`GrainGradient`, §10):
+
+| Field | Light | Dark |
+|-------|-------|------|
+| `colorBack` | `#f7f2e7` | `#222026` |
+| `colors` | `['#dcc8f0','#f8d7c4','#cfe7d6','#f4e3c2']` | `['#5e5175','#75564e','#4d6154','#6e6550']` |
+
+### 2.2 Accent handling
+
+The accent is a **violet ink**, not a bright link color. Two grounded steps plus one register-only secondary:
+
+| Accent token | Light | Dark | Source / usage |
+|--------------|-------|------|----------------|
+| Violet ink (texture) | `#7a5fa0` | `#c9b3ec` | `colorFront` of the Soft Field dither/halftone (§4). The base register's ambient accent. |
+| Violet emphasis | `text-[#5646a8]` | `dark:text-[#9d8ff2]` | Emphasis spans, links, interactive accents; C's display accent span. |
+| Mint secondary | `text-[#5646a8]` | `dark:text-[#7fe0bd]` | **Density register only** — dark-scheme "newly/live" highlight (light collapses to violet emphasis). |
+
+Rules:
+- Links / interactive text use **violet emphasis**; hover deepens via `underline`/opacity, never a new hue.
+- Specs never choose free-form accent hex. A **Scene**'s optional `accent` (§9.4) selects from this allowlist; anything richer is a **Preset**/**Theme** concern (#42).
+- `italic`/`<em>` (no color) is the base register's lightest emphasis (§6.1).
+
+### 2.3 Density register palette — Night Matte Bento (light + dark)
+
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| Ink / primary | `text-[#2e2b38]` | `dark:text-[#e9e6f2]` | Root text on a bento section. |
+| Tile secondary | `text-[#5a5470]` | `dark:text-[#b3acce]` | Tile body / captions. |
+| Tile label | `text-[#6b6580]` | `dark:text-[#a29bbd]` | Mono `[10px]` tile labels. |
+| Tile surface | `bg-[#f6f4f9]` | `dark:bg-[#211f29]` | Matte tile (§3.2). |
+| Tile border | `border-[#2e2b38]/10` | `dark:border-white/10` | Tile hairline. |
+| Tile shadow | `shadow-[0_10px_30px_-18px_rgba(20,19,25,0.5)]` | (same) | Tighter, denser lift than base. |
+| Display accent | `text-[#5646a8]` | `dark:text-[#9d8ff2]` | The accent span inside the dense display heading. |
+| Backdrop CSS fallback | `bg-gradient-to-b from-[#dfe3ee] via-[#e6dcea] to-[#dce7e2]` | `dark:from-[#17161d] dark:via-[#1b1723] dark:to-[#141a18]` | Under the sphere shader. |
+
+**Density Backdrop shader palette** (`GrainGradient shape="sphere"`):
+
+| Field | Light | Dark |
+|-------|-------|------|
+| `colorBack` | `#e9e7ef` | `#141319` |
+| `colors` | `['#bcc9e6','#cdb7e0','#eec6d5','#bfe2d8']` | `['#9d8ff2','#6ea3e8','#ef9cc2','#7fe0bd']` |
+
+## 3. Matte surfaces & framing
+
+Matte = solid opaque fills, hairline borders, soft long-throw shadows. **No `backdrop-blur`, no translucency, no `FrostedGlassBox`** (§14).
+
+### 3.1 Matte card — base register
+
+The canonical raised surface (Soft Field cards):
+
+```tsx
+<div className="rounded-3xl border border-[#37304a]/10 bg-[#fffdf8] p-8 shadow-[0_16px_40px_-24px_rgba(58,51,69,0.35)] dark:border-white/10 dark:bg-[#2b2830]">
+```
+
+- A **figure** card that hosts a dithered image swaps the fill to the tinted surface: `bg-[#f4ecdf] dark:bg-[#26232c]` and clips with `overflow-hidden` (§4.1).
+- Cards may take small vertical offsets for editorial asymmetry (`md:translate-y-10`, `md:-translate-y-6`) — see §8.2.
+
+### 3.2 Matte tile — density register
+
+The bento tile (single shared class string in the prototype, reuse it):
+
+```tsx
+<div className="rounded-2xl border border-[#2e2b38]/10 bg-[#f6f4f9] p-6 shadow-[0_10px_30px_-18px_rgba(20,19,25,0.5)] dark:border-white/10 dark:bg-[#211f29]">
+```
+
+Tiles are tighter (`p-6`, `rounded-2xl`) than base cards (`p-8`, `rounded-3xl`).
+
+### 3.3 Dividers & internal borders
+
+Internal separators reuse the hairline border: base `border-b border-[#37304a]/10 dark:border-white/10`; density uses the `#2e2b38/10` border. No `<hr>`, no shadow dividers.
+
+### 3.4 Frosted glass is retired
+
+`FrostedGlassBox` is **not** a surface in this contract. It appears only in the migration note (§14). Any component still rendering it is a #29 adaptation target.
+
+## 4. Texture — dither & halftone
+
+Texture is decorative, always `aria-hidden`, always static (`speed={0}`) except the animated Backdrop, and always `minPixelRatio={1}`. Two paper-shaders primitives carry it. The full-screen surface fills use:
+
+```tsx
+const SHADER_FILL = { position: 'absolute', inset: 0, width: '100%', height: '100%' } as const;
+```
+
+### 4.1 Dithered images — `ImageDithering`
+
+An 8×8 ordered dither is the sanctioned photo/portrait treatment (replaces raw `object-cover` photos). Inside a tinted figure card (§3.1) sized e.g. `h-56 w-full`:
+
+```tsx
+<ImageDithering
+  image="/hero.png"
+  colorFront={portrait.colorFront}   // #7a5fa0 light · #c9b3ec dark
+  colorBack={portrait.colorBack}     // #f4ecdf light · #26232c dark
+  colorHighlight={portrait.colorHighlight} // #f3d9c8 light · #8d7bb0 dark
+  type="8x8" size={2} colorSteps={3} speed={0} minPixelRatio={1}
+  style={{ width: '100%', height: '100%' }}
+/>
+```
+
+| `SOFT_FIELD_PORTRAIT` | Light | Dark |
+|-----------------------|-------|------|
+| `colorFront` | `#7a5fa0` | `#c9b3ec` |
+| `colorBack` | `#f4ecdf` | `#26232c` |
+| `colorHighlight` | `#f3d9c8` | `#8d7bb0` |
+
+Pair with a `font-mono text-[10px] uppercase tracking-widest` figcaption naming the treatment (e.g. `hero.png · 8×8 ordered dither`).
+
+### 4.2 Halftone shapes — `HalftoneDots`
+
+Two sanctioned uses:
+
+**(a) Rule accent (base).** A short horizontal band separating hero blocks, in a track surface (§2.1):
+
+```tsx
+<div aria-hidden className="relative mt-14 h-12 w-full max-w-3xl overflow-hidden rounded-full bg-[#efe6da] dark:bg-[#2a2630]">
+  <HalftoneDots image="/hero.png" colorFront={rule.colorFront} colorBack={rule.colorBack}
+    type="classic" grid="square" size={1} radius={1.3} contrast={0.5} speed={0} minPixelRatio={1} style={SHADER_FILL} />
+</div>
+```
+
+`SOFT_FIELD_RULE`: `colorFront` `#7a5fa0`/`#c9b3ec`, `colorBack` `#f7f2e7`/`#222026`.
+
+**(b) Bento accent tile (density).** A `col-span-1 row-span-2` figure tile with a **hex** grid:
+
+```tsx
+<HalftoneDots image="/hero.png" colorFront={tile.colorFront} colorBack={tile.colorBack}
+  type="classic" grid="hex" size={0.8} radius={1.35} contrast={0.55} speed={0} minPixelRatio={1} style={SHADER_FILL} />
+```
+
+`NIGHT_TILE`: `colorFront` `#5646a8`/`#7fe0bd`, `colorBack` `#f6f4f9`/`#211f29`.
+
+### 4.3 Texture rules
+
+- Decorative only — texture never carries semantic content; wrap in `aria-hidden`.
+- `speed={0}` and `minPixelRatio={1}` on every non-Backdrop shader.
+- Palettes are **module-level constants** (stable array identities) so a theme swap changes one reference — no per-render uniform churn.
+- `grid="hex"` and blob/sphere shapes are the mobile-costly variants (§10); keep them small (accent tiles), never full-screen.
+
+## 5. Icon language
+
+One treatment everywhere: **lucide-react at 1.5 stroke width.**
+
+```tsx
+const ICON = { strokeWidth: 1.5 } as const;
+// <Code2 {...ICON} className="size-4" />
+```
+
+| Context | Class | Notes |
+|---------|-------|-------|
+| Inline / label / trailing icon | `size-4` | Default. Mono labels, tile headers. |
+| List-leading icon | `mt-0.5 size-4 shrink-0` | Aligns to first text line; never shrinks. |
+| Trailing affordance | `size-4 shrink-0` | e.g. `ArrowUpRight` on link rows. |
+
+- Always spread `{...ICON}` — never a bare lucide icon (default stroke is 2).
+- Prefer minimal outline glyphs already in the prototype set: `ArrowUpRight, Code2, GitBranch, Sparkles, Mail, Terminal, Layers, Globe`. Add new lucide glyphs at 1.5 stroke only.
+- No filled icons, no icon fonts (`react-icons` is legacy — migrate under #29).
+
+## 6. Typography
+
+The app loads **Inter** (sans) via `next/font`. `font-serif` / `font-mono` currently resolve to Tailwind's default system stacks; wiring a dedicated display serif + mono via `next/font` is **deferred** (§15).
+
+### 6.1 Serif display scale (base register story moments)
+
+Serif is reserved for display moments — hero, `ChapterHeading`, card titles. Use `tracking-tight`.
+
+| Role | Classes |
+|------|---------|
+| Hero display | `font-serif text-[clamp(3.5rem,9vw,8rem)] leading-[0.92] tracking-tight` (emphasis via `<em className="italic">`) |
+| Chapter display (`ChapterHeading`) | `font-serif text-4xl md:text-6xl tracking-tight` (spring stiffness 220 / damping 24, §9.2) |
+| Card / section heading | `font-serif text-2xl tracking-tight` |
+
+### 6.2 Dense display (density register)
+
+Candidate C's display is **sans `font-bold`**, not serif, and overlaps the grid edge with negative margin. The accent word takes violet emphasis (§2.3):
+
+```tsx
+<h2 className="relative z-20 -mb-7 text-[clamp(3.5rem,8.5vw,8rem)] font-bold leading-[0.9] tracking-tight md:-mb-12">
+  After hours,<br /><span className="text-[#5646a8] dark:text-[#9d8ff2]">still shipping.</span>
+</h2>
+```
+
+### 6.3 Text scale (both registers)
+
+| Role | Classes |
+|------|---------|
+| Eyebrow / kicker | `font-mono text-xs uppercase tracking-[0.3em]` |
+| Tile label (density) | `font-mono text-[10px] uppercase tracking-[0.25em]` |
+| Lead paragraph | `text-lg leading-relaxed` (`max-w-md` hero / `max-w-2xl` narrative) |
+| Narrative beat (`NarrativeBeat`) | `text-lg` in `max-w-2xl` |
+| Tile heading | `text-xl font-semibold tracking-tight` (or `text-base` for 1×1 tiles) |
+| Body / card list | `text-sm leading-relaxed` |
+| Secondary tile body | `text-sm` in tile-secondary ink (§2.3) |
+| Metadata footer | `text-xs uppercase tracking-widest` |
+| Caption / figcaption | `font-mono text-[10px] uppercase tracking-widest` |
+
+## 7. Spacing & radius tokens
+
+Updated from v1 where the prototype differs.
+
+### 7.1 Spacing
 
 | Name | Value | Usage |
 |------|-------|-------|
-| `space-xs` | `gap-2` / `space-y-2` | Inline pill lists, icon + text pairs. |
-| `space-sm` | `gap-4` / `space-y-4` | Card internals, list items, timeline rows. |
-| `space-md` | `gap-6` / `space-y-6` | Grid gaps (OS cards, side projects), card padding, subsection stacks. |
-| `space-lg` | `gap-8` / `space-y-8` | Major grids (projects 2–3 col, contact 3 col). |
-| `space-xl` | `gap-12` / `space-y-12` | Two-column splits (About skills vs. work history). |
-| `section-y` | `py-20` | Vertical breathing room for every `<Section>`. |
-| `container-x` | `px-4` | Horizontal page padding. |
+| `space-xs` | `gap-2` / `gap-3` | Icon + text pairs (`gap-3` for list-leading icons). |
+| `space-sm` | `space-y-4` | Card internals, list rhythm. |
+| `space-bento` | `gap-3` | Bento tile gaps (density §8.3). |
+| `space-cluster` | `gap-6` | Base card cluster gaps (§8.2). |
+| `card-pad-base` | `p-8` | Matte card padding (base). |
+| `card-pad-tile` | `p-6` | Matte tile padding (density). |
+| `container-x` | `px-6 md:px-10` | Page horizontal padding (was `px-4`). |
+| `container-y` | `pb-24 pt-32` | Page vertical rhythm (hero); scenes use `min-h-screen`, §9.2. |
 
-### 1.3 Border radius
+### 7.2 Border radius
 
 | Name | Class | Usage |
 |------|-------|-------|
-| `radius-pill` | `rounded-full` | Skill pills, tech pills, tags. |
-| `radius-card` | `rounded-xl` | Frosted-glass cards, callouts, stat callouts. |
-| `radius-media` | `rounded-2xl` | Project/media cards, image blocks, Lottie containers. |
+| `radius-pill` | `rounded-full` | Halftone rule track, pills, tags. |
+| `radius-card` | `rounded-3xl` | Base matte cards & figures (§3.1). |
+| `radius-tile` | `rounded-2xl` | Density tiles & C figures (§3.2). |
 
-### 1.4 Typography
+## 8. Layout & grids
 
-All text uses the Next.js / Tailwind default sans stack (Geist where loaded).
-
-| Element | Classes | Notes |
-|---------|---------|-------|
-| Page / answer heading | `text-3xl font-bold` | `h1` or `h2` depending on nesting. |
-| Section heading | `text-3xl font-bold mb-8` | Rendered by `<Section title="...">`. |
-| Subsection heading | `text-2xl font-semibold mb-4 flex items-center` | Used inside fact components (Skills, Work History, etc.). |
-| Category label | `text-lg font-medium mb-2 text-gray-700 dark:text-gray-300 flex items-center` | Skill categories, list group labels. |
-| Card title | `text-xl font-semibold mb-2` | Contact cards, project cards. |
-| Body | `text-gray-700 dark:text-gray-300` | Prose, descriptions. Max line length `max-w-2xl` for readability. |
-| Caption | `text-sm text-gray-500 dark:text-gray-400` | Figcaptions, dates, metadata. |
-| Big number | `text-4xl font-bold` | `<StatCallout>` value. |
-
-## 2. Surfaces & framing
-
-### 2.1 Frosted glass is the default elevated surface
-
-Use `<FrostedGlassBox>` for anything that should feel like a physical card floating above the lava-lamp:
-
-- Information cards (contact, operating systems, side projects)
-- Skill / tech pills
-- Callouts and stat callouts
-- Step-flow items (optional)
-
-**Default props for a raised card:**
+### 8.1 Page container & backdrop
 
 ```tsx
-<FrostedGlassBox
-  variant="blue"
-  hoverEffect="lift"
-  glassOpacity="heavy"
-  className="p-6 rounded-xl"
->
-```
-
-**Default props for a pill:**
-
-```tsx
-<FrostedGlassBox
-  className="px-3 py-1 rounded-full text-sm flex items-center gap-2 w-max m-0"
-  variant="blue"
-  hoverEffect="lift"
-  glassOpacity="light"
->
-```
-
-### 2.2 Solid cards for media-heavy content
-
-Project cards and image blocks use an opaque backing so photographs/screenshots keep consistent contrast:
-
-```tsx
-<a className="group bg-gray-100 dark:bg-gray-900 rounded-2xl overflow-hidden transition-all hover:scale-105 hover:shadow-lg">
-```
-
-Pills inside solid cards use the solid palette:
-
-```tsx
-<div className="flex items-center gap-2 bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-white px-3 py-1 rounded-full text-sm">
-```
-
-### 2.3 Layout containers
-
-Every full-width section follows this exact wrapper:
-
-```tsx
-<section className="relative py-20">
-  <div className="container mx-auto px-4">
+<section className="relative min-h-screen overflow-hidden text-[#37304a] dark:text-[#eae6f2]">
+  <div aria-hidden className="absolute inset-0 z-0 bg-gradient-to-br from-[#f2e7d9] ... dark:...">
+    <GrainGradient style={SHADER_FILL} ... />   {/* §10 */}
+  </div>
+  <div className="relative z-10 mx-auto max-w-6xl px-6 pb-24 pt-32 md:px-10">
     {/* content */}
   </div>
 </section>
 ```
 
-The `relative` keeps the section above the background layer; `container mx-auto px-4` provides consistent horizontal bounds.
+`overflow-hidden` clips the full-bleed backdrop; `z-0` backdrop, `z-10` content. Content column is `max-w-6xl`.
 
-### 2.4 Grids
+### 8.2 Base grids — asymmetric cluster
 
-| Layout | Class |
-|--------|-------|
-| 2-col feature split | `grid md:grid-cols-2 gap-12` |
-| 3-col contact grid | `grid md:grid-cols-3 gap-8` |
-| 2–3 col project grid | `grid md:grid-cols-2 lg:grid-cols-3 gap-8` |
-| 2-col OS / side-project grid | `grid grid-cols-1 md:grid-cols-2 gap-6` |
-| Image / caption | `flex flex-col items-center gap-2` |
+The base register composes cards in an editorial 12-col cluster with intentional vertical offsets, **not** a uniform grid:
 
-`<Columns count={n}>` and `<Grid cols={n}>` must resolve to these classes (safelist `md:grid-cols-1` through `md:grid-cols-4`).
+```tsx
+<div className="mt-16 grid grid-cols-1 gap-6 md:grid-cols-12">
+  <div className="... md:col-span-5">…</div>
+  <div className="... md:col-span-4 md:translate-y-10">…</div>
+  <figure className="... md:col-span-3 md:-translate-y-6">…</figure>
+</div>
+```
 
-## 3. Motion
+`<Columns>`/`<Grid>` primitives keep literal responsive class maps (never template strings — Tailwind must see full names) as in v1 §2.4.
 
-### 3.1 Enter animation
+### 8.3 Density register — the bento layout
 
-All catalog components share one enter animation defined in `lib/jsonui/motion.ts`:
+**When it applies (both light and dark):**
+- The `StaticComposition` short-answer fallback (`StorySpec mode:"static"`, §9.5).
+- Stat-heavy scenes (multiple `StatReveal`), dashboard-ish chapters, dense multi-fact answers.
+- Any moment where several small facts must coexist above the fold.
+
+**Rules:**
+- Grid: `grid auto-rows-[minmax(7rem,auto)] grid-cols-2 gap-3 md:grid-cols-4`.
+- Tile spans express hierarchy: hero fact `col-span-2 row-span-2`; column facts `col-span-1 row-span-2`; wide feature `col-span-2`; atom facts `col-span-1`.
+- Tiles are matte tiles (§3.2); labels are mono `[10px]` with a `size-4` icon (§5).
+- Display heading is sans-bold and overlaps the grid top edge via negative margin (§6.2).
+- Backdrop is the sphere `GrainGradient` (§2.3, §10); accents are violet emphasis + (dark) mint.
+- Applies in **both** schemes — it is a composition register, not a dark theme.
+
+Candidate C's *complete* look (its full palette + backdrop as a bundled identity) is preserved as a future Backdrop **Preset**/**Theme** in #42; that is distinct from using the bento *layout* here.
+
+### 8.4 Reading / static column
+
+Short answers and the static story fallback render in a centered reading column: `mx-auto w-full max-w-3xl`. Generated specs in this column do **not** add their own full-width section wrappers (see §12).
+
+## 9. Motion
+
+### 9.1 Baseline — shared `enter` (kept from v1)
+
+The one mount animation for every Catalog component, in `lib/jsonui/motion.ts`:
 
 ```ts
 export const enter: Variants = {
@@ -161,127 +335,167 @@ export const enter: Variants = {
 };
 ```
 
-Rules:
+- Wrap component roots in `motion.*` with `variants={enter} initial="hidden" animate="show"`.
+- Lists pass `custom={index}` to stagger by 60 ms.
+- Do not invent spring values; extend `motion.ts` and document here.
 
-- Wrap every component root in `motion.*` with `variants={enter} initial="hidden" animate="show"`.
-- For lists, pass `custom={index}` to each child to stagger by 60 ms.
-- Do **not** invent new spring values; if a component needs different motion, extend `lib/jsonui/motion.ts` and document it here.
+### 9.2 Scene motion (scroll-driven, from #37)
 
-### 3.2 Layout / streaming motion
-
-The `<PortfolioCanvas>` cross-fades between home and answer specs:
+A **Scene** is a full-height (`min-h-screen`) chapter driven by scroll entry:
 
 ```tsx
-<motion.div
-  key={viewKey}
-  initial={{ opacity: 0, y: 12 }}
-  animate={{ opacity: 1, y: 0 }}
-  exit={{ opacity: 0, y: -12 }}
-  transition={{ duration: 0.35 }}
-  layout
+<motion.section
+  initial="hidden"
+  whileInView="show"
+  viewport={{ once: true, amount: 0.3 }}
+  variants={{ show: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } } }}
 >
 ```
 
-Inside the canvas, individual components still use the `enter` stagger. Do not add extra mount animations to streaming chunks; `enter` is sufficient.
+- **Scene:** `viewport={{ once: true, amount: 0.3 }}` — reveal once, when 30% enters. Parent `staggerChildren: 0.12`, `delayChildren: 0.1` drives an in-scene stagger of its blocks (children reuse `enter`).
+- **`ChapterHeading`:** kicker (e.g. `Chapter 02`) + serif display (§6.1) `text-4xl md:text-6xl`; spring stiffness 220 / damping 24 (same as `enter`).
+- **`NarrativeBeat`:** one prose paragraph, `max-w-2xl text-lg`.
+- **`StatReveal`:** count-up metric gated on `useInView` with **tighter `amount: 0.6`** (so it doesn't count while barely visible); `useMotionValue` + `animate` + `useTransform`.
+- **`SequencedTimeline`:** rows reveal via nested `staggerChildren`.
+- **`SceneProgress`:** the **only** scrub-driven element — `useScroll` → `useSpring` → `scaleY` rail.
 
-### 3.3 Hover motion
+**Granularity rule:** cap a scene at **2–3 blocks** — one `ChapterHeading` anchor + one payload block (beat / stat / timeline). At 4+ blocks the 0.12s stagger pushes the tail reveal past ~0.6s after entry, animating after the reader has scrolled away; 1 block wastes a viewport. Promote heavy elements (timeline, multi-stat) to their own scene.
 
-Use the built-in FrostedGlassBox effects:
+### 9.3 Trigger vs scrub
 
-- `hoverEffect="lift"` for cards and pills (subtle `hover:-translate-y-1 hover:shadow-xl`).
-- `hoverEffect="glow"` for CTAs or featured items.
-- `hoverEffect="none"` for static badges or disabled states.
+| Mode | Driver | Cost | Use for |
+|------|--------|------|---------|
+| **Trigger** | `whileInView`, one-shot, own timeline | cheap, intentional | All chapter reveals and in-scene stagger. |
+| **Scrub** | `useScroll`, continuous, every frame, bidirectional | expensive | Progress rails, parallax, pinned sequences only. |
 
-Media cards implement their own scale:
+Default to trigger. Reach for scrub only for `SceneProgress`-type continuous rails.
 
-```tsx
-className="transition-all hover:scale-105 hover:shadow-lg"
+### 9.4 StorySpec shape (JSON-render-friendly; array order IS scene order)
+
+```ts
+type StoryBlock =
+  | { type: "chapterHeading"; props: { kicker?: string; text: string } }
+  | { type: "narrativeBeat";  props: { text: string } }
+  | { type: "statReveal";     props: { value: number; suffix?: string; caption: string } }
+  | { type: "timeline";       props: { rows: { period: string; role: string; company: string }[] } };
+
+type StorySpec = {
+  mode: "scenes" | "static";
+  scenes: { id: string; accent?: string; align?: "center" | "start"; blocks: StoryBlock[] }[];
+};
 ```
 
-### 3.4 Dark-mode handling
+A Scene's optional `accent` selects from the §2.2 allowlist only. `align` maps `center`/`start` to layout alignment.
 
-Do **not** add per-component `MutationObserver` logic. The shared `useIsDark()` helper lives at `lib/jsonui/use-is-dark.ts` (extracted in #29); reuse it everywhere. It watches `document.documentElement.classList` for `dark`.
+### 9.5 Static fallback (short answers)
 
-## 4. Component boundaries
+The **same block set** drives scenes and the static fallback by swapping only the motion driver. `StaticComposition` renders the blocks in a centered `max-w-3xl` column (§8.4) with plain mount stagger (shared `enter`, §9.1) — no scroll dependency. Short answers reuse the identical spec with `mode: "static"`; dense static answers use the bento register (§8.3).
 
-### 4.1 Primitives (`lib/jsonui/components/primitives.tsx`)
+### 9.6 Reduced motion
 
-| Component | Responsibility | Contract |
-|-----------|----------------|----------|
-| `<Section>` | Full-width vertical chapter | `py-20`, `container mx-auto px-4`, optional `text-3xl font-bold` title (`titleMb` sm/md/lg → `mb-4`/`mb-8`/`mb-12`, default md), `motion.section` with `enter`. `height="screen"` swaps `py-20` for `min-h-screen`; `centered` adds `flex flex-col items-center justify-center` (used by Projects/Contact home sections). |
-| `<Stack>` | Vertical rhythm wrapper | `space-y-*` based on `gap` prop, `motion.div` with `enter`. |
-| `<Columns>` | Responsive multi-column layout | `grid gap-12` + literal `md:grid-cols-1..3` class map (max 3; never template strings — Tailwind must see full class names). |
-| `<Grid>` | Dense card grid | `grid gap-6 grid-cols-1` + literal `md:grid-cols-1..4` class map (max 4). |
-| `<Prose>` | Narrative paragraph | `text-gray-700 dark:text-gray-300 mb-6 max-w-2xl`, `motion.p` with `enter`. Optional `statePath` binds the text to corpus state (e.g. `/corpus/bio/summary`) with `text` as fallback. |
-| `<Heading>` | Subsection heading | `text-2xl font-semibold mb-4`. Level clamped 1–4. |
-| `<Callout>` | Highlighted box | `rounded-xl border-l-4 p-4`, tone maps to `info`/`success`/`warn` colors, `motion.div` with `enter`. |
-| `<Quote>` | Pull quote | `border-l-2 border-gray-300 dark:border-gray-700 pl-4 italic`, optional cite footer. |
+`prefers-reduced-motion` forces every shader `speed` to `0` (Backdrop and texture) and should render a curated still `frame` for the Backdrop (§10). Component `enter`/scene stagger degrade to instant per framer-motion's reduced-motion handling. The prototype's `usePrefersReducedMotion()` is the reference; the app-wide seam lives in the Backdrop component (§10).
 
-### 4.2 Facts (`lib/jsonui/components/facts.tsx`)
+## 10. Backdrop preset guidance
 
-| Component | Responsibility | Contract |
-|-----------|----------------|----------|
-| `<ProjectShowcase>` | Media cards for projects | Solid gray cards, `rounded-2xl overflow-hidden`, image `h-48 object-cover`, tech pills from §2.2, staggered `enter`. |
-| `<SkillGrid>` | Categorized skill pills | Optional `title` renders a `Code`-icon subsection heading (§1.4); subsection heading per category + `FrostedGlassBox` pills (§2.1 pill props). |
-| `<SkillCloud>` | Flat skill pill cloud | Same pills as `SkillGrid`, no category headings. |
-| `<CareerTimeline>` | Work history | Optional `title` renders a `Briefcase`-icon subsection heading; left border timeline, `motion.li` staggered `enter`, company link uses accent colors. |
-| `<ContactCard>` | Contact links | 3-col grid of `FrostedGlassBox` cards (§2.1 raised card props), large icon + title + link. |
-| `<StatCallout>` | Big metric | `motion.div` with `enter`, big value + caption, optionally wrapped in `FrostedGlassBox`. |
-| `<OperatingSystemsGrid>` | OS environment cards | 2-col `gap-6` grid of §2.1 raised cards; first system is the header icon (`w-8 h-8 mr-3`) beside the environment name, remaining systems render as §2.1-style pills (`gap-3`). Optional `Code`-icon `title`. Staggered `enter`. |
+The **Backdrop** is a single full-screen `@paper-design/shaders-react` canvas (pinned `0.0.77`), steered per answer. Constraints below trace to the #34 research doc.
 
-### 4.3 Personality (`lib/jsonui/components/extras.tsx`)
+- **Family:** the `GrainGradient` shaders are the sanctioned Backdrop for both registers — base uses `shape="wave"`, density uses `shape="sphere"`. Prototyped props:
 
-| Component | Responsibility | Contract |
-|-----------|----------------|----------|
-| `<LottieFigure>` | Decorative animation | Centered figure, `w-full max-w-sm`, optional caption. |
-| `<SpotifyNowPlaying>` | Live Spotify tile | Reuses existing `<SpotifyReveal />`; keep its styling untouched. |
-| `<ImageBlock>` | Image + caption | `rounded-xl` image, centered, optional caption. |
-| `<StepFlow>` | Numbered explanation | `motion.ol` with staggered `motion.li`, numbered badge `w-8 h-8 rounded-full bg-blue-500 text-white`. |
-| `<SideProjects>` | Home-view side projects (escape hatch, audit #27 §2) | Static 2-col grid of §2.1 raised cards: 3D-printing image card + clickable blog Lottie card. Optional `Code`-icon `title`. Promote to a data-driven `FeatureCard` if answers ever need this shape. |
+  | Register | shape | softness | intensity | noise | speed (active) |
+  |----------|-------|----------|-----------|-------|----------------|
+  | Base (Soft Field) | `wave` | `0.85` | `0.4` | `0.3` | `0.35` |
+  | Density (Night Matte) | `sphere` | `0.7` | `0.5` | `0.3` | `0.45` |
 
-## 5. Answer layouts vs. home layouts
+- **Presets only, never free-form params.** A spec selects an allowlisted **Preset** (shader + palette + speed); it never sets raw shader uniforms. The palettes in §2.1 / §2.3 are the two seed presets; the full Preset **Catalog** (and Night Matte Bento as a bundled Preset/Theme) is owned by #42.
+- **Pre-hydration / fallback:** always paint the CSS gradient (§2.1, §2.3) under the shader — it is both the pre-JS first paint and the WebGL-unavailable fallback. Wrap the canvas in an error boundary that falls back to that gradient (library throws if WebGL2 is missing; no built-in fallback).
+- **Reduced motion:** `speed={0}` cancels the rAF loop; pass a curated static `frame` for a branded still (§9.6).
+- **Mobile cost levers:** `minPixelRatio={1}` (prototype default) and cap `maxPixelCount` (~1.6M) on coarse pointers — gradients survive downscaling. `GrainGradient` blob/sphere is ~5× the wave cost; keep costly full-screen work off mobile where possible.
+- **Steering vs switching:** same-shader palette/speed changes are cheap uniform writes (tween app-side, keep color-array length constant). Switching shader *type* is a canvas remount — cross-fade by briefly stacking two canvases, never keep two past the fade.
+- **Pin exactly** `0.0.77`; upgrades are deliberate (breaking changes ship under 0.0.x).
 
-### 5.1 Home layout
+## 11. Component boundaries
 
-- Rendered by `homeSpec.ts`.
-- Full-width `<Section>` stack.
-- Uses all fact components: `<SkillGrid>`, `<CareerTimeline>`, `<ProjectShowcase>`, `<ContactCard>`.
-- Each section owns its own grid and container.
+Carried forward from v1 §4, re-skinned to §2–§8. Components adopt tokens under #29; the shared `useIsDark()` helper (`lib/jsonui/use-is-dark.ts`) still owns dark detection — no per-component `MutationObserver`.
 
-### 5.2 Answer layout
+### 11.1 Primitives (`lib/jsonui/components/primitives.tsx`)
 
-- Generated by `/api/generate`.
-- Canvas wraps the renderer in a **centered reading column**: `mx-auto w-full max-w-3xl px-4 py-16`.
-- Therefore generated specs should **not** use `<Section>` (it adds `py-20` and full-width container). Instead use:
-  - `<Stack gap="md">`
-  - `<Heading>` / `<Prose>`
-  - `<SkillCloud>` for compact skill answers
-  - `<Callout>`, `<Quote>`, `<StatCallout>` for emphasis
-  - `<ImageBlock>` / `<LottieFigure>` for personality
-- Fact components used in answers (e.g. `<ProjectShowcase slug="...">`) should render **inside** the column without their own outer section wrappers.
+| Component | Contract |
+|-----------|----------|
+| `<Section>` | Full-width chapter: base container (§8.1), optional serif title (§6.1), `motion.section` with `enter`. `height="screen"` → `min-h-screen`; `centered` adds `flex flex-col items-center justify-center`. |
+| `<Stack>` | Vertical rhythm (`space-y-*` per `gap`), `motion.div` with `enter`. |
+| `<Columns>` / `<Grid>` | Literal responsive class maps (never template strings). Base cluster uses the §8.2 12-col pattern; dense uses the §8.3 bento. |
+| `<Prose>` | Body/muted ink (§2.1), `max-w-2xl`, `motion.p` with `enter`; optional `statePath` binds to Corpus state. |
+| `<Heading>` | Serif subsection heading `font-serif text-2xl tracking-tight` (§6.1), level clamped 1–4. |
+| `<Callout>` | Matte card (§3.1) with `border-l-4` in an accent from §2.2; `motion.div` with `enter`. |
+| `<Quote>` | `border-l-2` hairline + `pl-4 italic`, optional cite. |
 
-## 6. Prompt guidance for the model
+### 11.2 Facts (`lib/jsonui/components/facts.tsx`)
 
-When composing the catalog prompt for `/api/generate`, append these rules:
+| Component | Contract |
+|-----------|----------|
+| `<ProjectShowcase>` | Matte figure cards (§3.1) with **dithered** cover images (§4.1); `rounded-3xl overflow-hidden`; staggered `enter`. |
+| `<SkillGrid>` / `<SkillCloud>` | Pills on matte surfaces (§3), mono labels; category headings via serif `<Heading>` + `Code2` icon (§5). |
+| `<CareerTimeline>` | Left-border timeline; `motion.li` staggered `enter`; `Briefcase`/`Layers`-style icon at 1.5 stroke; company links use violet emphasis (§2.2). Promote to `SequencedTimeline` (§9.2) inside stories. |
+| `<ContactCard>` | Grid of matte cards (§3.1), large 1.5-stroke icon + title + link. |
+| `<StatCallout>` | Big serif/number value + caption on a matte surface; inside a story use `StatReveal` (§9.2). |
+| `<OperatingSystemsGrid>` | Matte-card grid; header icon `size-4` (was `w-8 h-8`) beside env name; staggered `enter`. |
 
-1. Prefer `Stack` + `Heading` + `Prose` for answer layouts; reserve `Section` for home-view specs.
-2. Use `FrostedGlassBox`-based components (`SkillCloud`, `ContactCard`, `Callout`) for a consistent frosted-glass feel.
-3. Choose `blue` as the default accent; only use `emerald`, `purple`, `amber`, `gold`, or `rose` when the content semantically calls for it.
-4. Keep motion implicit — every component animates in automatically; do not add custom `motion` props.
-5. Generated text should be concise (1–2 paragraphs) and use `Prose` for readability inside `max-w-3xl`.
+### 11.3 Story primitives (`#37` → promote into Catalog)
 
-## 7. Acceptance checklist for #29 and #30
+`Scene`, `ChapterHeading`, `NarrativeBeat`, `StatReveal`, `SequencedTimeline`, `SceneProgress`, `StaticComposition` (§9). Promotion of the scene-prototype primitives into the shipping Catalog is tracked under #37.
 
-- [ ] All catalog components use the `enter` animation from `lib/jsonui/motion.ts`.
-- [ ] All cards follow §2.1 (frosted glass) or §2.2 (solid media) consistently.
-- [ ] `Section` matches §2.3 wrapper exactly.
-- [ ] `Columns`/`Grid` match §2.4 classes.
-- [ ] Typography uses only the scale in §1.4.
-- [ ] Dark-mode icons/images use the shared `useIsDark()` helper.
-- [ ] The `_prototype.tsx` storyboard still renders identically after changes.
+### 11.4 Personality (`lib/jsonui/components/extras.tsx`)
 
-## 8. Open questions moved to downstream tickets
+| Component | Contract |
+|-----------|----------|
+| `<LottieFigure>` | Centered `w-full max-w-sm`, optional caption. |
+| `<SpotifyNowPlaying>` | Reuses `<SpotifyReveal />`; keep styling untouched (audit under #29 for matte alignment). |
+| `<ImageBlock>` | Dithered image (§4.1) in a matte figure (`rounded-3xl`), optional mono figcaption. |
+| `<StepFlow>` | `motion.ol` staggered `motion.li`; numbered badge on a matte/accent surface (no `bg-blue-500` — use violet emphasis, §2.2). |
+| `<SideProjects>` | Static matte-card grid (escape hatch); promote to data-driven `FeatureCard` if answers need this shape. |
 
-- Exact shadcn primitives to adopt in #30 (Button, Card, Badge, Separator) — this contract describes the *visual outcome*, not the library source.
-- Tailwind v4 token migration details — #25 owns the config; this contract uses v3.4 classes that map 1:1 to v4 utilities.
-- Additional fact/personality components (e.g. OS grid, FunFacts ticker) — propose in #29 or #30 after this contract lands.
+## 12. Home vs story / answer layouts
+
+### 12.1 Home layout
+- Rendered by `homeSpec.ts`; full-width `<Section>` stack in the base register.
+- Uses fact components (`SkillGrid`, `CareerTimeline`, `ProjectShowcase`, `ContactCard`); each section owns its container (§8.1).
+
+### 12.2 Story / answer layout
+- Generated by `/api/generate` as a `StorySpec` (§9.4).
+- `mode: "scenes"` → full-height Scenes (§9.2), scroll-choreographed, base register (dense chapters may use the bento register, §8.3).
+- `mode: "static"` (short answers) → centered `max-w-3xl` reading column (§8.4) with `enter` stagger; dense static answers use the bento register.
+- Generated specs in the static column do **not** wrap content in `<Section>` (it adds full-width container + `min-h-screen`). Use `<Stack>` / `<Heading>` / `<Prose>` / `<Callout>` / `<StatReveal>` instead.
+
+## 13. Prompt guidance for `/api/generate`
+
+Append to the Catalog prompt:
+
+1. Compose answers as a **Story** (`StorySpec`): `mode:"scenes"` for narrative multi-part answers, `mode:"static"` for short answers — the same blocks drive both.
+2. Cap each **Scene** at 2–3 blocks: one `chapterHeading` + one payload (`narrativeBeat` / `statReveal` / `timeline`). Promote heavy elements to their own scene.
+3. Use the **base (Soft Field)** register by default; switch to the **bento density** register (§8.3) only for stat-heavy or multi-fact-dense moments (both apply in light and dark).
+4. Surfaces are **matte** — never request blur, glass, or translucency. Use serif for display/chapter headings, mono for kickers/labels.
+5. Accents come from the fixed violet palette (§2.2); do not request colors. A Scene may set `accent` from the allowlist only.
+6. Backdrop is chosen by **Preset** (§10), never raw shader params.
+7. Keep motion implicit — components animate via `enter`; scenes via `whileInView`. Do not add custom `motion` props.
+8. Generated prose is concise (1–2 short paragraphs per beat) and lives in `max-w-2xl` (scene) / `max-w-3xl` (static).
+
+## 14. Migration from v1 (retired)
+
+| v1 (retired) | v2 replacement |
+|--------------|----------------|
+| **Lava-lamp navy-blob background** | Single `GrainGradient` **Backdrop** (§10), Preset-selected, with CSS-gradient fallback (§2.1). |
+| **`FrostedGlassBox`** (translucent frosted surface, `variant`/`glassOpacity`/`hoverEffect`) | **Matte** surfaces (§3): `rounded-3xl`/`rounded-2xl` opaque cards/tiles, hairline borders, soft shadows. `FrostedGlassBox` is retired — remove it from Catalog components (#29). No `backdrop-blur` anywhere. |
+| `blue`/`emerald`/`purple`/`amber`/`rose` frosted variants; `text-blue-500` links | Fixed **violet ink** accent (§2.2); mint secondary in the density register (dark). No bright saturated hues. |
+| Solid `bg-gray-100/900` media cards with raw `object-cover` photos | Tinted matte figure cards with **dithered** images (§4.1). |
+| `text-3xl font-bold` sans headings only | Serif display scale (§6.1) + dense sans display (§6.2); mono kickers/labels (§6.3). |
+| `rounded-xl` card / `container px-4` / `py-20` | `rounded-3xl`/`rounded-2xl` (§7.2); `max-w-6xl px-6 md:px-10`, `pb-24 pt-32` (§7.1). |
+| `bg-blue-500` step badges, per-component `MutationObserver` | Violet-emphasis badges (§2.2); shared `useIsDark()` (§11). |
+| Flat answer render in `max-w-3xl` | Story/Scene motion model (§9) with a `max-w-3xl` static fallback. |
+
+## 15. Deferred / open items
+
+- **Display serif + mono fonts:** app loads only Inter; `font-serif`/`font-mono` fall back to system stacks. Wire a dedicated display serif and mono via `next/font` — needs a font-wiring ticket (not yet filed).
+- **Backdrop Preset Catalog:** the full allowlist of Presets (beyond the two seed palettes in §2.1/§2.3) and **Night Matte Bento as a bundled Preset/Theme** — owned by **#42**; shader constraints in **#34**.
+- **Story primitive promotion:** move `Scene`/`ChapterHeading`/`StatReveal`/etc. from the #37 prototype into the shipping Catalog — **#37**.
+- **Component adaptation to these tokens:** re-skin existing Catalog components off `FrostedGlassBox`/`blue` onto §2–§8 — **#29**; new primitives (shadcn) — **#30**.
+- **`react-icons` → lucide migration:** any remaining `react-icons` usages should move to lucide at 1.5 stroke (§5) — under **#29**.
