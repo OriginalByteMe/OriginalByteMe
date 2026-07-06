@@ -1,1 +1,1 @@
-export const CATALOG_VERSION = "v1";
+export const CATALOG_VERSION = "v2";

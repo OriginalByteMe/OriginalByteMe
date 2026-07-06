@@ -6,10 +6,12 @@ import { useStateValue } from "@json-render/react";
 import { cn } from "@/lib/utils";
 import { enter } from "../motion";
 
+// Matte Callout left-rule accents per tone (contract §2.1/§3.1). Grounded pastel
+// inks — the v1 saturated blue-500/green-500/amber-500 rules are retired (§14).
 const toneClasses: Record<"info" | "success" | "warn", string> = {
-  info: "border-blue-500 bg-blue-500/10",
-  success: "border-green-500 bg-green-500/10",
-  warn: "border-amber-500 bg-amber-500/10",
+  info: "border-l-[#7a5fa0] dark:border-l-[#c9b3ec]",
+  success: "border-l-[#5f9e7f] dark:border-l-[#7fe0bd]",
+  warn: "border-l-[#c79a63] dark:border-l-[#f3d9c8]",
 };
 
 // Tailwind only generates classes it can see as literal strings in source, so
@@ -40,7 +42,7 @@ function ProseParagraph({ text }: { text: string }) {
       variants={enter}
       initial="hidden"
       animate="show"
-      className="text-gray-700 dark:text-gray-300 mb-6 max-w-2xl"
+      className="mb-6 max-w-2xl text-lg leading-relaxed text-[#5d5673] dark:text-[#bdb6d0]"
     >
       {text}
     </motion.p>
@@ -73,14 +75,19 @@ export const primitiveComponents = {
       initial="hidden"
       animate="show"
       className={cn(
-        "relative",
+        "relative text-[#37304a] dark:text-[#eae6f2]",
         props.height === "screen" ? "min-h-screen" : "py-20",
         props.centered ? "flex flex-col items-center justify-center" : null,
       )}
     >
-      <div className="container mx-auto px-4">
+      <div className="mx-auto max-w-6xl px-6 md:px-10">
         {props.title ? (
-          <h2 className={cn("text-3xl font-bold", titleMbClasses[props.titleMb ?? "md"])}>
+          <h2
+            className={cn(
+              "font-serif text-2xl tracking-tight",
+              titleMbClasses[props.titleMb ?? "md"],
+            )}
+          >
             {props.title}
           </h2>
         ) : null}
@@ -99,7 +106,7 @@ export const primitiveComponents = {
     </motion.div>
   ),
   Columns: ({ props, children }: BaseComponentProps<{ count: number }>) => (
-    <div className={cn("grid gap-12", columnsClasses[Math.min(3, Math.max(1, Math.round(props.count)))])}>{children}</div>
+    <div className={cn("grid gap-6", columnsClasses[Math.min(3, Math.max(1, Math.round(props.count)))])}>{children}</div>
   ),
   Grid: ({ props, children }: BaseComponentProps<{ cols: number }>) => (
     <div className={cn("grid gap-6 grid-cols-1", gridClasses[Math.min(4, Math.max(1, Math.round(props.cols)))])}>
@@ -114,22 +121,27 @@ export const primitiveComponents = {
     ),
   Heading: ({ props }: BaseComponentProps<{ text: string; level: number }>) => {
     const Tag = `h${Math.min(4, Math.max(1, props.level))}` as "h1";
-    return <Tag className="text-2xl font-semibold mb-4">{props.text}</Tag>;
+    return <Tag className="font-serif text-2xl tracking-tight mb-4">{props.text}</Tag>;
   },
   Callout: ({ props }: BaseComponentProps<{ text: string; tone?: "info" | "success" | "warn" | null }>) => (
     <motion.div
       variants={enter}
       initial="hidden"
       animate="show"
-      className={`rounded-xl border-l-4 p-4 ${toneClasses[props.tone ?? "info"]}`}
+      className={cn(
+        "rounded-3xl border border-l-4 border-[#37304a]/10 bg-[#fffdf8] p-8 text-sm leading-relaxed text-[#5d5673] shadow-[0_16px_40px_-24px_rgba(58,51,69,0.35)] dark:border-white/10 dark:bg-[#2b2830] dark:text-[#bdb6d0]",
+        toneClasses[props.tone ?? "info"],
+      )}
     >
       {props.text}
     </motion.div>
   ),
   Quote: ({ props }: BaseComponentProps<{ text: string; cite?: string | null }>) => (
-    <blockquote className="border-l-2 border-gray-300 dark:border-gray-700 pl-4 italic">
+    <blockquote className="border-l-2 border-[#37304a]/10 pl-4 italic text-[#5d5673] dark:border-white/10 dark:text-[#bdb6d0]">
       {props.text}
-      {props.cite ? <footer className="text-sm text-gray-500">— {props.cite}</footer> : null}
+      {props.cite ? (
+        <footer className="text-sm text-[#6f6885] dark:text-[#a9a2bd]">— {props.cite}</footer>
+      ) : null}
     </blockquote>
   ),
 };

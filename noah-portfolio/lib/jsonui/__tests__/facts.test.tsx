@@ -249,4 +249,111 @@ describe("factComponents", () => {
     expect(screen.getByRole("heading", { level: 3, name: "Operating Systems" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 4 })).not.toBeInTheDocument();
   });
+
+  it("ProjectShowcase renders project cards as matte surfaces (no frosted glass, no gray scale)", () => {
+    const store = createStateStore({
+      corpus: {
+        projects: [
+          { slug: "x", title: "P", description: "d", image: "/i.png", url: "https://p.dev", technologies: [] },
+        ],
+      },
+    });
+    const ProjectShowcase = factComponents.ProjectShowcase;
+    const { container } = render(
+      <StateProvider store={store}>
+        <ProjectShowcase props={{ statePath: "/corpus/projects" }} children={null} />
+      </StateProvider>,
+    );
+    const card = container.querySelector("a");
+    expect(card).not.toBeNull();
+    expect(card!.className).toContain("rounded-3xl");
+    expect(card!.className).toContain("bg-[#fffdf8]");
+    expect(container.querySelectorAll('[class*="backdrop-blur"]')).toHaveLength(0);
+    expect(container.querySelectorAll('[class*="bg-gray-"]')).toHaveLength(0);
+  });
+
+  it("SkillGrid renders skills as matte pills (rounded-full mono, no frosted glass)", () => {
+    const store = createStateStore({
+      corpus: {
+        skills: [
+          { category: "Databases", skills: [{ name: "PostgreSQL", lightImage: "/pg-light.svg", darkImage: "/pg-dark.svg" }] },
+        ],
+      },
+    });
+    const SkillGrid = factComponents.SkillGrid;
+    const { container } = render(
+      <StateProvider store={store}>
+        <SkillGrid props={{ statePath: "/corpus/skills" }} children={null} />
+      </StateProvider>,
+    );
+    const pill = screen.getByText("PostgreSQL");
+    expect(pill.className).toContain("rounded-full");
+    expect(pill.className).toContain("font-mono");
+    expect(container.querySelectorAll('[class*="backdrop-blur"]')).toHaveLength(0);
+  });
+
+  it("ContactCard links use violet emphasis on matte cards, not the retired blue", () => {
+    const store = createStateStore({
+      corpus: {
+        contact: {
+          email: "noahrijkaard@gmail.com",
+          github: "https://github.com/OriginalByteMe",
+          linkedin: "https://www.linkedin.com/in/noah-rijkaard/",
+        },
+      },
+    });
+    const ContactCard = factComponents.ContactCard;
+    const { container } = render(
+      <StateProvider store={store}>
+        <ContactCard props={{ statePath: "/corpus/contact" }} children={null} />
+      </StateProvider>,
+    );
+    const links = Array.from(container.querySelectorAll("a"));
+    expect(links).toHaveLength(3);
+    for (const a of links) {
+      expect(a.className).toContain("rounded-3xl");
+      expect(a.className).not.toContain("text-blue-500");
+    }
+    expect(screen.getByText("noahrijkaard@gmail.com").className).toContain("text-[#5646a8]");
+    expect(container.querySelectorAll('[class*="backdrop-blur"]')).toHaveLength(0);
+  });
+
+  it("StatCallout renders on a density-register matte tile (rounded-2xl p-6)", () => {
+    const StatCallout = factComponents.StatCallout;
+    const { container } = render(
+      <StatCallout props={{ value: "5+", label: "Years shipping production code" }} children={null} />,
+    );
+    const tile = container.firstElementChild as HTMLElement;
+    expect(tile.className).toContain("rounded-2xl");
+    expect(tile.className).toContain("bg-[#f6f4f9]");
+    expect(tile.className).toContain("p-6");
+    expect(container.querySelectorAll('[class*="backdrop-blur"]')).toHaveLength(0);
+  });
+
+  it("OperatingSystemsGrid renders environment cards as matte surfaces (no frosted glass)", () => {
+    const store = createStateStore({
+      corpus: {
+        operatingSystems: [
+          {
+            name: "Linux",
+            systems: [
+              { name: "Ubuntu", lightImage: "/ubuntu-light.svg", darkImage: "/ubuntu-dark.svg" },
+              { name: "Fedora", lightImage: "/fedora-light.svg", darkImage: "/fedora-dark.svg" },
+            ],
+          },
+        ],
+      },
+    });
+    const OperatingSystemsGrid = factComponents.OperatingSystemsGrid;
+    const { container } = render(
+      <StateProvider store={store}>
+        <OperatingSystemsGrid props={{ statePath: "/corpus/operatingSystems" }} children={null} />
+      </StateProvider>,
+    );
+    const card = container.querySelector("div[class*='rounded-3xl']");
+    expect(card).not.toBeNull();
+    expect(card!.className).toContain("bg-[#fffdf8]");
+    expect(screen.getByText("Fedora").className).toContain("rounded-full");
+    expect(container.querySelectorAll('[class*="backdrop-blur"]')).toHaveLength(0);
+  });
 });

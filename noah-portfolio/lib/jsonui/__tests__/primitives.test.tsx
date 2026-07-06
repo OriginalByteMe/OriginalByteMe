@@ -84,23 +84,28 @@ describe("primitiveComponents", () => {
     expect(heading.tagName).toBe("H3");
   });
 
-  it("Callout renders text and varies tone color", () => {
+  it("Callout renders text on a matte card and varies tone accent", () => {
     const Callout = primitiveComponents.Callout;
     const { container: infoContainer } = render(
       <Callout props={{ text: "heads up" }} {...stubHandlers} />,
     );
     expect(screen.getByText("heads up")).toBeInTheDocument();
-    expect(infoContainer.firstElementChild).toHaveClass("border-blue-500");
+    const infoEl = infoContainer.firstElementChild!;
+    // Matte surface (contract §3.1), no retired saturated fill.
+    expect(infoEl).toHaveClass("rounded-3xl", "bg-[#fffdf8]", "border-[#37304a]/10");
+    expect(infoEl.className).not.toContain("bg-blue-500");
+    // Default tone is a grounded violet left rule.
+    expect(infoEl).toHaveClass("border-l-[#7a5fa0]");
 
     const { container: successContainer } = render(
       <Callout props={{ text: "nice", tone: "success" }} {...stubHandlers} />,
     );
-    expect(successContainer.firstElementChild).toHaveClass("border-green-500");
+    expect(successContainer.firstElementChild).toHaveClass("border-l-[#5f9e7f]");
 
     const { container: warnContainer } = render(
       <Callout props={{ text: "careful", tone: "warn" }} {...stubHandlers} />,
     );
-    expect(warnContainer.firstElementChild).toHaveClass("border-amber-500");
+    expect(warnContainer.firstElementChild).toHaveClass("border-l-[#c79a63]");
   });
 
   it("Quote renders text and optional citation", () => {

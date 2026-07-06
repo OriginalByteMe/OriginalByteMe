@@ -102,6 +102,48 @@ export const catalog = defineCatalog(schema, {
       props: z.object({ steps: z.array(z.object({ title: z.string(), body: z.string() })) }),
       description: "Animated numbered steps to explain how something works.",
     },
+    Scene: {
+      props: z.object({
+        id: z.string().nullable().optional(),
+        align: z.enum(["center", "start"]).nullable().optional(),
+        accent: z.enum(["violet", "mint"]).nullable().optional(),
+      }),
+      description:
+        "One full-height story chapter: children reveal on scroll entry with an in-scene stagger. Cap at 2-3 child blocks — one ChapterHeading anchor plus one payload (NarrativeBeat / StatReveal / SequencedTimeline); child order IS scene order. align 'center' (default) or 'start'; optional accent rule 'violet' or 'mint' from the fixed palette only. Emit a sequence of Scene elements for mode:'scenes' answers.",
+    },
+    ChapterHeading: {
+      props: z.object({ text: z.string(), kicker: z.string().nullable().optional() }),
+      description:
+        "Serif display chapter heading with an optional mono kicker (e.g. 'Chapter 02'). Use one per Scene as the anchor block.",
+    },
+    NarrativeBeat: {
+      props: z.object({ text: z.string() }),
+      description:
+        "One concise prose paragraph beat (1-2 short sentences) in a max-w-2xl reading measure. The narrative payload of a Scene.",
+    },
+    StatReveal: {
+      props: z.object({
+        value: z.number(),
+        caption: z.string(),
+        suffix: z.string().nullable().optional(),
+      }),
+      description:
+        "A single big metric that counts up from 0 to value the first time it scrolls into view. suffix is appended to the number (e.g. '+', 'yrs'); caption labels it. Use for stat/dashboard moments.",
+    },
+    SequencedTimeline: {
+      props: z.object({
+        rows: z.array(
+          z.object({ period: z.string(), role: z.string(), company: z.string() }),
+        ),
+      }),
+      description:
+        "A vertical timeline whose rows reveal sequentially (nested stagger). Each row is {period, role, company}. Promote a heavy timeline to its own Scene.",
+    },
+    StaticComposition: {
+      props: z.object({}),
+      description:
+        "Rich static fallback for short answers instead of Scenes: a centered max-w-3xl reading column that mount-staggers its child blocks with no scroll dependency. Use for mode:'static' answers; hold the same block set (ChapterHeading / NarrativeBeat / StatReveal / SequencedTimeline).",
+    },
   },
   actions: {},
 });
