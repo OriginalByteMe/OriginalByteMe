@@ -29,6 +29,43 @@ async function stubGenerate(page: Page) {
   });
 }
 
+/** Stub the generation route with an NDJSON stream of RFC 6902 patches. */
+async function stubGenerateStream(page: Page) {
+  const patches = [
+    { op: "add", path: "/root", value: "root" },
+    {
+      op: "add",
+      path: "/elements/root",
+      value: {
+        type: "Section",
+        props: { title: "Answer" },
+        children: ["prose", "projects"],
+      },
+    },
+    {
+      op: "add",
+      path: "/elements/prose",
+      value: {
+        type: "Prose",
+        props: { text: "Here is a tailored answer composed from Noah's corpus." },
+        children: [],
+      },
+    },
+    {
+      op: "add",
+      path: "/elements/projects",
+      value: { type: "ProjectShowcase", props: { statePath: "/corpus/projects" }, children: [] },
+    },
+  ];
+  await page.route("**/api/generate", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/x-ndjson",
+      body: patches.map((p) => JSON.stringify(p)).join("\n"),
+    });
+  });
+}
+
 /** Stub the generation route with a 500 to exercise the fallback path. */
 async function stubGenerateError(page: Page) {
   await page.route("**/api/generate", async (route) => {
@@ -43,9 +80,9 @@ async function stubGenerateError(page: Page) {
 test("home canvas shows default content by default", async ({ page }) => {
   await stubGenerate(page);
   await page.goto("/");
-  // homeSpec renders an "About Me" section and a "Projects" section.
-  await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "About Me" })).toBeVisible();
+  // homeSpec flagship story: chapter headings from Scene/ChapterHeading anchors
+  await expect(page.getByRole("heading", { name: "Noah, in brief" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Things I've built" })).toBeVisible();
 });
 
 test("asking a question renders an answer and syncs ?q=", async ({ page }) => {
@@ -75,8 +112,19 @@ test("↺ home restores the default canvas", async ({ page }) => {
   await expect(page.getByText("Here is a tailored answer composed from Noah's corpus.")).toBeVisible();
 
   await page.getByRole("button", { name: /home/i }).click();
-  await expect(page.getByRole("heading", { name: "About Me" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Noah, in brief" })).toBeVisible();
   await expect(page).not.toHaveURL(/\?q=/);
+});
+
+test("asking a question streams an answer from NDJSON patches and syncs ?q=", async ({ page }) => {
+  await stubGenerateStream(page);
+  await page.goto("/");
+
+  await page.getByRole("textbox", { name: /ask a question/i }).fill("What are Noah's projects?");
+  await page.getByRole("button", { name: /send question/i }).click();
+
+  await expect(page.getByText("Here is a tailored answer composed from Noah's corpus.")).toBeVisible();
+  await expect(page).toHaveURL(/\?q=/);
 });
 
 test("a 500 from /api/generate falls back to home + shows an error", async ({ page }) => {
@@ -89,5 +137,5 @@ test("a 500 from /api/generate falls back to home + shows an error", async ({ pa
   // Never blank: home content stays, and an error alert appears. Scope to our
   // toast text — Next's route announcer is also role="alert".
   await expect(page.getByRole("alert").filter({ hasText: /Couldn.t generate/ })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "About Me" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Noah, in brief" })).toBeVisible();
 });
