@@ -19,9 +19,11 @@ const CHRISTMAS = new Date(2026, 11, 25, 12); // Dec 25 2026
 const ORDINARY = new Date(2026, 6, 6, 12); // Jul 6 2026, no holiday
 
 function providerWrapper(country: string | null) {
-  return ({ children }: { children: ReactNode }) => (
-    <HolidayThemeProvider country={country}>{children}</HolidayThemeProvider>
-  );
+  function Wrapper({ children }: { children: ReactNode }) {
+    return <HolidayThemeProvider country={country}>{children}</HolidayThemeProvider>;
+  }
+  Wrapper.displayName = "providerWrapper";
+  return Wrapper;
 }
 
 beforeEach(() => {
