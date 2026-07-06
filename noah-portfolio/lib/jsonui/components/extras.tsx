@@ -55,7 +55,7 @@ export const extraComponents = {
           animate="show"
           className="flex items-start gap-4"
         >
-          <span className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-blue-500 text-white font-semibold text-sm">
+          <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-blue-500 text-white font-semibold text-sm">
             {i + 1}
           </span>
           <div>

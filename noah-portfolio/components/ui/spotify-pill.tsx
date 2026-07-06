@@ -80,7 +80,7 @@ export default function SpotifyPill({
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={cn("relative h-10 w-10 sm:h-12 sm:w-12 rounded-full overflow-hidden flex-shrink-0 bg-emerald-100 dark:bg-emerald-900")}
+        className={cn("relative h-10 w-10 sm:h-12 sm:w-12 rounded-full overflow-hidden shrink-0 bg-emerald-100 dark:bg-emerald-900")}
       >
         {currentTrack.albumCover ? (
           <Image
@@ -127,7 +127,7 @@ export default function SpotifyPill({
         <div className="truncate text-xs sm:text-sm text-gray-500 dark:text-gray-400">{currentTrack.artist}</div>
       </div>
 
-      <div className="flex-shrink-0 ml-1">
+      <div className="shrink-0 ml-1">
         <div className={cn("transition-opacity duration-300", {
           "opacity-0 absolute": showPalette && currentTrack.colourPalette && currentTrack.colourPalette.length > 0,
           "opacity-100": !showPalette || !currentTrack.colourPalette || currentTrack.colourPalette.length === 0

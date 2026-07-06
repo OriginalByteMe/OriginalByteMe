@@ -76,7 +76,7 @@ const hoverEffects = {
 };
 
 const glassOpacities = {
-    light: "backdrop-blur-sm",
+    light: "backdrop-blur-xs",
     medium: "backdrop-blur-md",
     heavy: "backdrop-blur-lg"
 };

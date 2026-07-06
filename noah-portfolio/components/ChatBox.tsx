@@ -39,7 +39,7 @@ export default function ChatBox() {
           disabled={loading}
           placeholder="Ask me anything about Noah…"
           aria-label="Ask a question about Noah"
-          className="w-full rounded-full border border-white/30 bg-white/10 backdrop-blur px-6 py-4 pr-14 text-white placeholder:text-gray-300 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/40 transition disabled:opacity-60"
+          className="w-full rounded-full border border-white/30 bg-white/10 backdrop-blur px-6 py-4 pr-14 text-white placeholder:text-gray-300 outline-hidden focus:border-blue-400 focus:ring-2 focus:ring-blue-400/40 transition disabled:opacity-60"
         />
         <button
           type="submit"
