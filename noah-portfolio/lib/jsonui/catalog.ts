@@ -2,6 +2,13 @@ import { defineCatalog } from "@json-render/core";
 import { z } from "zod";
 import { schema } from "./schema";
 
+/**
+ * json-render component catalog for the Ask-Me dynamic portfolio.
+ *
+ * Visual contract: see docs/design-contract.md.
+ * Any new component added here must follow the spacing, surface, typography,
+ * and motion rules documented there so generated layouts stay consistent.
+ */
 export const catalog = defineCatalog(schema, {
   components: {
     Section: {
