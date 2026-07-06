@@ -52,7 +52,12 @@ export function loadCorpus(): { corpus: Corpus; knowledge: string } {
   });
 
   const corpus: Corpus = {
-    bio: field<Bio>(bioF.data, "bio", { headline: "", location: "" }),
+    // The bio paragraph is the markdown body, not frontmatter — expose it so
+    // the home spec can bind "/corpus/bio/summary" instead of hard-coding it.
+    bio: {
+      ...field<Omit<Bio, "summary">>(bioF.data, "bio", { headline: "", location: "" }),
+      summary: bioF.content.trim(),
+    },
     careerTimeline: field<Job[]>(careerF.data, "jobs", []),
     skills: field<SkillCategory[]>(skillsF.data, "skills", []),
     operatingSystems: field<OperatingSystem[]>(osF.data, "operatingSystems", []),

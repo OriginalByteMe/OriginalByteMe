@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { StateProvider, createStateStore } from "@json-render/react";
 import { primitiveComponents } from "@/lib/jsonui/components/primitives";
 
 /** Stub the event-handling members of BaseComponentProps that these presentational components ignore. */
@@ -114,5 +115,82 @@ describe("primitiveComponents", () => {
     render(<Quote props={{ text: "No attribution" }} {...stubHandlers} />);
     expect(screen.getByText("No attribution")).toBeInTheDocument();
     expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+  });
+
+  it("Section uses min-h-screen for height 'screen' and py-20 for 'auto'", () => {
+    const Section = primitiveComponents.Section;
+    const screenEl = render(
+      <Section props={{ height: "screen" }} {...stubHandlers}>
+        <p>c</p>
+      </Section>,
+    ).container.querySelector("section")!;
+    expect(screenEl.className).toContain("min-h-screen");
+    expect(screenEl.className).not.toContain("py-20");
+    const autoEl = render(
+      <Section props={{ height: "auto" }} {...stubHandlers}>
+        <p>c</p>
+      </Section>,
+    ).container.querySelector("section")!;
+    expect(autoEl.className).toContain("py-20");
+    expect(autoEl.className).not.toContain("min-h-screen");
+  });
+
+  it("Section applies centering flex classes only when centered is true", () => {
+    const Section = primitiveComponents.Section;
+    const centeredEl = render(
+      <Section props={{ centered: true }} {...stubHandlers}>
+        <p>c</p>
+      </Section>,
+    ).container.querySelector("section")!;
+    expect(centeredEl.className).toContain("flex flex-col items-center justify-center");
+    const plainEl = render(
+      <Section props={{ centered: false }} {...stubHandlers}>
+        <p>c</p>
+      </Section>,
+    ).container.querySelector("section")!;
+    expect(plainEl.className).not.toContain("items-center");
+  });
+
+  it("Section title margin follows the titleMb variant", () => {
+    const Section = primitiveComponents.Section;
+    const lgH2 = render(
+      <Section props={{ title: "T", titleMb: "lg" }} {...stubHandlers} />,
+    ).container.querySelector("h2")!;
+    expect(lgH2.className).toContain("mb-12");
+    const smH2 = render(
+      <Section props={{ title: "T", titleMb: "sm" }} {...stubHandlers} />,
+    ).container.querySelector("h2")!;
+    expect(smH2.className).toContain("mb-4");
+  });
+
+  it("Prose renders the state value bound at statePath, not the fallback text", () => {
+    const Prose = primitiveComponents.Prose;
+    const store = createStateStore({ corpus: { bio: { summary: "bound summary text" } } });
+    render(
+      <StateProvider store={store}>
+        <Prose
+          props={{ text: "hard-coded fallback", statePath: "/corpus/bio/summary" }}
+          children={null}
+          {...stubHandlers}
+        />
+      </StateProvider>,
+    );
+    expect(screen.getByText("bound summary text")).toBeInTheDocument();
+    expect(screen.queryByText("hard-coded fallback")).not.toBeInTheDocument();
+  });
+
+  it("Prose falls back to props.text when the bound state value is missing", () => {
+    const Prose = primitiveComponents.Prose;
+    const store = createStateStore({ corpus: {} });
+    render(
+      <StateProvider store={store}>
+        <Prose
+          props={{ text: "hard-coded fallback", statePath: "/corpus/bio/summary" }}
+          children={null}
+          {...stubHandlers}
+        />
+      </StateProvider>,
+    );
+    expect(screen.getByText("hard-coded fallback")).toBeInTheDocument();
   });
 });

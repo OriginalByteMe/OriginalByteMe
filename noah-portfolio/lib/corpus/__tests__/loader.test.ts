@@ -15,4 +15,7 @@ describe("loadCorpus", () => {
   it("collects prose bodies into knowledge", () => {
     expect(knowledge).toMatch(/Kuala Lumpur/);
   });
+  it("loads bio.summary from the markdown body", () => {
+    expect(corpus.bio.summary).toContain("passionate developer");
+  });
 });

@@ -200,7 +200,7 @@ className="transition-all hover:scale-105 hover:shadow-lg"
 
 ### 3.4 Dark-mode handling
 
-Do **not** add per-component `MutationObserver` logic. A shared `useIsDark()` helper already exists in `lib/jsonui/components/facts.tsx`; extract it to `lib/jsonui/use-is-dark.ts` in #29 and reuse everywhere. It watches `document.documentElement.classList` for `dark`.
+Do **not** add per-component `MutationObserver` logic. The shared `useIsDark()` helper lives at `lib/jsonui/use-is-dark.ts` (extracted in #29); reuse it everywhere. It watches `document.documentElement.classList` for `dark`.
 
 ## 4. Component boundaries
 
@@ -208,11 +208,11 @@ Do **not** add per-component `MutationObserver` logic. A shared `useIsDark()` he
 
 | Component | Responsibility | Contract |
 |-----------|----------------|----------|
-| `<Section>` | Full-width vertical chapter | `py-20`, `container mx-auto px-4`, optional `text-3xl font-bold mb-8` title, `motion.section` with `enter`. |
+| `<Section>` | Full-width vertical chapter | `py-20`, `container mx-auto px-4`, optional `text-3xl font-bold` title (`titleMb` sm/md/lg → `mb-4`/`mb-8`/`mb-12`, default md), `motion.section` with `enter`. `height="screen"` swaps `py-20` for `min-h-screen`; `centered` adds `flex flex-col items-center justify-center` (used by Projects/Contact home sections). |
 | `<Stack>` | Vertical rhythm wrapper | `space-y-*` based on `gap` prop, `motion.div` with `enter`. |
-| `<Columns>` | Responsive multi-column layout | `grid gap-12 md:grid-cols-{count}` (max 3). |
-| `<Grid>` | Dense card grid | `grid gap-6 grid-cols-1 md:grid-cols-{cols}` (max 4). |
-| `<Prose>` | Narrative paragraph | `text-gray-700 dark:text-gray-300 mb-6 max-w-2xl`, `motion.p` with `enter`. |
+| `<Columns>` | Responsive multi-column layout | `grid gap-12` + literal `md:grid-cols-1..3` class map (max 3; never template strings — Tailwind must see full class names). |
+| `<Grid>` | Dense card grid | `grid gap-6 grid-cols-1` + literal `md:grid-cols-1..4` class map (max 4). |
+| `<Prose>` | Narrative paragraph | `text-gray-700 dark:text-gray-300 mb-6 max-w-2xl`, `motion.p` with `enter`. Optional `statePath` binds the text to corpus state (e.g. `/corpus/bio/summary`) with `text` as fallback. |
 | `<Heading>` | Subsection heading | `text-2xl font-semibold mb-4`. Level clamped 1–4. |
 | `<Callout>` | Highlighted box | `rounded-xl border-l-4 p-4`, tone maps to `info`/`success`/`warn` colors, `motion.div` with `enter`. |
 | `<Quote>` | Pull quote | `border-l-2 border-gray-300 dark:border-gray-700 pl-4 italic`, optional cite footer. |
@@ -222,11 +222,12 @@ Do **not** add per-component `MutationObserver` logic. A shared `useIsDark()` he
 | Component | Responsibility | Contract |
 |-----------|----------------|----------|
 | `<ProjectShowcase>` | Media cards for projects | Solid gray cards, `rounded-2xl overflow-hidden`, image `h-48 object-cover`, tech pills from §2.2, staggered `enter`. |
-| `<SkillGrid>` | Categorized skill pills | Subsection heading per category + `FrostedGlassBox` pills (§2.1 pill props). |
+| `<SkillGrid>` | Categorized skill pills | Optional `title` renders a `Code`-icon subsection heading (§1.4); subsection heading per category + `FrostedGlassBox` pills (§2.1 pill props). |
 | `<SkillCloud>` | Flat skill pill cloud | Same pills as `SkillGrid`, no category headings. |
-| `<CareerTimeline>` | Work history | Left border timeline, `motion.li` staggered `enter`, company link uses accent colors. |
+| `<CareerTimeline>` | Work history | Optional `title` renders a `Briefcase`-icon subsection heading; left border timeline, `motion.li` staggered `enter`, company link uses accent colors. |
 | `<ContactCard>` | Contact links | 3-col grid of `FrostedGlassBox` cards (§2.1 raised card props), large icon + title + link. |
 | `<StatCallout>` | Big metric | `motion.div` with `enter`, big value + caption, optionally wrapped in `FrostedGlassBox`. |
+| `<OperatingSystemsGrid>` | OS environment cards | 2-col `gap-6` grid of §2.1 raised cards; first system is the header icon (`w-8 h-8 mr-3`) beside the environment name, remaining systems render as §2.1-style pills (`gap-3`). Optional `Code`-icon `title`. Staggered `enter`. |
 
 ### 4.3 Personality (`lib/jsonui/components/extras.tsx`)
 
@@ -236,6 +237,7 @@ Do **not** add per-component `MutationObserver` logic. A shared `useIsDark()` he
 | `<SpotifyNowPlaying>` | Live Spotify tile | Reuses existing `<SpotifyReveal />`; keep its styling untouched. |
 | `<ImageBlock>` | Image + caption | `rounded-xl` image, centered, optional caption. |
 | `<StepFlow>` | Numbered explanation | `motion.ol` with staggered `motion.li`, numbered badge `w-8 h-8 rounded-full bg-blue-500 text-white`. |
+| `<SideProjects>` | Home-view side projects (escape hatch, audit #27 §2) | Static 2-col grid of §2.1 raised cards: 3D-printing image card + clickable blog Lottie card. Optional `Code`-icon `title`. Promote to a data-driven `FeatureCard` if answers ever need this shape. |
 
 ## 5. Answer layouts vs. home layouts
 

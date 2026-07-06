@@ -1,48 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Terminal, Layout, Server, Database, Mail, Github, Linkedin } from "lucide-react";
+import { Terminal, Layout, Server, Database, Mail, Github, Linkedin, Code, Briefcase } from "lucide-react";
 import type { BaseComponentProps } from "@json-render/react";
 import { useStateValue } from "@json-render/react";
 import FrostedGlassBox from "@/components/ui/frosted-glass-box";
 import { enter } from "../motion";
-import type { Project, SkillCategory, Job, Contact, IconRef } from "@/lib/corpus/types";
-
-/**
- * `lib/hooks/useTheme.ts` only exposes the lava-lamp colour palette
- * (`applyPalette`/`resetPalette`) — it has no light/dark flag. The existing
- * sections (`Projects.tsx`, `About.tsx`) each derive dark-mode locally by
- * watching the `<html>` element's `class` attribute via `MutationObserver`.
- * Fact components need that same boolean to pick `lightImage`/`darkImage`
- * variants, so this replicates the established local pattern rather than
- * depending on a hook that doesn't provide it.
- */
-function useIsDark(): boolean {
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    setIsDark(document.documentElement.classList.contains("dark"));
-
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.attributeName === "class") {
-          setIsDark(document.documentElement.classList.contains("dark"));
-        }
-      });
-    });
-
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-
-    return () => observer.disconnect();
-  }, []);
-
-  return isDark;
-}
+import { useIsDark } from "../use-is-dark";
+import type { Project, SkillCategory, Job, Contact, IconRef, OperatingSystem } from "@/lib/corpus/types";
 
 const categoryIcons: Record<string, typeof Terminal> = {
   "Programming Languages": Terminal,
@@ -137,11 +103,17 @@ export const factComponents = {
     );
   },
 
-  SkillGrid: ({ props }: BaseComponentProps<{ statePath: string }>) => {
+  SkillGrid: ({ props }: BaseComponentProps<{ statePath: string; title?: string | null }>) => {
     const isDark = useIsDark();
     const categories = useStateValue<SkillCategory[]>(props.statePath) ?? [];
     return (
-      <div className="space-y-6">
+      <div>
+        {props.title ? (
+          <h3 className="text-2xl font-semibold mb-4 flex items-center">
+            <Code className="mr-2" /> {props.title}
+          </h3>
+        ) : null}
+        <div className="space-y-6">
         {categories.map(({ category, skills }) => {
           const Icon = categoryIcons[category];
           return (
@@ -158,6 +130,7 @@ export const factComponents = {
             </div>
           );
         })}
+        </div>
       </div>
     );
   },
@@ -175,10 +148,16 @@ export const factComponents = {
     );
   },
 
-  CareerTimeline: ({ props }: BaseComponentProps<{ statePath: string }>) => {
+  CareerTimeline: ({ props }: BaseComponentProps<{ statePath: string; title?: string | null }>) => {
     const jobs = useStateValue<Job[]>(props.statePath) ?? [];
     return (
-      <ul className="space-y-4">
+      <div>
+        {props.title ? (
+          <h3 className="text-2xl font-semibold mb-4 flex items-center">
+            <Briefcase className="mr-2" /> {props.title}
+          </h3>
+        ) : null}
+        <ul className="space-y-4">
         {jobs.map((job, i) => (
           <motion.li
             key={job.company}
@@ -222,7 +201,64 @@ export const factComponents = {
             </div>
           </motion.li>
         ))}
-      </ul>
+        </ul>
+      </div>
+    );
+  },
+
+  OperatingSystemsGrid: ({ props }: BaseComponentProps<{ statePath: string; title?: string | null }>) => {
+    const isDark = useIsDark();
+    const environments = useStateValue<OperatingSystem[]>(props.statePath) ?? [];
+    return (
+      <div>
+        {props.title ? (
+          <h3 className="text-2xl font-semibold mb-4 flex items-center">
+            <Code className="mr-2" /> {props.title}
+          </h3>
+        ) : null}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {environments.map((environment, i) => {
+            const [primary, ...rest] = environment.systems;
+            return (
+              <motion.div key={environment.name} custom={i} variants={enter} initial="hidden" animate="show">
+                <FrostedGlassBox
+                  className="p-6 rounded-xl shadow-sm"
+                  variant="blue"
+                  hoverEffect="lift"
+                  glassOpacity="heavy"
+                >
+                  <div className="flex items-center justify-center">
+                    {primary ? (
+                      <Image
+                        src={isDark ? primary.darkImage : primary.lightImage}
+                        alt={primary.name}
+                        width={32}
+                        height={32}
+                        className="w-8 h-8 mr-3"
+                      />
+                    ) : null}
+                    <h4 className="text-lg font-semibold">{environment.name}</h4>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {rest.map((system) => (
+                      <FrostedGlassBox key={system.name} className="px-3 py-1 rounded-full text-sm w-max h-max">
+                        <Image
+                          src={isDark ? system.darkImage : system.lightImage}
+                          alt={system.name}
+                          width={20}
+                          height={20}
+                          className="w-5 h-5"
+                        />
+                        {system.name}
+                      </FrostedGlassBox>
+                    ))}
+                  </div>
+                </FrostedGlassBox>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
     );
   },
 

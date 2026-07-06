@@ -130,4 +130,123 @@ describe("factComponents", () => {
     expect(screen.getByText("5+")).toBeInTheDocument();
     expect(screen.getByText("Years shipping production code")).toBeInTheDocument();
   });
+
+  it("SkillGrid renders an optional title heading when a title is given", () => {
+    const store = createStateStore({
+      corpus: {
+        skills: [
+          {
+            category: "Programming Languages",
+            skills: [{ name: "TypeScript", lightImage: "/ts-light.svg", darkImage: "/ts-dark.svg" }],
+          },
+        ],
+      },
+    });
+    const SkillGrid = factComponents.SkillGrid;
+    render(
+      <StateProvider store={store}>
+        <SkillGrid props={{ statePath: "/corpus/skills", title: "Skills" }} children={null} />
+      </StateProvider>,
+    );
+    expect(screen.getByRole("heading", { level: 3, name: "Skills" })).toBeInTheDocument();
+  });
+
+  it("SkillGrid omits the title heading when no title is given", () => {
+    const store = createStateStore({
+      corpus: {
+        skills: [
+          {
+            category: "Programming Languages",
+            skills: [{ name: "TypeScript", lightImage: "/ts-light.svg", darkImage: "/ts-dark.svg" }],
+          },
+        ],
+      },
+    });
+    const SkillGrid = factComponents.SkillGrid;
+    render(
+      <StateProvider store={store}>
+        <SkillGrid props={{ statePath: "/corpus/skills" }} children={null} />
+      </StateProvider>,
+    );
+    expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 4, name: "Programming Languages" })).toBeInTheDocument();
+  });
+
+  it("CareerTimeline renders an optional title heading when a title is given", () => {
+    const store = createStateStore({
+      corpus: {
+        careerTimeline: [
+          { company: "Supa", role: "Full-Stack Developer", period: "2020 - Present", logo: "/supa.png", url: "https://supa.so" },
+        ],
+      },
+    });
+    const CareerTimeline = factComponents.CareerTimeline;
+    render(
+      <StateProvider store={store}>
+        <CareerTimeline props={{ statePath: "/corpus/careerTimeline", title: "Work History" }} children={null} />
+      </StateProvider>,
+    );
+    expect(screen.getByRole("heading", { level: 3, name: "Work History" })).toBeInTheDocument();
+  });
+
+  it("CareerTimeline omits the title heading when no title is given", () => {
+    const store = createStateStore({
+      corpus: {
+        careerTimeline: [
+          { company: "Supa", role: "Full-Stack Developer", period: "2020 - Present", logo: "/supa.png", url: "https://supa.so" },
+        ],
+      },
+    });
+    const CareerTimeline = factComponents.CareerTimeline;
+    render(
+      <StateProvider store={store}>
+        <CareerTimeline props={{ statePath: "/corpus/careerTimeline" }} children={null} />
+      </StateProvider>,
+    );
+    expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 4, name: "Supa" })).toBeInTheDocument();
+  });
+
+  it("OperatingSystemsGrid renders the environment name, its primary system as a header icon, and the rest as labeled pills", () => {
+    const store = createStateStore({
+      corpus: {
+        operatingSystems: [
+          {
+            name: "Linux",
+            systems: [
+              { name: "Ubuntu", lightImage: "/ubuntu-light.svg", darkImage: "/ubuntu-dark.svg" },
+              { name: "Fedora", lightImage: "/fedora-light.svg", darkImage: "/fedora-dark.svg" },
+              { name: "Arch", lightImage: "/arch-light.svg", darkImage: "/arch-dark.svg" },
+            ],
+          },
+        ],
+      },
+    });
+    const OperatingSystemsGrid = factComponents.OperatingSystemsGrid;
+    render(
+      <StateProvider store={store}>
+        <OperatingSystemsGrid props={{ statePath: "/corpus/operatingSystems" }} children={null} />
+      </StateProvider>,
+    );
+    expect(screen.getByRole("heading", { level: 4, name: "Linux" })).toBeInTheDocument();
+    // Primary system is the header icon (image alt only), never a labeled pill.
+    expect(screen.getByAltText("Ubuntu")).toBeInTheDocument();
+    expect(screen.queryByText("Ubuntu")).not.toBeInTheDocument();
+    // Remaining systems render as labeled pills.
+    expect(screen.getByText("Fedora")).toBeInTheDocument();
+    expect(screen.getByText("Arch")).toBeInTheDocument();
+  });
+
+  it("OperatingSystemsGrid renders no environment cards for an empty state array", () => {
+    const store = createStateStore({ corpus: { operatingSystems: [] } });
+    const OperatingSystemsGrid = factComponents.OperatingSystemsGrid;
+    render(
+      <StateProvider store={store}>
+        <OperatingSystemsGrid props={{ statePath: "/corpus/operatingSystems", title: "Operating Systems" }} children={null} />
+      </StateProvider>,
+    );
+    // Component mounts (title shows) but produces no per-environment cards (each card renders an h4).
+    expect(screen.getByRole("heading", { level: 3, name: "Operating Systems" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 4 })).not.toBeInTheDocument();
+  });
 });

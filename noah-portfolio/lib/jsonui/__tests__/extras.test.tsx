@@ -54,4 +54,18 @@ describe("extraComponents", () => {
     );
     expect(screen.getByText(/Spotify Magic/)).toBeInTheDocument();
   });
+
+  it("SideProjects renders both the 3D printing and blog cards", () => {
+    const SideProjects = extraComponents.SideProjects;
+    render(<SideProjects props={{}} children={null} />);
+    expect(screen.getByRole("heading", { level: 4, name: "3D Printing" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 4, name: "My blog!" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
+  });
+
+  it("SideProjects renders an optional title heading when a title is given", () => {
+    const SideProjects = extraComponents.SideProjects;
+    render(<SideProjects props={{ title: "Side Projects" }} children={null} />);
+    expect(screen.getByRole("heading", { level: 3, name: "Side Projects" })).toBeInTheDocument();
+  });
 });
