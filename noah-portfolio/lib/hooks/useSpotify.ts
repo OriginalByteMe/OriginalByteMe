@@ -11,7 +11,7 @@ const useSpotify = () => {
       id: '1',
       title: 'Blinding Lights',
       artist: 'The Weeknd',
-      albumCover: '/placeholder.svg?height=40&width=40',
+      albumCover: '/Noah Icon FA.svg',
       songUrl: 'https://open.spotify.com',
       colourPalette: [[255, 255, 255], [0, 0, 0], [255, 0, 0], [0, 255, 0]]
     },
@@ -19,7 +19,7 @@ const useSpotify = () => {
       id: '2',
       title: 'Shape of You',
       artist: 'Ed Sheeran',
-      albumCover: '/placeholder.svg?height=40&width=40',
+      albumCover: '/Noah Icon FA.svg',
       songUrl: 'https://open.spotify.com',
       colourPalette: [[255, 255, 255], [0, 0, 0], [255, 0, 0], [0, 255, 0]]
     },
@@ -27,7 +27,7 @@ const useSpotify = () => {
       id: '3',
       title: 'Dance Monkey',
       artist: 'Tones and I',
-      albumCover: '/placeholder.svg?height=40&width=40',
+      albumCover: '/Noah Icon FA.svg',
       songUrl: 'https://open.spotify.com',
       colourPalette: [[255, 255, 255], [0, 0, 0], [255, 0, 0], [0, 255, 0]]
     },
@@ -35,7 +35,7 @@ const useSpotify = () => {
       id: '4',
       title: 'Someone You Loved',
       artist: 'Lewis Capaldi',
-      albumCover: '/placeholder.svg?height=40&width=40',
+      albumCover: '/Noah Icon FA.svg',
       songUrl: 'https://open.spotify.com',
       colourPalette: [[255, 255, 255], [0, 0, 0], [255, 0, 0], [0, 255, 0]]
     },
@@ -43,7 +43,7 @@ const useSpotify = () => {
       id: '5',
       title: 'Watermelon Sugar',
       artist: 'Harry Styles',
-      albumCover: '/placeholder.svg?height=40&width=40',
+      albumCover: '/Noah Icon FA.svg',
       songUrl: 'https://open.spotify.com',
       colourPalette: [[255, 255, 255], [0, 0, 0], [255, 0, 0], [0, 255, 0]]
     }

@@ -6,11 +6,18 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import Link from 'next/link'
 import { Github } from 'lucide-react'
 import StoreProvider from '@/app/StoreProvider'
+import { JsonUiProvider } from '@/components/JsonUiProvider'
+import { corpusState } from '@/lib/corpus'
 
 
 const inter = Inter({ subsets: ['latin'] })
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://my-portfolio-originalbyteme.vercel.app'
+const OG_IMAGE_URL = new URL('/portfolio showcase.gif', SITE_URL).toString()
+
 export const metadata = {
+  metadataBase: new URL(SITE_URL),
   title: 'Noah Rijkaard',
   description: 'A little portfolio site for Noah Rijkaard',
   openGraph: {
@@ -18,7 +25,7 @@ export const metadata = {
     description: 'A little portfolio site for Noah Rijkaard',
     images: [
       {
-        url: '/portfolio showcase.gif', 
+        url: OG_IMAGE_URL,
         width: 800,
         height: 600,
         alt: 'Noah Rijkaard Portfolio Preview',
@@ -57,6 +64,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider>
           <StoreProvider>
+            <JsonUiProvider initialState={corpusState()}>
             <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white">
               <header className="fixed top-0 right-0 m-4 z-50 flex items-center space-x-4">
                 <Link
@@ -64,14 +72,14 @@ export default function RootLayout({
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <Github className="w-6 h-6 text-gray-800 dark:text-white hover:text-blue-500 dark:hover:text-blue-400 transition-colors" />
+                  <Github className="w-6 h-6 text-[#37304a] transition-colors hover:text-[#5646a8] dark:text-[#eae6f2] dark:hover:text-[#c9b3ec]" />
                 </Link>
                 <Link
                   href="https://blog.noahrijkaard.com"
                   target="_blank"
-                  rel="noopener noreferer"
+                  rel="noopener noreferrer"
                 >
-                  <div className="text-gray-800 dark:text-white hover:text-blue-500 dark:hover:text-blue-400 hover:underline transition-colors">
+                  <div className="text-[#37304a] transition-colors hover:text-[#5646a8] hover:underline dark:text-[#eae6f2] dark:hover:text-[#c9b3ec]">
                     Blog
                   </div>
                 </Link>
@@ -80,6 +88,7 @@ export default function RootLayout({
               {children}
               <SpeedInsights />
             </div>
+            </JsonUiProvider>
           </StoreProvider>
         </ThemeProvider>
       </body>

@@ -1,3 +1,11 @@
 {
-  "extends": ["next/core-web-vitals", "next/typescript"]
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "overrides": [
+    {
+      "files": ["lib/jsonui/__tests__/**"],
+      "rules": {
+        "react/no-children-prop": "off"
+      }
+    }
+  ]
 }

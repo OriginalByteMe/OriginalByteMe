@@ -1,0 +1,80 @@
+"use client";
+
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { Send, Loader2 } from "lucide-react";
+import { useAskMe } from "./AskMeProvider";
+
+const SUGGESTIONS = [
+  "What does Noah do for a living?",
+  "How does the AI cutout tool work?",
+  "What is Noah good at?",
+];
+
+/**
+ * Hero chat input that drives the whole page. Submitting a question hands off
+ * to the shared canvas hook, which streams the answer into <PortfolioCanvas/>.
+ */
+export default function ChatBox() {
+  const { ask, mode, reset, question } = useAskMe();
+  const [value, setValue] = useState("");
+  const loading = mode === "streaming";
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const q = value.trim();
+    if (!q || loading) return;
+    setValue("");
+    await ask(q);
+  }
+
+  return (
+    <div className="w-full max-w-xl mx-auto mt-8">
+      <form onSubmit={onSubmit} className="relative">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          maxLength={280}
+          disabled={loading}
+          placeholder="Ask me anything about Noah…"
+          aria-label="Ask a question about Noah"
+          className="w-full rounded-full border border-[#d8cfbf] bg-[#fffdf8] px-6 py-4 pr-14 text-[#37304a] shadow-[0_18px_45px_rgba(55,48,74,0.14)] outline-hidden transition placeholder:text-[#6f6885] focus:border-[#5646a8] focus:ring-2 focus:ring-[#c9b3ec]/60 disabled:opacity-60 dark:border-[#5b506d] dark:bg-[#241f32] dark:text-[#eae6f2] dark:placeholder:text-[#b8b0c7] dark:shadow-[0_18px_45px_rgba(0,0,0,0.35)] dark:focus:border-[#c9b3ec] dark:focus:ring-[#5646a8]/50"
+        />
+        <button
+          type="submit"
+          disabled={loading || !value.trim()}
+          aria-label="Send question"
+          className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[#5646a8] text-white transition hover:bg-[#473795] disabled:opacity-50 dark:bg-[#9d8ff2] dark:text-[#241f32] dark:hover:bg-[#c9b3ec]"
+        >
+          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+        </button>
+      </form>
+
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+        {(mode === "answer" || question) && (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            onClick={reset}
+            className="rounded-full border border-[#d8cfbf] bg-[#fffdf8] px-3 py-1 text-xs text-[#5646a8] transition hover:bg-[#f6f4f9] dark:border-[#5b506d] dark:bg-[#241f32] dark:text-[#c9b3ec] dark:hover:bg-[#302a42]"
+          >
+            ↺ Home
+          </motion.button>
+        )}
+        {mode === "home" &&
+          SUGGESTIONS.map((s) => (
+            <button
+              key={s}
+              type="button"
+              disabled={loading}
+              onClick={() => ask(s)}
+              className="rounded-full border border-[#d8cfbf] bg-[#fffdf8] px-3 py-1 text-xs text-[#6f6885] transition hover:bg-[#f6f4f9] hover:text-[#5646a8] disabled:opacity-50 dark:border-[#5b506d] dark:bg-[#241f32] dark:text-[#b8b0c7] dark:hover:bg-[#302a42] dark:hover:text-[#c9b3ec]"
+            >
+              {s}
+            </button>
+          ))}
+      </div>
+    </div>
+  );
+}

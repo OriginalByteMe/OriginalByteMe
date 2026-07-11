@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { AiOutlineSpotify } from "react-icons/ai";
-import { X, Loader2 } from "lucide-react";
+import { X, Loader2, Radio } from "lucide-react";
 import SpotifyPill from "./spotify-pill";
 import { cn } from "@/lib/utils";
 import { useSelector } from "react-redux";
@@ -45,7 +44,7 @@ export default function SpotifyReveal() {
           </>
         ) : (
           <>
-            <AiOutlineSpotify className="h-9 w-9 dark:text-emerald-600 text-emerald-200" />
+            <Radio className="h-9 w-9 text-emerald-200 dark:text-emerald-600" strokeWidth={1.5} />
             <div>
               <h1 className="text-sm font-medium dark:text-white text-gray-900">Hey! Click here to see some cool Spotify Magic✨</h1>
             </div>
@@ -69,12 +68,8 @@ export default function SpotifyReveal() {
               <SpotifyPill 
                 key={track.id} 
                 track={track}
-                className={cn(
-                  "animate-in fade-in slide-in-from-bottom-4",
-                  // Calculate delay based on index, increasing by ~150ms each time
-                  // but capping at 1000ms to avoid too long delays
-                  `delay-[${Math.min(index * 150, 1000)}ms]`
-                )} 
+                className="animate-in fade-in slide-in-from-bottom-4"
+                style={{ animationDelay: `${Math.min(index * 150, 1000)}ms` }}
               />
             ))
           )}
