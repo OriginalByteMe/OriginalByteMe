@@ -117,7 +117,7 @@ export function Backdrop() {
   const idRef = useRef(0);
   const tweenRaf = useRef<number | null>(null);
   const fadeRaf = useRef<number | null>(null);
-  const removalTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const removalTimer = useRef<number | undefined>(undefined);
 
   sceneRef.current = scene;
 
@@ -153,10 +153,10 @@ export function Backdrop() {
     const cancelAnim = () => {
       if (tweenRaf.current !== null) cancelAnimationFrame(tweenRaf.current);
       if (fadeRaf.current !== null) cancelAnimationFrame(fadeRaf.current);
-      if (removalTimer.current !== null) clearTimeout(removalTimer.current);
+      clearTimeout(removalTimer.current);
       tweenRaf.current = null;
       fadeRaf.current = null;
-      removalTimer.current = null;
+      removalTimer.current = undefined;
     };
 
     if (!active) {
@@ -177,13 +177,18 @@ export function Backdrop() {
       return;
     }
 
+    cancelAnim();
+
     if (current.shape === target.shape) {
-      // Same shape -> uniform tween (one canvas). Cancel + restart mid-flight.
-      if (tweenRaf.current !== null) cancelAnimationFrame(tweenRaf.current);
+      // Same shape -> uniform tween (one canvas). Restart mid-flight from the
+      // latest live colors and clear any stale teardown timer from a prior
+      // cross-fade.
       const start = liveColorsRef.current ?? {
         colorBack: current.colorBack,
         colors: current.colors,
       };
+      const latest = { ...current, opacity: 1 };
+      commit([latest]);
       let startTime: number | null = null;
       const step = (now: number) => {
         if (startTime === null) startTime = now;
@@ -191,14 +196,9 @@ export function Backdrop() {
         const colorBack = lerpHex(start.colorBack, target.colorBack, e);
         const colors = start.colors.map((c, i) => lerpHex(c, target.colors[i], e)) as ColorTuple;
         liveColorsRef.current = { colorBack, colors };
-        const live = slotsRef.current;
-        const last = live[live.length - 1];
-        if (last) {
-          commit([
-            ...live.slice(0, -1),
-            { ...last, ...target, colorBack, colors, opacity: 1 },
-          ]);
-        }
+        commit([
+          { ...latest, ...target, colorBack, colors, opacity: 1 },
+        ]);
         tweenRaf.current = e < 1 ? requestAnimationFrame(step) : null;
       };
       tweenRaf.current = requestAnimationFrame(step);
@@ -206,7 +206,6 @@ export function Backdrop() {
     }
 
     // Different shape -> stack the incoming layer on top and cross-fade.
-    cancelAnim();
     const incoming: Slot = { ...target, id: (idRef.current += 1), opacity: 0 };
     liveColorsRef.current = { colorBack: target.colorBack, colors: target.colors };
     commit([{ ...current, opacity: 1 }, incoming]);
@@ -215,8 +214,8 @@ export function Backdrop() {
       const live = slotsRef.current;
       commit(live.map((s) => (s.id === incoming.id ? { ...s, opacity: 1 } : s)));
     });
-    removalTimer.current = setTimeout(() => {
-      removalTimer.current = null;
+    removalTimer.current = window.setTimeout(() => {
+      removalTimer.current = undefined;
       commit([{ ...incoming, opacity: 1 }]);
     }, FADE_REMOVAL_MS);
   }, [
@@ -236,7 +235,7 @@ export function Backdrop() {
     () => () => {
       if (tweenRaf.current !== null) cancelAnimationFrame(tweenRaf.current);
       if (fadeRaf.current !== null) cancelAnimationFrame(fadeRaf.current);
-      if (removalTimer.current !== null) clearTimeout(removalTimer.current);
+      clearTimeout(removalTimer.current);
     },
     [],
   );
@@ -245,34 +244,44 @@ export function Backdrop() {
     <div
       aria-hidden
       data-testid="backdrop"
-      className={`absolute inset-0 h-full w-full pointer-events-none select-none ${preset.fallbackClass}`}
+      className={`absolute inset-0 h-full w-full overflow-hidden pointer-events-none select-none ${preset.fallbackClass}`}
     >
+      <div className="backdrop-paper-base" />
+      <div className="backdrop-paper-orbits motion-safe:backdrop-paper-drift" />
+      <div className="backdrop-paper-atmosphere motion-safe:backdrop-paper-drift" />
       {active && (
         <ShaderErrorBoundary>
-          {slots.map((slot) => (
-            <GrainGradient
-              key={slot.shape}
-              shape={slot.shape}
-              colorBack={slot.colorBack}
-              colors={slot.colors}
-              softness={slot.softness}
-              intensity={slot.intensity}
-              noise={slot.noise}
-              speed={slot.speed}
-              minPixelRatio={1}
-              maxPixelCount={maxPixelCount}
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                opacity: slot.opacity,
-                transition: `opacity ${FADE_MS}ms ease`,
-              }}
-            />
-          ))}
+          <div className="absolute inset-0">
+            {slots.map((slot) => (
+              <GrainGradient
+                key={slot.id}
+                shape={slot.shape}
+                colorBack={slot.colorBack}
+                colors={slot.colors}
+                softness={slot.softness}
+                intensity={slot.intensity}
+                noise={slot.noise}
+                speed={slot.speed}
+                minPixelRatio={1}
+                maxPixelCount={maxPixelCount}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  opacity: slot.opacity,
+                  transform: 'scale(1.02)',
+                  filter: 'saturate(1.04)',
+                  transition: `opacity ${FADE_MS}ms ease`,
+                }}
+              />
+            ))}
+          </div>
         </ShaderErrorBoundary>
       )}
+      <div className="backdrop-paper-grain" />
+      <div className="backdrop-paper-depth-mask" />
+      <div className="backdrop-paper-vignette" />
     </div>
   );
 }

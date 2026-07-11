@@ -2,11 +2,11 @@
 
 import { useEffect, useRef } from "react";
 import {
+  animate,
   motion,
   useInView,
   useMotionValue,
   useTransform,
-  animate,
   type Variants,
 } from "framer-motion";
 import type { BaseComponentProps } from "@json-render/react";
@@ -80,7 +80,7 @@ const timelineRow: Variants = {
 // Scene accent rule — violet emphasis / mint secondary from the fixed
 // allowlist (contract §2.2, §9.4); never a free-form hue.
 const accentBar: Record<"violet" | "mint", string> = {
-  violet: "bg-[#5646a8] dark:bg-[#9d8ff2]",
+  violet: "bg-[#7a5fa0] dark:bg-[#c9b3ec]",
   mint: "bg-[#5646a8] dark:bg-[#7fe0bd]",
 };
 
@@ -108,14 +108,16 @@ function Scene({
       whileInView="show"
       viewport={{ once: true, amount: 0.3 }}
       className={cn(
-        "relative flex min-h-screen flex-col justify-center px-6 text-[#37304a] md:px-10 dark:text-[#eae6f2]",
-        centered ? "items-center text-center" : "items-start text-left",
+        "relative flex min-h-screen supports-[height:100svh]:min-h-[100svh] flex-col px-6 text-[#37304a] md:px-10 dark:text-[#eae6f2]",
+        centered
+          ? "items-center justify-center py-24 text-center md:py-28"
+          : "items-start justify-center py-24 text-left md:py-32",
       )}
     >
       <motion.div
         variants={sceneStagger}
         className={cn(
-          "flex w-full max-w-3xl flex-col gap-6",
+          "mx-auto flex w-full max-w-4xl flex-col gap-6 md:gap-7",
           centered ? "items-center" : "items-start",
         )}
       >
@@ -137,13 +139,13 @@ function ChapterHeading({
   props,
 }: BaseComponentProps<{ text: string; kicker?: string | null }>) {
   return (
-    <motion.div variants={enter} className="flex flex-col gap-2">
+    <motion.div variants={enter} className="flex max-w-3xl flex-col gap-3">
       {props.kicker ? (
-        <span className="font-mono text-xs uppercase tracking-[0.3em] text-[#6f6885] dark:text-[#a9a2bd]">
+        <span className="font-mono text-xs uppercase tracking-[0.32em] text-[#6f6885] dark:text-[#a9a2bd]">
           {props.kicker}
         </span>
       ) : null}
-      <h2 className="font-serif text-4xl tracking-tight text-[#37304a] md:text-6xl dark:text-[#eae6f2]">
+      <h2 className="text-balance font-serif text-4xl leading-[0.95] tracking-tight text-[#37304a] md:text-6xl dark:text-[#eae6f2]">
         {props.text}
       </h2>
     </motion.div>
@@ -155,7 +157,7 @@ function NarrativeBeat({ props }: BaseComponentProps<{ text: string }>) {
   return (
     <motion.p
       variants={enter}
-      className="max-w-2xl text-lg leading-relaxed text-[#5d5673] dark:text-[#bdb6d0]"
+      className="max-w-2xl text-pretty text-lg leading-8 text-[#5d5673] md:text-xl dark:text-[#bdb6d0]"
     >
       {props.text}
     </motion.p>
@@ -192,12 +194,20 @@ function StatReveal({
   }, [inView, props.value, count]);
 
   return (
-    <motion.div ref={ref} variants={enter} className="flex flex-col gap-1">
-      <span className="font-serif text-5xl tracking-tight text-[#37304a] md:text-6xl dark:text-[#eae6f2]">
+    <motion.div
+      ref={ref}
+      variants={enter}
+      className="relative flex max-w-md flex-col overflow-hidden rounded-3xl border border-[#37304a]/10 bg-[#fffdf8] px-7 py-6 shadow-[0_18px_46px_-24px_rgba(58,51,69,0.42)] dark:border-white/10 dark:bg-[#2b2830]"
+    >
+      <span
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#7a5fa0]/40 to-transparent dark:via-[#c9b3ec]/40"
+      />
+      <span className="block font-serif text-5xl leading-none tracking-tight text-[#37304a] md:text-6xl dark:text-[#eae6f2]">
         <motion.span>{rounded}</motion.span>
         {props.suffix ?? ""}
       </span>
-      <span className="font-mono text-xs uppercase tracking-[0.3em] text-[#6f6885] dark:text-[#a9a2bd]">
+      <span className="mt-2 block font-mono text-xs uppercase tracking-[0.3em] text-[#6f6885] dark:text-[#a9a2bd]">
         {props.caption}
       </span>
     </motion.div>
@@ -217,22 +227,28 @@ function SequencedTimeline({
   return (
     <motion.ul
       variants={timelineContainer}
-      className="relative flex flex-col gap-6 border-l border-[#37304a]/10 pl-6 text-left dark:border-white/10"
+      className="grid w-full max-w-3xl gap-4 rounded-3xl border border-[#37304a]/10 bg-[#fffdf8] p-5 text-left shadow-[0_18px_46px_-24px_rgba(58,51,69,0.42)] md:p-6 dark:border-white/10 dark:bg-[#2b2830]"
     >
       {props.rows.map((row, i) => (
-        <motion.li key={i} variants={timelineRow} className="relative">
+        <motion.li
+          key={i}
+          variants={timelineRow}
+          className="relative overflow-hidden rounded-2xl border border-[#37304a]/10 bg-[#f4ecdf] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.42)] dark:border-white/10 dark:bg-[#26232c]"
+        >
           <span
             aria-hidden
-            className="absolute -left-[1.9rem] top-1.5 size-3 rounded-full border-2 border-[#fffdf8] bg-[#7a5fa0] dark:border-[#2b2830] dark:bg-[#c9b3ec]"
+            className="absolute left-5 top-5 size-2.5 rounded-full bg-[#7a5fa0] dark:bg-[#c9b3ec]"
           />
-          <div className="font-mono text-xs uppercase tracking-[0.3em] text-[#6f6885] dark:text-[#a9a2bd]">
-            {row.period}
+          <div className="ml-6 flex flex-wrap items-center gap-2">
+            <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-[#6f6885] dark:text-[#a9a2bd]">
+              {row.period}
+            </span>
+            <span className="rounded-full border border-[#37304a]/10 bg-[#fffdf8] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-[#6f6885] dark:border-white/10 dark:bg-[#2b2830] dark:text-[#a9a2bd]">
+              {row.company}
+            </span>
           </div>
-          <div className="text-lg font-semibold tracking-tight text-[#37304a] dark:text-[#eae6f2]">
+          <div className="ml-6 mt-3 text-lg font-semibold tracking-tight text-[#37304a] dark:text-[#eae6f2]">
             {row.role}
-          </div>
-          <div className="text-sm leading-relaxed text-[#5d5673] dark:text-[#bdb6d0]">
-            {row.company}
           </div>
         </motion.li>
       ))}
@@ -253,7 +269,7 @@ function StaticComposition({
       variants={staticStagger}
       initial="hidden"
       animate="show"
-      className="mx-auto flex w-full max-w-3xl flex-col items-center gap-6 py-16 text-center text-[#37304a] dark:text-[#eae6f2]"
+      className="mx-auto flex w-full max-w-3xl flex-col items-center gap-6 py-20 text-center text-[#37304a] dark:text-[#eae6f2]"
     >
       {children}
     </motion.div>

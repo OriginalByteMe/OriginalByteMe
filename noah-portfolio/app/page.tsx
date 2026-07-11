@@ -2,13 +2,20 @@ import Hero from "@/components/Hero";
 import Backdrop from "@/components/Backdrop";
 import PortfolioCanvas from "@/components/PortfolioCanvas";
 import { AskMeProvider } from "@/components/AskMeProvider";
+import { normalizePortfolioQuery } from "@/lib/portfolio-query";
 
-export default function Home() {
+interface HomeProps {
+  searchParams: Promise<{ q?: string | string[] }>;
+}
+
+export default async function Home({ searchParams }: HomeProps) {
+  const { q } = await searchParams;
+  const initialQuery = normalizePortfolioQuery(q);
   return (
     <main className="relative min-h-screen overflow-hidden">
       <Backdrop />
       <div className="relative z-10">
-        <AskMeProvider>
+        <AskMeProvider initialQuery={initialQuery}>
           <Hero />
           <PortfolioCanvas />
         </AskMeProvider>

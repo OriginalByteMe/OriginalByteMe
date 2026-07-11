@@ -2,23 +2,42 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Terminal, Layout, Server, Database, Mail, Github, Linkedin, Code2, Briefcase, ArrowUpRight } from "lucide-react";
+import {
+  Terminal,
+  Layout,
+  Server,
+  Database,
+  Mail,
+  Github,
+  Linkedin,
+  Code2,
+  Briefcase,
+  ArrowUpRight,
+} from "lucide-react";
 import type { BaseComponentProps } from "@json-render/react";
 import { useStateValue } from "@json-render/react";
 import { enter } from "../motion";
 import { useIsDark } from "../use-is-dark";
 import type { Project, SkillCategory, Job, Contact, IconRef, OperatingSystem } from "@/lib/corpus/types";
+import { isSvgSrc } from "@/lib/utils";
 
 // Single lucide treatment everywhere: 1.5 stroke (design-contract §5).
 const ICON = { strokeWidth: 1.5 } as const;
 
-// Base-register matte card (§3.1): opaque fill, hairline border, soft long-throw shadow.
-const MATTE_CARD =
-  "rounded-3xl border border-[#37304a]/10 bg-[#fffdf8] shadow-[0_16px_40px_-24px_rgba(58,51,69,0.35)] dark:border-white/10 dark:bg-[#2b2830]";
+const CARD_RULE =
+  "absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#7a5fa0]/35 to-transparent dark:via-[#c9b3ec]/35";
 
-// Matte pill (§3, §7.2): opaque fill + hairline border + rounded-full, mono label.
-const MATTE_PILL =
-  "inline-flex w-max items-center gap-2 rounded-full border border-[#37304a]/10 bg-[#fffdf8] px-3 py-1 font-mono text-xs text-[#5d5673] dark:border-white/10 dark:bg-[#2b2830] dark:text-[#bdb6d0]";
+const SURFACE =
+  "relative overflow-hidden rounded-3xl border border-[#37304a]/10 bg-[#fffdf8] shadow-[0_16px_40px_-24px_rgba(58,51,69,0.35)] dark:border-white/10 dark:bg-[#2b2830]";
+
+const INTERACTIVE_SURFACE =
+  `${SURFACE} transition-all duration-300 hover:-translate-y-1 hover:border-[#5646a8]/25 hover:shadow-[0_22px_54px_-30px_rgba(58,51,69,0.42)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a5fa0]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffdf8] dark:hover:border-[#c9b3ec]/30 dark:focus-visible:ring-offset-[#2b2830]`;
+
+const CHIP =
+  "inline-flex w-max items-center gap-2 rounded-full border border-[#37304a]/10 bg-[#fffdf8] px-3 py-1 font-mono text-xs text-[#5d5673] shadow-[0_6px_16px_-12px_rgba(58,51,69,0.35)] dark:border-white/10 dark:bg-[#26232c] dark:text-[#bdb6d0]";
+
+const BADGE =
+  "inline-flex w-max items-center rounded-full border border-[#37304a]/10 bg-[#f4ecdf] px-2.5 py-1 font-mono text-xs uppercase tracking-[0.22em] text-[#6f6885] dark:border-white/10 dark:bg-[#26232c] dark:text-[#a9a2bd]";
 
 const categoryIcons: Record<string, typeof Terminal> = {
   "Programming Languages": Terminal,
@@ -27,15 +46,19 @@ const categoryIcons: Record<string, typeof Terminal> = {
   Databases: Database,
 };
 
+
 function SkillPill({ skill, isDark }: { skill: IconRef; isDark: boolean }) {
+  const src = isDark ? skill.darkImage : skill.lightImage;
+
   return (
-    <span className={MATTE_PILL}>
+    <span className={CHIP}>
       <Image
-        src={isDark ? skill.darkImage : skill.lightImage}
+        src={src}
         alt={skill.name}
         width={20}
         height={20}
         className="h-5 w-5"
+        unoptimized={isSvgSrc(src)}
       />
       {skill.name}
     </span>
@@ -59,33 +82,47 @@ export const factComponents = {
             href={project.url}
             target="_blank"
             rel="noopener noreferrer"
-            className={`group flex flex-col overflow-hidden transition-transform hover:-translate-y-1 ${MATTE_CARD}`}
+            className={`group flex h-full flex-col text-left ${INTERACTIVE_SURFACE}`}
           >
-            <Image
-              src={project.image}
-              alt={project.title}
-              width={300}
-              height={200}
-              className="h-48 w-full object-cover"
-            />
-            <div className="p-6">
-              <h3 className="flex items-center gap-2 font-serif text-xl tracking-tight text-[#37304a] dark:text-[#eae6f2]">
-                {project.title}
-                <ArrowUpRight
-                  {...ICON}
-                  className="size-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                />
-              </h3>
-              <p className="mt-4 text-sm leading-relaxed text-[#5d5673] dark:text-[#bdb6d0]">{project.description}</p>
+            <div className="relative m-3 overflow-hidden rounded-[1.35rem] border border-[#37304a]/10 bg-[#f4ecdf] dark:border-white/10 dark:bg-[#26232c]">
+              <Image
+                src={project.image}
+                alt={project.title}
+                width={300}
+                height={200}
+                className="h-52 w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                unoptimized={isSvgSrc(project.image)}
+              />
+              <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#f4ecdf] via-[#f4ecdf]/70 to-transparent dark:from-[#26232c]" />
+            </div>
+            <div className="relative flex flex-1 flex-col p-6">
+              <span aria-hidden className={CARD_RULE} />
+              <div className="mt-4 flex items-start justify-between gap-3">
+                <div className="space-y-3">
+                  <span className={BADGE}>Selected project</span>
+                  <h3 className="flex items-center gap-2 font-serif text-2xl tracking-tight text-[#37304a] dark:text-[#eae6f2]">
+                    {project.title}
+                    <ArrowUpRight
+                      {...ICON}
+                      className="size-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+                    />
+                  </h3>
+                </div>
+                <span className={BADGE}>{project.technologies.length} tools</span>
+              </div>
+              <p className="mt-4 text-pretty text-sm leading-relaxed text-[#5d5673] dark:text-[#bdb6d0]">
+                {project.description}
+              </p>
               <div className="mt-6 flex flex-wrap gap-2">
                 {project.technologies.map((tech) => (
-                  <span key={tech.name} className={MATTE_PILL}>
+                  <span key={tech.name} className={CHIP}>
                     <Image
                       src={isDark ? tech.darkIcon : tech.lightIcon}
                       alt={tech.name}
                       width={20}
                       height={20}
                       className="h-5 w-5"
+                      unoptimized={isSvgSrc(isDark ? tech.darkIcon : tech.lightIcon)}
                     />
                     <span>{tech.name}</span>
                   </span>
@@ -108,16 +145,20 @@ export const factComponents = {
             <Code2 {...ICON} className="size-5 shrink-0" /> {props.title}
           </h3>
         ) : null}
-        <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2">
           {categories.map(({ category, skills }) => {
             const Icon = categoryIcons[category] ?? Code2;
             return (
-              <div key={category}>
-                <h4 className="mb-3 flex items-center gap-2 font-serif text-xl tracking-tight text-[#37304a] dark:text-[#eae6f2]">
-                  <Icon {...ICON} className="size-4 shrink-0" />
-                  {category}
-                </h4>
-                <div className="flex flex-wrap gap-2">
+              <div key={category} className={`${SURFACE} p-6`}>
+                <span aria-hidden className={CARD_RULE} />
+                <div className="flex items-start justify-between gap-4">
+                  <h4 className="flex items-center gap-2 font-serif text-xl tracking-tight text-[#37304a] dark:text-[#eae6f2]">
+                    <Icon {...ICON} className="size-4 shrink-0" />
+                    {category}
+                  </h4>
+                  <span className={BADGE}>{skills.length} items</span>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
                   {skills.map((skill) => (
                     <SkillPill key={skill.name} skill={skill} isDark={isDark} />
                   ))}
@@ -168,20 +209,24 @@ export const factComponents = {
                 width={40}
                 height={40}
                 className="h-10 w-10 rounded-lg"
+                unoptimized={isSvgSrc(job.logo)}
               />
               <div>
-                <h4 className="flex items-center gap-2 text-base font-semibold tracking-tight text-[#37304a] dark:text-[#eae6f2]">
-                  {job.company}
+                <h4 aria-label={job.company} className="text-base font-semibold tracking-tight">
                   <a
                     href={job.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[#5646a8] transition-opacity hover:opacity-70 dark:text-[#9d8ff2]"
+                    aria-label={`Visit ${job.company}`}
+                    className="inline-flex items-center gap-2 text-[#5646a8] transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a5fa0]/30 dark:text-[#9d8ff2]"
                   >
-                    <ArrowUpRight {...ICON} className="size-4 shrink-0" />
+                    {job.company}
+                    <ArrowUpRight {...ICON} aria-hidden="true" className="size-4 shrink-0" />
                   </a>
                 </h4>
-                <p className="mt-1 text-sm leading-relaxed text-[#5d5673] dark:text-[#bdb6d0]">{job.role}</p>
+                <p className="mt-1 text-sm leading-relaxed text-[#5d5673] dark:text-[#bdb6d0]">
+                  {job.role}
+                </p>
                 <p className="mt-1 font-mono text-xs uppercase tracking-widest text-[#6f6885] dark:text-[#a9a2bd]">
                   {job.period}
                 </p>
@@ -213,23 +258,30 @@ export const factComponents = {
                 variants={enter}
                 initial="hidden"
                 animate="show"
-                className={`p-8 ${MATTE_CARD}`}
+                className={`${SURFACE} p-6`}
               >
-                <div className="flex items-center gap-3">
-                  {primary ? (
-                    <Image
-                      src={isDark ? primary.darkImage : primary.lightImage}
-                      alt={primary.name}
-                      width={20}
-                      height={20}
-                      className="size-4 shrink-0"
-                    />
-                  ) : null}
-                  <h4 className="font-serif text-xl tracking-tight text-[#37304a] dark:text-[#eae6f2]">
-                    {environment.name}
-                  </h4>
+                <span aria-hidden className={CARD_RULE} />
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    {primary ? (
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-[#37304a]/10 bg-[#f4ecdf] dark:border-white/10 dark:bg-[#26232c]">
+                        <Image
+                          src={isDark ? primary.darkImage : primary.lightImage}
+                          alt={primary.name}
+                          width={20}
+                          height={20}
+                          className="size-4 shrink-0"
+                          unoptimized={isSvgSrc(isDark ? primary.darkImage : primary.lightImage)}
+                        />
+                      </span>
+                    ) : null}
+                    <h4 className="font-serif text-xl tracking-tight text-[#37304a] dark:text-[#eae6f2]">
+                      {environment.name}
+                    </h4>
+                  </div>
+                  <span className={BADGE}>{environment.systems.length} systems</span>
                 </div>
-                <div className="mt-6 flex flex-wrap gap-2">
+                <div className="mt-5 flex flex-wrap gap-2">
                   {rest.map((system) => (
                     <SkillPill key={system.name} skill={system} isDark={isDark} />
                   ))}
@@ -244,23 +296,29 @@ export const factComponents = {
 
   ContactCard: ({ props }: BaseComponentProps<{ statePath: string }>) => {
     const contact = useStateValue<Contact>(props.statePath);
-    const email = contact?.email ?? "";
-    const github = contact?.github ?? "";
-    const linkedin = contact?.linkedin ?? "";
+    const email = contact?.email?.trim() ?? "";
+    const github = contact?.github?.trim() ?? "";
+    const linkedin = contact?.linkedin?.trim() ?? "";
     const cards = [
-      { key: "email", Icon: Mail, title: "Email", href: `mailto:${email}`, label: email, external: false },
-      { key: "github", Icon: Github, title: "GitHub", href: github, label: github.replace(/^https?:\/\//, ""), external: true },
-      {
-        key: "linkedin",
-        Icon: Linkedin,
-        title: "LinkedIn",
-        href: linkedin,
-        label: linkedin.replace(/^https?:\/\//, ""),
-        external: true,
-      },
+      ...(email ? [{ key: "email", Icon: Mail, title: "Email", href: `mailto:${email}`, label: email, external: false }] : []),
+      ...(github
+        ? [{ key: "github", Icon: Github, title: "GitHub", href: github, label: github.replace(/^https?:\/\//, ""), external: true }]
+        : []),
+      ...(linkedin
+        ? [
+            {
+              key: "linkedin",
+              Icon: Linkedin,
+              title: "LinkedIn",
+              href: linkedin,
+              label: linkedin.replace(/^https?:\/\//, ""),
+              external: true,
+            },
+          ]
+        : []),
     ];
     return (
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map(({ key, Icon, title, href, label, external }, i) => (
           <motion.a
             key={key}
@@ -270,11 +328,23 @@ export const factComponents = {
             animate="show"
             href={href}
             {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-            className={`group flex flex-col items-center p-8 text-center transition-transform hover:-translate-y-1 ${MATTE_CARD}`}
+            className={`${INTERACTIVE_SURFACE} group flex h-full min-h-52 flex-col justify-between p-7 text-left`}
           >
-            <Icon {...ICON} className="mb-4 size-10 text-[#37304a] dark:text-[#eae6f2]" />
-            <h3 className="font-serif text-xl tracking-tight text-[#37304a] dark:text-[#eae6f2]">{title}</h3>
-            <span className="mt-2 text-sm text-[#5646a8] group-hover:underline dark:text-[#9d8ff2]">{label}</span>
+            <span aria-hidden className={CARD_RULE} />
+            <div className="flex items-start justify-between gap-4">
+              <span className="flex size-13 shrink-0 items-center justify-center rounded-2xl border border-[#37304a]/10 bg-[#f4ecdf] text-[#5646a8] shadow-[0_10px_24px_-18px_rgba(86,70,168,0.7)] dark:border-white/10 dark:bg-[#26232c] dark:text-[#c9b3ec]">
+                <Icon {...ICON} className="size-5 shrink-0" />
+              </span>
+              <span className={BADGE}>{external ? "External" : "Direct"}</span>
+            </div>
+            <div className="mt-7">
+              <h3 className="font-serif text-3xl tracking-tight text-[#37304a] dark:text-[#eae6f2]">{title}</h3>
+              <span className="mt-3 block break-words text-base leading-relaxed text-[#5646a8] dark:text-[#c9b3ec]">{label}</span>
+            </div>
+            <span className="mt-6 inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.25em] text-[#6f6885] transition-colors group-hover:text-[#5646a8] group-focus-visible:text-[#5646a8] dark:text-[#a9a2bd] dark:group-hover:text-[#c9b3ec] dark:group-focus-visible:text-[#c9b3ec]">
+              {external ? "Open link" : "Send email"}
+              <ArrowUpRight {...ICON} className="size-3.5 shrink-0" />
+            </span>
           </motion.a>
         ))}
       </div>
@@ -286,10 +356,11 @@ export const factComponents = {
       variants={enter}
       initial="hidden"
       animate="show"
-      className="flex flex-col items-center rounded-2xl border border-[#2e2b38]/10 bg-[#f6f4f9] p-6 text-center shadow-[0_10px_30px_-18px_rgba(20,19,25,0.5)] dark:border-white/10 dark:bg-[#211f29]"
+      className="relative flex flex-col items-center overflow-hidden rounded-2xl border border-[#2e2b38]/10 bg-[#f6f4f9] p-6 text-center shadow-[0_10px_30px_-18px_rgba(20,19,25,0.5)] dark:border-white/10 dark:bg-[#211f29]"
     >
+      <span aria-hidden className={CARD_RULE} />
       <span className="text-4xl font-bold tracking-tight text-[#2e2b38] dark:text-[#e9e6f2]">{props.value}</span>
-      <span className="mt-2 font-mono text-[10px] uppercase tracking-[0.25em] text-[#6b6580] dark:text-[#a29bbd]">
+      <span className="mt-2 font-mono text-xs uppercase tracking-[0.22em] text-[#6b6580] dark:text-[#a29bbd]">
         {props.label}
       </span>
     </motion.div>

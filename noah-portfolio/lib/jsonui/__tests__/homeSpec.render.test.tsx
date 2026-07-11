@@ -1,8 +1,12 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, beforeAll } from "vitest";
+import { describe, expect, it, beforeAll, vi } from "vitest";
 import { Renderer, StateProvider, ActionProvider, VisibilityProvider, createStateStore } from "@json-render/react";
 import { registry } from "@/lib/jsonui/registry";
 import { homeSpec } from "@/lib/jsonui/homeSpec";
+
+vi.mock("@/components/ui/spotify-reveal", () => ({
+  default: () => <div>Spotify Magic</div>,
+}));
 // jsdom has no IntersectionObserver; the Scene chapters use framer-motion's
 // `whileInView`, which gates reveal on it. Stub it to report every element as
 // intersecting so chapter/beat content lands in the accessibility tree.
@@ -66,6 +70,13 @@ function renderHome() {
     </StateProvider>,
   );
 }
+function countVisibleSceneBlocks(section: HTMLElement) {
+  const shell = section.firstElementChild;
+  if (!shell) return 0;
+  return Array.from(shell.children).filter(
+    (child) => !(child as HTMLElement).hasAttribute("aria-hidden"),
+  ).length;
+}
 
 describe("homeSpec end-to-end render", () => {
   it("assembles every home chapter and fact-component heading through the registry", () => {
@@ -87,6 +98,48 @@ describe("homeSpec end-to-end render", () => {
     expect(screen.getByRole("heading", { name: "Operating systems" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Side projects" })).toBeInTheDocument();
   });
+  it("keeps the intro and toolbox scenes centered in real Scene wrappers", () => {
+    renderHome();
+
+    for (const { name, id, blocks } of [
+      { name: "Noah, in brief", id: "intro", blocks: 3 },
+      { name: "The toolbox", id: "stack", blocks: 2 },
+    ]) {
+      const heading = screen.getByRole("heading", { name });
+      const section = heading.closest("section");
+      expect(section).not.toBeNull();
+
+      const sectionEl = section as HTMLElement;
+      const shell = sectionEl.firstElementChild as HTMLElement | null;
+      expect(shell).not.toBeNull();
+
+      expect(sectionEl).toHaveAttribute("id", id);
+      expect(sectionEl).toHaveClass("relative", "flex", "min-h-screen", "items-center", "justify-center", "text-center");
+      expect(shell).toContainElement(heading);
+      expect(shell).toHaveClass("mx-auto", "items-center");
+      expect(countVisibleSceneBlocks(sectionEl)).toBe(blocks);
+    }
+  });
+
+  it("keeps every scene within the intended 2-3 block rhythm", () => {
+    renderHome();
+
+    for (const { name, blocks } of [
+      { name: "Noah, in brief", blocks: 3 },
+      { name: "The toolbox", blocks: 2 },
+      { name: "Where I've been", blocks: 2 },
+      { name: "Things I've built", blocks: 2 },
+      { name: "The rig", blocks: 3 },
+      { name: "Off the clock", blocks: 3 },
+      { name: "Say hi", blocks: 2 },
+    ]) {
+      const heading = screen.getByRole("heading", { name });
+      const section = heading.closest("section");
+      expect(section).not.toBeNull();
+      expect(countVisibleSceneBlocks(section as HTMLElement)).toBe(blocks);
+    }
+  });
+
 
   it("renders the bio narrative beat as inline story prose", () => {
     renderHome();
@@ -103,5 +156,14 @@ describe("homeSpec end-to-end render", () => {
     expect(screen.getByRole("heading", { name: "Linux" })).toBeInTheDocument();
     // ContactCard binds to /corpus/contact and renders the Email card title
     expect(screen.getByRole("heading", { name: "Email" })).toBeInTheDocument();
+  });
+  it("renders the operating systems grid and side-project cards in the default homeSpec", () => {
+    renderHome();
+    expect(screen.getByRole("heading", { name: "Operating systems" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Linux" })).toBeInTheDocument();
+    expect(screen.getByAltText("Ubuntu")).toBeInTheDocument();
+    expect(screen.getByText("Fedora")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 4, name: "3D Printing" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 4, name: "My blog!" })).toBeInTheDocument();
   });
 });

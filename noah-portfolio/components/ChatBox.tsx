@@ -18,7 +18,7 @@ const SUGGESTIONS = [
 export default function ChatBox() {
   const { ask, mode, reset, question } = useAskMe();
   const [value, setValue] = useState("");
-  const loading = mode === "loading";
+  const loading = mode === "streaming";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,13 +39,13 @@ export default function ChatBox() {
           disabled={loading}
           placeholder="Ask me anything about Noah…"
           aria-label="Ask a question about Noah"
-          className="w-full rounded-full border border-white/30 bg-white/10 backdrop-blur px-6 py-4 pr-14 text-white placeholder:text-gray-300 outline-hidden focus:border-blue-400 focus:ring-2 focus:ring-blue-400/40 transition disabled:opacity-60"
+          className="w-full rounded-full border border-[#d8cfbf] bg-[#fffdf8] px-6 py-4 pr-14 text-[#37304a] shadow-[0_18px_45px_rgba(55,48,74,0.14)] outline-hidden transition placeholder:text-[#6f6885] focus:border-[#5646a8] focus:ring-2 focus:ring-[#c9b3ec]/60 disabled:opacity-60 dark:border-[#5b506d] dark:bg-[#241f32] dark:text-[#eae6f2] dark:placeholder:text-[#b8b0c7] dark:shadow-[0_18px_45px_rgba(0,0,0,0.35)] dark:focus:border-[#c9b3ec] dark:focus:ring-[#5646a8]/50"
         />
         <button
           type="submit"
           disabled={loading || !value.trim()}
           aria-label="Send question"
-          className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center w-10 h-10 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 transition"
+          className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[#5646a8] text-white transition hover:bg-[#473795] disabled:opacity-50 dark:bg-[#9d8ff2] dark:text-[#241f32] dark:hover:bg-[#c9b3ec]"
         >
           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
         </button>
@@ -57,19 +57,19 @@ export default function ChatBox() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             onClick={reset}
-            className="text-xs px-3 py-1 rounded-full bg-white/10 text-gray-200 hover:bg-white/20 transition"
+            className="rounded-full border border-[#d8cfbf] bg-[#fffdf8] px-3 py-1 text-xs text-[#5646a8] transition hover:bg-[#f6f4f9] dark:border-[#5b506d] dark:bg-[#241f32] dark:text-[#c9b3ec] dark:hover:bg-[#302a42]"
           >
             ↺ Home
           </motion.button>
         )}
-        {mode !== "answer" &&
+        {mode === "home" &&
           SUGGESTIONS.map((s) => (
             <button
               key={s}
               type="button"
               disabled={loading}
               onClick={() => ask(s)}
-              className="text-xs px-3 py-1 rounded-full bg-white/10 text-gray-300 hover:bg-white/20 transition disabled:opacity-50"
+              className="rounded-full border border-[#d8cfbf] bg-[#fffdf8] px-3 py-1 text-xs text-[#6f6885] transition hover:bg-[#f6f4f9] hover:text-[#5646a8] disabled:opacity-50 dark:border-[#5b506d] dark:bg-[#241f32] dark:text-[#b8b0c7] dark:hover:bg-[#302a42] dark:hover:text-[#c9b3ec]"
             >
               {s}
             </button>

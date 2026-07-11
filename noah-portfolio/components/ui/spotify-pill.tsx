@@ -1,18 +1,21 @@
 "use client"
+import type { CSSProperties } from "react"
 
 import { SpotifyTrack } from "@/app/utils/interfaces"
-import { cn } from "@/lib/utils"
+import { cn, isSvgSrc } from "@/lib/utils"
 import { Music, Wand2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useDispatch, useSelector } from "react-redux";
-import useTheme from "@/lib/hooks/useTheme";
 import { RootState } from "@/lib/store"
 import Image from "next/image"
+
 export default function SpotifyPill({
   className,
+  style,
   track
 }: {
   className?: string
+  style?: CSSProperties
   track?: SpotifyTrack
 }) {
   const [isHovered, setIsHovered] = useState(false)
@@ -20,7 +23,6 @@ export default function SpotifyPill({
   const [showPalette, setShowPalette] = useState(false)
   const {selectedTrack } = useSelector((state: RootState) => state.spotify)
   const dispatch = useDispatch();
-  const { applyPalette, resetPalette } = useTheme();
   
   // Use the provided track
   const currentTrack = track
@@ -31,13 +33,9 @@ export default function SpotifyPill({
     
     if (selectedTrack?.id === currentTrack.id) {
       dispatch({ type: 'spotify/setSelectedTrack', payload: null });
-      resetPalette();
       setShowPalette(false);
     } else {
       dispatch({ type: 'spotify/setSelectedTrack', payload: currentTrack });
-      if (currentTrack.colourPalette) {
-        applyPalette(currentTrack.colourPalette);
-      }
       setShowPalette(true);
     }
     setIsJiggling(true)
@@ -76,6 +74,7 @@ export default function SpotifyPill({
         "hover:shadow-md hover:shadow-emerald-500/10 dark:hover:shadow-emerald-500/20",
         className,
       )}
+      style={style}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -84,12 +83,13 @@ export default function SpotifyPill({
       >
         {currentTrack.albumCover ? (
           <Image
-            src={currentTrack.albumCover || "/placeholder.svg"}
+            src={currentTrack.albumCover}
             alt={`${currentTrack.title} album cover`}
             className="object-cover"
             fill
             sizes="(max-width: 768px) 40px, 48px"
             priority={false}
+            unoptimized={isSvgSrc(currentTrack.albumCover)}
           />
         ) : (
           <div className="h-full w-full flex items-center justify-center">

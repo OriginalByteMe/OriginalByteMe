@@ -6,12 +6,12 @@ import { useStateValue } from "@json-render/react";
 import { cn } from "@/lib/utils";
 import { enter } from "../motion";
 
-// Matte Callout left-rule accents per tone (contract §2.1/§3.1). Grounded pastel
-// inks — the v1 saturated blue-500/green-500/amber-500 rules are retired (§14).
+// Matte Callout left-rule accents use only the fixed violet/mint allowlist
+// (contract §2.2/§3.1); mint collapses to violet emphasis in light mode.
 const toneClasses: Record<"info" | "success" | "warn", string> = {
   info: "border-l-[#7a5fa0] dark:border-l-[#c9b3ec]",
-  success: "border-l-[#5f9e7f] dark:border-l-[#7fe0bd]",
-  warn: "border-l-[#c79a63] dark:border-l-[#f3d9c8]",
+  success: "border-l-[#5646a8] dark:border-l-[#7fe0bd]",
+  warn: "border-l-[#5646a8] dark:border-l-[#9d8ff2]",
 };
 
 // Tailwind only generates classes it can see as literal strings in source, so
@@ -42,7 +42,7 @@ function ProseParagraph({ text }: { text: string }) {
       variants={enter}
       initial="hidden"
       animate="show"
-      className="mb-6 max-w-2xl text-lg leading-relaxed text-[#5d5673] dark:text-[#bdb6d0]"
+      className="mb-6 max-w-2xl text-pretty text-lg leading-relaxed text-[#5d5673] dark:text-[#bdb6d0]"
     >
       {text}
     </motion.p>
@@ -75,16 +75,18 @@ export const primitiveComponents = {
       initial="hidden"
       animate="show"
       className={cn(
-        "relative text-[#37304a] dark:text-[#eae6f2]",
-        props.height === "screen" ? "min-h-screen" : "py-20",
-        props.centered ? "flex flex-col items-center justify-center" : null,
+        "relative scroll-mt-24 text-[#37304a] dark:text-[#eae6f2]",
+        props.height === "screen"
+          ? "min-h-screen supports-[height:100svh]:min-h-[100svh] py-16 md:py-24"
+          : "py-20 md:py-24",
+        props.centered ? "flex flex-col items-center justify-center text-center" : null,
       )}
     >
       <div className="mx-auto max-w-6xl px-6 md:px-10">
         {props.title ? (
           <h2
             className={cn(
-              "font-serif text-2xl tracking-tight",
+              "font-serif text-2xl tracking-tight text-[#37304a] dark:text-[#eae6f2]",
               titleMbClasses[props.titleMb ?? "md"],
             )}
           >
@@ -100,16 +102,18 @@ export const primitiveComponents = {
       variants={enter}
       initial="hidden"
       animate="show"
-      className={{ sm: "space-y-3", md: "space-y-6", lg: "space-y-12" }[props.gap ?? "md"]}
+      className={{ sm: "space-y-4", md: "space-y-6", lg: "space-y-12" }[props.gap ?? "md"]}
     >
       {children}
     </motion.div>
   ),
   Columns: ({ props, children }: BaseComponentProps<{ count: number }>) => (
-    <div className={cn("grid gap-6", columnsClasses[Math.min(3, Math.max(1, Math.round(props.count)))])}>{children}</div>
+    <div className={cn("grid gap-4 md:gap-5", columnsClasses[Math.min(3, Math.max(1, Math.round(props.count)))])}>
+      {children}
+    </div>
   ),
   Grid: ({ props, children }: BaseComponentProps<{ cols: number }>) => (
-    <div className={cn("grid gap-6 grid-cols-1", gridClasses[Math.min(4, Math.max(1, Math.round(props.cols)))])}>
+    <div className={cn("grid grid-cols-1 gap-4 md:gap-5", gridClasses[Math.min(4, Math.max(1, Math.round(props.cols)))])}>
       {children}
     </div>
   ),
@@ -121,7 +125,7 @@ export const primitiveComponents = {
     ),
   Heading: ({ props }: BaseComponentProps<{ text: string; level: number }>) => {
     const Tag = `h${Math.min(4, Math.max(1, props.level))}` as "h1";
-    return <Tag className="font-serif text-2xl tracking-tight mb-4">{props.text}</Tag>;
+    return <Tag className="mb-4 font-serif text-2xl tracking-tight text-[#37304a] dark:text-[#eae6f2]">{props.text}</Tag>;
   },
   Callout: ({ props }: BaseComponentProps<{ text: string; tone?: "info" | "success" | "warn" | null }>) => (
     <motion.div
@@ -129,18 +133,22 @@ export const primitiveComponents = {
       initial="hidden"
       animate="show"
       className={cn(
-        "rounded-3xl border border-l-4 border-[#37304a]/10 bg-[#fffdf8] p-8 text-sm leading-relaxed text-[#5d5673] shadow-[0_16px_40px_-24px_rgba(58,51,69,0.35)] dark:border-white/10 dark:bg-[#2b2830] dark:text-[#bdb6d0]",
+        "relative overflow-hidden rounded-3xl border border-l-4 border-[#37304a]/10 bg-[#fffdf8] p-8 text-sm leading-relaxed text-[#5d5673] shadow-[0_16px_40px_-24px_rgba(58,51,69,0.35)] dark:border-white/10 dark:bg-[#2b2830] dark:text-[#bdb6d0]",
         toneClasses[props.tone ?? "info"],
       )}
     >
+      <span
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#7a5fa0]/40 to-transparent dark:via-[#c9b3ec]/40"
+      />
       {props.text}
     </motion.div>
   ),
   Quote: ({ props }: BaseComponentProps<{ text: string; cite?: string | null }>) => (
-    <blockquote className="border-l-2 border-[#37304a]/10 pl-4 italic text-[#5d5673] dark:border-white/10 dark:text-[#bdb6d0]">
+    <blockquote className="border-l-2 border-[#7a5fa0] pl-4 italic text-[#5d5673] dark:border-[#c9b3ec] dark:text-[#bdb6d0]">
       {props.text}
       {props.cite ? (
-        <footer className="text-sm text-[#6f6885] dark:text-[#a9a2bd]">— {props.cite}</footer>
+        <footer className="mt-3 text-sm text-[#6f6885] dark:text-[#a9a2bd]">— {props.cite}</footer>
       ) : null}
     </blockquote>
   ),

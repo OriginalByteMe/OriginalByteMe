@@ -4,7 +4,7 @@ import { Provider } from "react-redux";
 
 import { makeStore } from "@/lib/store";
 import { setBackdropPreset } from "@/lib/store/slices/backdrop-slice";
-import { ThemeProvider } from "@/components/ThemeProvider";
+import { ThemeProvider, useTheme } from "@/components/ThemeProvider";
 import Backdrop from "@/components/Backdrop";
 
 // The paper-design shader is a WebGL canvas; replace it with a marker div that
@@ -58,10 +58,16 @@ function stubMatchMedia({
   }));
 }
 
+function ThemeToggleControl() {
+  const { toggleTheme } = useTheme();
+  return <button type="button" onClick={toggleTheme}>Toggle theme</button>;
+}
+
 function renderBackdrop(store = makeStore()) {
   const result = render(
     <Provider store={store}>
       <ThemeProvider>
+        <ThemeToggleControl />
         <Backdrop />
       </ThemeProvider>
     </Provider>,
@@ -139,6 +145,37 @@ describe("Backdrop", () => {
     const after = screen.getAllByTestId("grain");
     expect(after).toHaveLength(1);
     expect(after[0]).toHaveAttribute("data-shape", "sphere");
+  });
+
+  it("collapses an interrupted shape cross-fade to the latest shader", () => {
+    vi.useFakeTimers();
+    const { store } = renderBackdrop();
+
+    act(() => {
+      store.dispatch(setBackdropPreset("nightMatte"));
+    });
+
+    const crossFade = screen.getAllByTestId("grain");
+    expect(crossFade).toHaveLength(2);
+    expect(crossFade[0]).toHaveAttribute("data-shape", "wave");
+    expect(crossFade[1]).toHaveAttribute("data-shape", "sphere");
+
+    act(() => {
+      screen.getByRole("button", { name: "Toggle theme" }).click();
+    });
+
+    const interrupted = screen.getAllByTestId("grain");
+    expect(interrupted).toHaveLength(1);
+    expect(interrupted[0]).toHaveAttribute("data-shape", "sphere");
+
+    act(() => {
+      vi.advanceTimersByTime(800);
+    });
+
+    const afterTween = screen.getAllByTestId("grain");
+    expect(afterTween).toHaveLength(1);
+    expect(afterTween[0]).toHaveAttribute("data-shape", "sphere");
+    expect(afterTween[0]).toHaveAttribute("data-colorback", "#e9e7ef");
   });
 
   it("(e-dark) passes the dark palette colorBack to the shader", () => {

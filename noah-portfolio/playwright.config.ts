@@ -4,14 +4,17 @@ const PORT = 3100;
 const BASE_URL = `http://localhost:${PORT}`;
 
 /**
- * E2E config for the Ask-Me flows. The dev server is started without the
- * `--inspect` flag (unlike `npm run dev`) so parallel Playwright workers don't
- * fight over the debugger port. `/api/generate` is stubbed per-test via route
- * interception, so no OPENROUTER_API_KEY / live LLM is required.
+ * E2E config for the Ask-Me flows. Playwright builds once, then serves the
+ * production output so fully parallel browser workers share stable assets
+ * instead of racing the development compiler and image cache. `/api/generate`
+ * is stubbed per-test via route interception, so no OPENROUTER_API_KEY / live
+ * LLM is required.
  */
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
+  // Each page owns a full-screen WebGL canvas; serialize for deterministic input.
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
@@ -21,10 +24,10 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `npx next dev -p ${PORT}`,
+    command: `npx next build && npx next start -p ${PORT}`,
     url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    reuseExistingServer: false,
+    timeout: 300_000,
     env: { OPENROUTER_API_KEY: "test-key-not-used" },
   },
 });

@@ -91,21 +91,27 @@ describe("primitiveComponents", () => {
     );
     expect(screen.getByText("heads up")).toBeInTheDocument();
     const infoEl = infoContainer.firstElementChild!;
-    // Matte surface (contract §3.1), no retired saturated fill.
-    expect(infoEl).toHaveClass("rounded-3xl", "bg-[#fffdf8]", "border-[#37304a]/10");
-    expect(infoEl.className).not.toContain("bg-blue-500");
-    // Default tone is a grounded violet left rule.
-    expect(infoEl).toHaveClass("border-l-[#7a5fa0]");
+    expect(infoEl).toHaveClass(
+      "bg-[#fffdf8]",
+      "dark:bg-[#2b2830]",
+      "border-l-[#7a5fa0]",
+    );
 
     const { container: successContainer } = render(
       <Callout props={{ text: "nice", tone: "success" }} {...stubHandlers} />,
     );
-    expect(successContainer.firstElementChild).toHaveClass("border-l-[#5f9e7f]");
+    expect(successContainer.firstElementChild).toHaveClass(
+      "border-l-[#5646a8]",
+      "dark:border-l-[#7fe0bd]",
+    );
 
     const { container: warnContainer } = render(
       <Callout props={{ text: "careful", tone: "warn" }} {...stubHandlers} />,
     );
-    expect(warnContainer.firstElementChild).toHaveClass("border-l-[#c79a63]");
+    expect(warnContainer.firstElementChild).toHaveClass(
+      "border-l-[#5646a8]",
+      "dark:border-l-[#9d8ff2]",
+    );
   });
 
   it("Quote renders text and optional citation", () => {
@@ -147,7 +153,7 @@ describe("primitiveComponents", () => {
         <p>c</p>
       </Section>,
     ).container.querySelector("section")!;
-    expect(centeredEl.className).toContain("flex flex-col items-center justify-center");
+    expect(centeredEl).toHaveClass("flex", "flex-col", "items-center", "justify-center");
     const plainEl = render(
       <Section props={{ centered: false }} {...stubHandlers}>
         <p>c</p>
@@ -170,32 +176,24 @@ describe("primitiveComponents", () => {
 
   it("Prose renders the state value bound at statePath, not the fallback text", () => {
     const Prose = primitiveComponents.Prose;
-    const store = createStateStore({ corpus: { bio: { summary: "bound summary text" } } });
+    const store = createStateStore({ story: { blurb: "From state" } });
     render(
       <StateProvider store={store}>
-        <Prose
-          props={{ text: "hard-coded fallback", statePath: "/corpus/bio/summary" }}
-          children={null}
-          {...stubHandlers}
-        />
+        <Prose props={{ text: "fallback", statePath: "/story/blurb" }} {...stubHandlers} />
       </StateProvider>,
     );
-    expect(screen.getByText("bound summary text")).toBeInTheDocument();
-    expect(screen.queryByText("hard-coded fallback")).not.toBeInTheDocument();
+    expect(screen.getByText("From state")).toBeInTheDocument();
+    expect(screen.queryByText("fallback")).not.toBeInTheDocument();
   });
 
-  it("Prose falls back to props.text when the bound state value is missing", () => {
+  it("Prose falls back to props.text when the bound state value is missing under StateProvider", () => {
     const Prose = primitiveComponents.Prose;
-    const store = createStateStore({ corpus: {} });
+    const store = createStateStore({ story: {} });
     render(
       <StateProvider store={store}>
-        <Prose
-          props={{ text: "hard-coded fallback", statePath: "/corpus/bio/summary" }}
-          children={null}
-          {...stubHandlers}
-        />
+        <Prose props={{ text: "fallback", statePath: "/story/missing" }} {...stubHandlers} />
       </StateProvider>,
     );
-    expect(screen.getByText("hard-coded fallback")).toBeInTheDocument();
+    expect(screen.getByText("fallback")).toBeInTheDocument();
   });
 });

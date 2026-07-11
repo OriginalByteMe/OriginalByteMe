@@ -10,8 +10,14 @@ const AskMeContext = createContext<PortfolioCanvas | null>(null);
  * hero `ChatBox` (which submits questions) and the body `PortfolioCanvas`
  * (which renders the resulting spec) share one canvas state.
  */
-export function AskMeProvider({ children }: { children: React.ReactNode }) {
-  const canvas = usePortfolioCanvas();
+export function AskMeProvider({
+  children,
+  initialQuery = "",
+}: {
+  children: React.ReactNode;
+  initialQuery?: string;
+}) {
+  const canvas = usePortfolioCanvas(initialQuery);
   return <AskMeContext.Provider value={canvas}>{children}</AskMeContext.Provider>;
 }
 

@@ -4,10 +4,10 @@
  * Holiday Theme provider + hooks (CONTEXT.md "Theme": a calendar/locale-driven
  * styling overlay — the holiday overlay, e.g. Christmas, Halloween).
  *
- * Disambiguation from two existing, unrelated "theme" modules:
- * - `components/ThemeProvider` — light/dark colour SCHEME (next-themes style).
- * - `lib/hooks/useTheme` — legacy blob palette hook.
- * Neither is this module; this one resolves the holiday overlay only.
+ * Two theme concerns remain intentionally separate:
+ * - `components/ThemeProvider` — light/dark colour scheme.
+ * - This module (`lib/themes/provider.tsx`) — holiday/locale styling overlay.
+ * This provider resolves and applies the holiday overlay only.
  *
  * Privacy: header-only. Country comes from request headers (no cookies, no
  * storage, no fingerprinting — ticket #42).

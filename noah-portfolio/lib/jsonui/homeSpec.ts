@@ -24,7 +24,7 @@ export const homeSpec: Spec = {
   elements: {
     root: {
       type: "Stack",
-      props: { gap: "lg" },
+      props: { gap: "sm" },
       children: [
         "intro",
         "stack",
@@ -39,7 +39,7 @@ export const homeSpec: Spec = {
     /* ---- Scene 01 — origin --------------------------------------------- */
     intro: {
       type: "Scene",
-      props: { id: "intro", align: "start" },
+      props: { id: "intro", align: "center" },
       children: ["introHeading", "introBeat", "introStat"],
     },
     introHeading: {
@@ -50,7 +50,7 @@ export const homeSpec: Spec = {
     introBeat: {
       type: "NarrativeBeat",
       props: {
-        text: "Full-stack developer in Kuala Lumpur, working across backend, infra, and frontend. I lean toward self-hosting, Docker, and pragmatic, scalable systems — and I bring ideas to life through code with a keen eye for design.",
+        text: "Full-stack developer in Kuala Lumpur, building pragmatic systems across backend, infra, and frontend. I like self-hosting, Docker, and design-conscious interfaces — and I care just as much about how the work feels as how it ships.",
       },
       children: [],
     },
@@ -63,7 +63,7 @@ export const homeSpec: Spec = {
     /* ---- Scene 02 — the toolbox ---------------------------------------- */
     stack: {
       type: "Scene",
-      props: { id: "stack", align: "start" },
+      props: { id: "stack", align: "center" },
       children: ["stackHeading", "skillGrid"],
     },
     stackHeading: {
@@ -141,7 +141,7 @@ export const homeSpec: Spec = {
     /* ---- Scene 06 — off the clock -------------------------------------- */
     vibe: {
       type: "Scene",
-      props: { id: "vibe", align: "start", accent: "mint" },
+      props: { id: "vibe", align: "center", accent: "mint" },
       children: ["vibeHeading", "spotify", "funFacts"],
     },
     vibeHeading: {
@@ -155,9 +155,10 @@ export const homeSpec: Spec = {
       children: [],
     },
     funFacts: {
-      type: "NarrativeBeat",
+      type: "Callout",
       props: {
-        text: "Into 3D printing and CAD (FDM, high-end materials). Self-hosts on Proxmox + Unraid.",
+        text: "3D printing and CAD are the hands-on side of the same workflow: FDM, high-end materials, Proxmox, and Unraid keep the lab close to the work.",
+        tone: "info",
       },
       children: [],
     },

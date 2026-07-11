@@ -9,19 +9,24 @@ import { storyComponents } from "@/lib/jsonui/components/story";
  * count-up.
  */
 beforeAll(() => {
-  class IO {
+  class NoopIntersectionObserver implements IntersectionObserver {
+    constructor() {}
     observe() {}
     unobserve() {}
     disconnect() {}
     takeRecords() {
       return [];
     }
-    root = null;
-    rootMargin = "";
-    thresholds = [0];
+    readonly root = null;
+    readonly rootMargin = "";
+    readonly thresholds = [0];
   }
-  // @ts-expect-error – augmenting the jsdom global for this test file only
-  globalThis.IntersectionObserver = IO;
+
+  Object.defineProperty(globalThis, "IntersectionObserver", {
+    configurable: true,
+    writable: true,
+    value: NoopIntersectionObserver,
+  });
 });
 
 /**
@@ -110,9 +115,27 @@ describe("storyComponents", () => {
         <p>scene child</p>
       </Scene>,
     );
-    const section = container.firstElementChild;
-    expect(section).toHaveClass("min-h-screen");
-    expect(screen.getByText("scene child")).toBeInTheDocument();
+    const section = container.firstElementChild as HTMLElement;
+    expect(section).toHaveClass(
+      "relative",
+      "flex",
+      "min-h-screen",
+      "items-center",
+      "justify-center",
+      "text-center",
+    );
+    expect(section).toContainElement(screen.getByText("scene child"));
+  });
+  it("Scene left-aligns start scenes", () => {
+    const Scene = storyComponents.Scene;
+    const { container } = render(
+      <Scene props={{ align: "start" }} {...stubHandlers}>
+        <p>start-aligned child</p>
+      </Scene>,
+    );
+    const section = container.firstElementChild as HTMLElement;
+    expect(section).toHaveClass("items-start", "justify-center", "text-left");
+    expect(section).toContainElement(screen.getByText("start-aligned child"));
   });
 
   it("Scene renders an accent bar only when accent is set", () => {
@@ -125,6 +148,16 @@ describe("storyComponents", () => {
     const bar = container.querySelector(".h-1.w-16");
     expect(bar).not.toBeNull();
     expect(bar).toHaveClass("rounded-full");
+
+    rerender(
+      <Scene props={{ accent: "mint" }} {...stubHandlers}>
+        <p>with mint accent</p>
+      </Scene>,
+    );
+    expect(container.querySelector(".h-1.w-16")).toHaveClass(
+      "bg-[#5646a8]",
+      "dark:bg-[#7fe0bd]",
+    );
 
     rerender(
       <Scene props={{}} {...stubHandlers}>
@@ -142,6 +175,12 @@ describe("storyComponents", () => {
       </StaticComposition>,
     );
     expect(screen.getByText("static child")).toBeInTheDocument();
-    expect(container.firstElementChild).toHaveClass("max-w-3xl");
+    expect(container.firstElementChild).toHaveClass(
+      "mx-auto",
+      "w-full",
+      "max-w-3xl",
+      "items-center",
+      "text-center",
+    );
   });
 });
