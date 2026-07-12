@@ -291,16 +291,15 @@ body {
 }
 
 @utility hero-panel {
-  border: 1px solid hsl(var(--border) / 0.82);
+  border: 1px solid rgb(55 48 74 / 0.1);
   border-radius: 1.5rem;
   background: #fffdf8;
-  box-shadow:
-    0 22px 54px -36px rgba(50, 41, 67, 0.42),
-    inset 0 1px 0 hsl(var(--foreground) / 0.06);
+  box-shadow: 0 16px 40px -24px rgba(58, 51, 69, 0.35);
   color: hsl(var(--card-foreground));
 }
 
 .dark .hero-panel {
+  border-color: rgb(255 255 255 / 0.1);
   background: #2b2830;
 }
 

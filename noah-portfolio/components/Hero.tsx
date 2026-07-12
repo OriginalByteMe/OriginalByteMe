@@ -92,7 +92,7 @@ export default function Hero() {
           <HeroPortrait />
         </div>
 
-        <aside aria-label="Contact and destinations" className="profile-contact profile-support hero-panel p-6 lg:p-8">
+        <aside aria-label="Contact and destinations" className="profile-contact profile-support hero-panel p-8">
           <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#6f6885] dark:text-[#a9a2bd]">Find me</p>
           <div className="mt-3 grid gap-2">
             <a className={actionClass} href="mailto:noahrijkaard@gmail.com" aria-label="Email Noah">
@@ -108,12 +108,12 @@ export default function Hero() {
           </div>
         </aside>
 
-        <section data-testid="compact-spotify" aria-labelledby="listening-heading" className="profile-listening profile-support hero-panel min-w-0 p-6 lg:p-8">
+        <section data-testid="compact-spotify" aria-labelledby="listening-heading" className="profile-listening profile-support hero-panel min-w-0 p-8">
           <p id="listening-heading" className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#6f6885] dark:text-[#a9a2bd]">Listening context</p>
           <SpotifyReveal />
         </section>
 
-        <section id="ask-me" aria-label="Ask-Me" className="profile-ask profile-support hero-panel min-w-0 p-6 lg:p-8">
+        <section id="ask-me" aria-label="Ask-Me" className="profile-ask profile-support hero-panel min-w-0 p-8">
           <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#6f6885] dark:text-[#a9a2bd]">Ask-Me</p>
           <AskMeLauncher />
         </section>

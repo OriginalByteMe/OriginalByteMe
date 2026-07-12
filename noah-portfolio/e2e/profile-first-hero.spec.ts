@@ -28,6 +28,7 @@ test("the profile-first hero keeps its complete composition inside every referen
       const spotify = document.querySelector<HTMLElement>("[data-testid='compact-spotify']")!;
       const portraitBox = portrait.getBoundingClientRect();
       const spotifyBox = spotify.getBoundingClientRect();
+      const heroBox = document.querySelector<HTMLElement>(".profile-hero-grid")!.getBoundingClientRect();
       const blocks = Array.from(document.querySelectorAll<HTMLElement>(".profile-hero-grid > *"));
       const support = Array.from(document.querySelectorAll<HTMLElement>(".profile-support"));
       const overlapsPortrait = support.some((element) => {
@@ -49,9 +50,14 @@ test("the profile-first hero keeps its complete composition inside every referen
         spotifyRight: spotifyBox.right,
         allBlocksContained: blocks.every((element) => {
           const box = element.getBoundingClientRect();
-          return box.width > 0 && box.height > 0 && box.left >= 0 && box.right <= window.innerWidth;
+          return box.width > 0 && box.height > 0 && box.left >= 0 && box.right <= window.innerWidth &&
+            box.top >= heroBox.top && box.bottom <= heroBox.bottom;
         }),
         overlapsPortrait,
+        portraitDominates: support.every((element) => {
+          const box = element.getBoundingClientRect();
+          return portraitBox.width * portraitBox.height > box.width * box.height;
+        }),
       };
     });
 
@@ -66,6 +72,7 @@ test("the profile-first hero keeps its complete composition inside every referen
     );
     expect(layout.allBlocksContained, `${viewport.width} hero block containment`).toBe(true);
     expect(layout.overlapsPortrait, `${viewport.width} portrait obstruction`).toBe(false);
+    expect(layout.portraitDominates, `${viewport.width} portrait dominance`).toBe(true);
   }
 });
 
@@ -110,6 +117,14 @@ test("Ask-Me expands from a compact entry point and restores keyboard focus", as
   await expect(hero.getByRole("textbox", { name: "Ask a question about Noah" })).toBeFocused();
   await hero.getByRole("button", { name: "Close Ask-Me" }).click();
   await expect(launcher).toBeFocused();
+
+  await launcher.tap();
+  const panel = hero.getByRole("region", { name: "Ask-Me" });
+  await expect(panel.getByRole("textbox", { name: "Ask a question about Noah" })).toBeVisible();
+  const panelBounds = await panel.boundingBox();
+  expect(panelBounds).not.toBeNull();
+  expect(panelBounds!.x).toBeGreaterThanOrEqual(0);
+  expect(panelBounds!.x + panelBounds!.width).toBeLessThanOrEqual(390);
 });
 
 test("theme and compact Spotify controls expose predictable pressed states", async ({ page }) => {
@@ -129,6 +144,21 @@ test("theme and compact Spotify controls expose predictable pressed states", asy
   );
   expect(darkSurface).toBe("rgb(43, 40, 48)");
   expect(lightSurface).toBe("rgb(255, 253, 248)");
+  const contrast = await hero.locator(".hero-panel").first().evaluate((element) => {
+    const parse = (value: string) => value.match(/\d+/g)!.slice(0, 3).map(Number);
+    const luminance = (value: string) => {
+      const channels = parse(value).map((channel) => {
+        const normalized = channel / 255;
+        return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+    };
+    const styles = getComputedStyle(element);
+    const foreground = luminance(styles.color);
+    const background = luminance(styles.backgroundColor);
+    return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
+  });
+  expect(contrast).toBeGreaterThanOrEqual(4.5);
 
   const spotify = hero.getByRole("button", { name: "Show Noah's listening context" });
   await expect(spotify).toHaveAttribute("aria-expanded", "false");
