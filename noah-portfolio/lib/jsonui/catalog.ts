@@ -142,11 +142,11 @@ export const catalog = defineCatalog(schema, {
             .optional(),
           statePath: z.string().nullable().optional(),
         })
-        .refine(({ rows, statePath }) => rows !== undefined || Boolean(statePath), {
-          message: "SequencedTimeline requires rows or statePath",
+        .refine(({ rows, statePath }) => (rows !== undefined) !== Boolean(statePath), {
+          message: "SequencedTimeline requires exactly one of rows or statePath",
         }),
       description:
-        "A vertical timeline whose rows reveal sequentially (nested stagger). Provide inline rows of {period, role, company}, or statePath to bind rows from Corpus state. Promote a heavy timeline to its own Scene.",
+        "A vertical timeline whose rows reveal sequentially (nested stagger). Provide exactly one source: inline rows of {period, role, company}, or statePath to bind rows from Corpus state. Promote a heavy timeline to its own Scene.",
     },
     StaticComposition: {
       props: z.object({}),

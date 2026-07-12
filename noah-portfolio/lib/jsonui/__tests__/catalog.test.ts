@@ -21,4 +21,25 @@ describe("catalog", () => {
     const def = (catalog as unknown as CatalogRuntime).data.components.ProjectShowcase.props;
     expect(def.safeParse({}).success).toBe(false);
   });
+
+  describe("SequencedTimeline source", () => {
+    const def = (catalog as unknown as CatalogRuntime).data.components.SequencedTimeline.props;
+    const rows = [{ period: "2024-present", role: "Engineer", company: "Bowiq" }];
+
+    it("accepts inline rows only", () => {
+      expect(def.safeParse({ rows }).success).toBe(true);
+    });
+
+    it("accepts a Corpus statePath only", () => {
+      expect(def.safeParse({ statePath: "/corpus/careerTimeline" }).success).toBe(true);
+    });
+
+    it("rejects a missing source", () => {
+      expect(def.safeParse({}).success).toBe(false);
+    });
+
+    it("rejects both inline rows and a statePath", () => {
+      expect(def.safeParse({ rows, statePath: "/corpus/careerTimeline" }).success).toBe(false);
+    });
+  });
 });
