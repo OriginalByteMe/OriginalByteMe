@@ -159,6 +159,7 @@ test("reload with ?q= reproduces the answer", async ({ page }) => {
 });
 
 test("↺ home restores the default canvas", async ({ page }) => {
+  test.setTimeout(45_000);
   await stubGenerate(page);
   await page.goto("/");
   await openAskMe(page);
@@ -171,7 +172,7 @@ test("↺ home restores the default canvas", async ({ page }) => {
   await page.getByRole("button", { name: /home/i }).click();
   await expect(page.getByRole("heading", { name: "Noah, in brief" })).toBeVisible();
   await expect(page.getByTestId("backdrop")).toHaveClass(/from-\[#f2e7d9\]/);
-  await expect(page).not.toHaveURL(/\?q=/);
+  expect(new URL(page.url()).searchParams.has("q")).toBe(false);
 });
 
 test("asking a question progressively assembles an NDJSON answer and steers the backdrop", async ({

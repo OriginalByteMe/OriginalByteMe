@@ -68,8 +68,9 @@ export default function SpotifyPill({
 
   return (
     <div
+      data-testid="spotify-pill"
       className={cn(
-        "flex items-center gap-3 rounded-full p-1 pr-4 w-full sm:w-auto min-w-[240px] md:min-w-[280px] shadow-lg transition-all duration-300",
+        "flex w-full min-w-0 max-w-full items-center gap-3 rounded-full p-1 pr-4 shadow-lg transition-all duration-300 sm:w-auto",
         "bg-white dark:bg-black text-gray-800 dark:text-white border border-gray-200 dark:border-gray-800",
         "hover:shadow-md hover:shadow-emerald-500/10 dark:hover:shadow-emerald-500/20",
         className,
@@ -168,4 +169,3 @@ export default function SpotifyPill({
     </div>
   )
 }
-

@@ -51,7 +51,7 @@ export default function SpotifyReveal() {
       </button>
 
       {isOpen && (
-        <div className="mt-2 flex w-full min-w-0 flex-wrap justify-center gap-3 overflow-hidden rounded-2xl border border-[#37304a]/10 bg-[#f4ecdf] p-3 dark:border-white/10 dark:bg-[#26232c]">
+        <div className="mt-2 flex w-full min-w-0 flex-wrap justify-center gap-3 rounded-2xl border border-[#37304a]/10 bg-[#f4ecdf] p-3 dark:border-white/10 dark:bg-[#26232c]">
           {isLoading ? (
             <div className="flex items-center justify-center p-6 w-full">
               <Loader2 className="h-8 w-8 text-emerald-500 animate-spin" />

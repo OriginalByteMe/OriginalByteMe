@@ -77,7 +77,7 @@ test("the profile-first hero keeps its complete composition inside every referen
 });
 
 test("actions are unique, labelled, touch-sized, and follow semantic keyboard order", async ({ page }) => {
-  await gotoHero(page);
+  await gotoHero(page, { width: 1280, height: 900 });
   const hero = page.getByRole("region", { name: "Noah Rijkaard" });
 
   const actions = [
@@ -133,18 +133,21 @@ test("theme and compact Spotify controls expose predictable pressed states", asy
 
   const theme = hero.getByRole("button", { name: "Toggle color theme" });
   await expect(theme).toHaveAttribute("aria-pressed", "true");
+  const surface = hero.locator(".hero-panel").first();
+  await expect(surface).toHaveCSS("background-color", "rgb(43, 40, 48)");
   const darkSurface = await hero.locator(".hero-panel").first().evaluate((element) =>
     getComputedStyle(element).backgroundColor,
   );
   await theme.click();
   await expect(theme).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator("html")).toHaveClass(/light/);
+  await expect(surface).toHaveCSS("background-color", "rgb(255, 253, 248)");
   const lightSurface = await hero.locator(".hero-panel").first().evaluate((element) =>
     getComputedStyle(element).backgroundColor,
   );
   expect(darkSurface).toBe("rgb(43, 40, 48)");
   expect(lightSurface).toBe("rgb(255, 253, 248)");
-  const contrast = await hero.locator(".hero-panel").first().evaluate((element) => {
+  const contrast = async () => hero.locator(".hero-panel").first().evaluate((element) => {
     const parse = (value: string) => value.match(/\d+/g)!.slice(0, 3).map(Number);
     const luminance = (value: string) => {
       const channels = parse(value).map((channel) => {
@@ -158,7 +161,12 @@ test("theme and compact Spotify controls expose predictable pressed states", asy
     const background = luminance(styles.backgroundColor);
     return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
   });
-  expect(contrast).toBeGreaterThanOrEqual(4.5);
+  expect(await contrast()).toBeGreaterThanOrEqual(4.5);
+
+  await theme.click();
+  await expect(theme).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  expect(await contrast()).toBeGreaterThanOrEqual(4.5);
 
   const spotify = hero.getByRole("button", { name: "Show Noah's listening context" });
   await expect(spotify).toHaveAttribute("aria-expanded", "false");
@@ -167,4 +175,39 @@ test("theme and compact Spotify controls expose predictable pressed states", asy
     "aria-expanded",
     "true",
   );
+});
+
+test("expanded Spotify pills remain visible inside the compact panel at laptop width", async ({
+  page,
+}) => {
+  await page.route("**/api/spotify/recently-played?**", (route) =>
+    route.fulfill({ json: { tracks: [] } }),
+  );
+  await page.route("**/api/spotify/palette-picker", (route) =>
+    route.fulfill({ json: { palette: [[255, 255, 255], [0, 0, 0]] } }),
+  );
+  await gotoHero(page, { width: 1280, height: 900 });
+  const panel = page.getByTestId("compact-spotify");
+
+  await panel.getByRole("button", { name: "Show Noah's listening context" }).click();
+  const pills = panel.getByTestId("spotify-pill");
+  await expect(pills.first()).toBeVisible();
+
+  const bounds = await panel.evaluate((element) => {
+    const panelBox = element.getBoundingClientRect();
+    const pillBoxes = Array.from(element.querySelectorAll<HTMLElement>("[data-testid='spotify-pill']"))
+      .map((pill) => pill.getBoundingClientRect());
+
+    return {
+      panel: { left: panelBox.left, right: panelBox.right },
+      pills: pillBoxes.map((pill) => ({ left: pill.left, right: pill.right, width: pill.width })),
+    };
+  });
+
+  expect(bounds.pills.length).toBeGreaterThan(0);
+  for (const pill of bounds.pills) {
+    expect(pill.left).toBeGreaterThanOrEqual(bounds.panel.left);
+    expect(pill.right).toBeLessThanOrEqual(bounds.panel.right);
+    expect(pill.width).toBeGreaterThan(0);
+  }
 });

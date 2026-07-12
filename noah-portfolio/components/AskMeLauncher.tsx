@@ -32,7 +32,7 @@ export default function AskMeLauncher() {
   return (
     <div>
       <div className="flex items-center justify-between gap-3">
-        <h2 id="ask-heading" className="font-serif text-2xl tracking-tight">Where should we begin?</h2>
+        <h2 className="font-serif text-2xl tracking-tight">Where should we begin?</h2>
         <button
           type="button"
           aria-label="Close Ask-Me"
