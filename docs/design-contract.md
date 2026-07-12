@@ -356,7 +356,7 @@ A **Scene** is a full-height (`min-h-screen`) chapter driven by scroll entry:
 - **`ChapterHeading`:** kicker (e.g. `Chapter 02`) + serif display (§6.1) `text-4xl md:text-6xl`; spring stiffness 220 / damping 24 (same as `enter`).
 - **`NarrativeBeat`:** one prose paragraph, `max-w-2xl text-lg`.
 - **`StatReveal`:** count-up metric gated on `useInView` with **tighter `amount: 0.6`** (so it doesn't count while barely visible); `useMotionValue` + `animate` + `useTransform`.
-- **`SequencedTimeline`:** rows reveal via nested `staggerChildren`.
+- **`SequencedTimeline`:** rows reveal via nested `staggerChildren`; provide exactly one row source: inline `rows` or a `statePath` bound to Corpus state.
 - **`SceneProgress`:** the **only** scrub-driven element — `useScroll` → `useSpring` → `scaleY` rail.
 
 **Granularity rule:** cap a scene at **2–3 blocks** — one `ChapterHeading` anchor + one payload block (beat / stat / timeline). At 4+ blocks the 0.12s stagger pushes the tail reveal past ~0.6s after entry, animating after the reader has scrolled away; 1 block wastes a viewport. Promote heavy elements (timeline, multi-stat) to their own scene.
@@ -442,7 +442,7 @@ Carried forward from v1 §4, re-skinned to §2–§8. Components adopt tokens un
 
 ### 11.3 Story primitives (`#37` → promote into Catalog)
 
-`Scene`, `ChapterHeading`, `NarrativeBeat`, `StatReveal`, `SequencedTimeline`, `SceneProgress`, `StaticComposition` (§9). Promotion of the scene-prototype primitives into the shipping Catalog is tracked under #37.
+`Scene`, `ChapterHeading`, `NarrativeBeat`, `StatReveal`, `SequencedTimeline`, `SceneProgress`, `StaticComposition` (§9). `SequencedTimeline` accepts exactly one of inline `rows` or a Corpus `statePath`; the two sources are mutually exclusive. Promotion of the scene-prototype primitives into the shipping Catalog is tracked under #37.
 
 ### 11.4 Personality (`lib/jsonui/components/extras.tsx`)
 

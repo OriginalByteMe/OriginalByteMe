@@ -9,7 +9,7 @@ import {
   useTransform,
   type Variants,
 } from "framer-motion";
-import type { BaseComponentProps } from "@json-render/react";
+import { useStateValue, type BaseComponentProps } from "@json-render/react";
 import { cn } from "@/lib/utils";
 import { enter } from "../motion";
 
@@ -219,17 +219,33 @@ function StatReveal({
  * staggerChildren (§9.2). Inherits its show/hidden label from whatever
  * container drives it, then cascades to its own rows.
  */
+type TimelineRow = { period: string; role: string; company: string };
+
+function StateBoundTimeline({ statePath }: { statePath: string }) {
+  const rows = useStateValue<TimelineRow[]>(statePath);
+  return <TimelineRows rows={rows ?? []} />;
+}
+
 function SequencedTimeline({
   props,
 }: BaseComponentProps<{
-  rows: { period: string; role: string; company: string }[];
+  rows?: TimelineRow[];
+  statePath?: string | null;
 }>) {
+  return props.statePath ? (
+    <StateBoundTimeline statePath={props.statePath} />
+  ) : (
+    <TimelineRows rows={props.rows ?? []} />
+  );
+}
+
+function TimelineRows({ rows }: { rows: TimelineRow[] }) {
   return (
     <motion.ul
       variants={timelineContainer}
       className="grid w-full max-w-3xl gap-4 rounded-3xl border border-[#37304a]/10 bg-[#fffdf8] p-5 text-left shadow-[0_18px_46px_-24px_rgba(58,51,69,0.42)] md:p-6 dark:border-white/10 dark:bg-[#2b2830]"
     >
-      {props.rows.map((row, i) => (
+      {rows.map((row, i) => (
         <motion.li
           key={i}
           variants={timelineRow}
