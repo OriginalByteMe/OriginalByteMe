@@ -29,7 +29,7 @@ export default function ChatBox() {
   }
 
   return (
-    <div className="w-full max-w-xl mx-auto mt-8">
+    <div className="mt-4 w-full min-w-0">
       <form onSubmit={onSubmit} className="relative">
         <input
           type="text"
@@ -39,13 +39,13 @@ export default function ChatBox() {
           disabled={loading}
           placeholder="Ask me anything about Noah…"
           aria-label="Ask a question about Noah"
-          className="w-full rounded-full border border-[#d8cfbf] bg-[#fffdf8] px-6 py-4 pr-14 text-[#37304a] shadow-[0_18px_45px_rgba(55,48,74,0.14)] outline-hidden transition placeholder:text-[#6f6885] focus:border-[#5646a8] focus:ring-2 focus:ring-[#c9b3ec]/60 disabled:opacity-60 dark:border-[#5b506d] dark:bg-[#241f32] dark:text-[#eae6f2] dark:placeholder:text-[#b8b0c7] dark:shadow-[0_18px_45px_rgba(0,0,0,0.35)] dark:focus:border-[#c9b3ec] dark:focus:ring-[#5646a8]/50"
+          className="min-h-14 w-full rounded-full border border-[#d8cfbf] bg-[#fffdf8] px-5 py-3 pr-14 text-[#37304a] shadow-[0_18px_45px_rgba(55,48,74,0.14)] outline-hidden transition placeholder:text-[#6f6885] focus:border-[#5646a8] focus:ring-2 focus:ring-[#c9b3ec]/60 disabled:opacity-60 dark:border-[#5b506d] dark:bg-[#241f32] dark:text-[#eae6f2] dark:placeholder:text-[#b8b0c7] dark:shadow-[0_18px_45px_rgba(0,0,0,0.35)] dark:focus:border-[#c9b3ec] dark:focus:ring-[#5646a8]/50"
         />
         <button
           type="submit"
           disabled={loading || !value.trim()}
           aria-label="Send question"
-          className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[#5646a8] text-white transition hover:bg-[#473795] disabled:opacity-50 dark:bg-[#9d8ff2] dark:text-[#241f32] dark:hover:bg-[#c9b3ec]"
+          className="absolute right-1.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[#5646a8] text-white transition hover:bg-[#473795] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5646a8] disabled:opacity-50 dark:bg-[#9d8ff2] dark:text-[#241f32] dark:hover:bg-[#c9b3ec]"
         >
           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
         </button>
@@ -57,7 +57,7 @@ export default function ChatBox() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             onClick={reset}
-            className="rounded-full border border-[#d8cfbf] bg-[#fffdf8] px-3 py-1 text-xs text-[#5646a8] transition hover:bg-[#f6f4f9] dark:border-[#5b506d] dark:bg-[#241f32] dark:text-[#c9b3ec] dark:hover:bg-[#302a42]"
+            className="min-h-11 rounded-full border border-[#d8cfbf] bg-[#fffdf8] px-3 py-2 text-xs text-[#5646a8] transition hover:bg-[#f6f4f9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5646a8] dark:border-[#5b506d] dark:bg-[#241f32] dark:text-[#c9b3ec] dark:hover:bg-[#302a42]"
           >
             ↺ Home
           </motion.button>
@@ -69,7 +69,7 @@ export default function ChatBox() {
               type="button"
               disabled={loading}
               onClick={() => ask(s)}
-              className="rounded-full border border-[#d8cfbf] bg-[#fffdf8] px-3 py-1 text-xs text-[#6f6885] transition hover:bg-[#f6f4f9] hover:text-[#5646a8] disabled:opacity-50 dark:border-[#5b506d] dark:bg-[#241f32] dark:text-[#b8b0c7] dark:hover:bg-[#302a42] dark:hover:text-[#c9b3ec]"
+              className="min-h-11 rounded-full border border-[#d8cfbf] bg-[#fffdf8] px-3 py-2 text-xs text-[#6f6885] transition hover:bg-[#f6f4f9] hover:text-[#5646a8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5646a8] disabled:opacity-50 dark:border-[#5b506d] dark:bg-[#241f32] dark:text-[#b8b0c7] dark:hover:bg-[#302a42] dark:hover:text-[#c9b3ec]"
             >
               {s}
             </button>

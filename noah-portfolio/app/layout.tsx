@@ -1,10 +1,7 @@
 import './globals.css'
 import { Inter } from 'next/font/google'
 import { ThemeProvider } from '../components/ThemeProvider'
-import { ThemeSwitch } from '../components/ThemeSwitch'
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import Link from 'next/link'
-import { Github } from 'lucide-react'
 import StoreProvider from '@/app/StoreProvider'
 import { JsonUiProvider } from '@/components/JsonUiProvider'
 import { corpusState } from '@/lib/corpus'
@@ -65,26 +62,7 @@ export default function RootLayout({
         <ThemeProvider>
           <StoreProvider>
             <JsonUiProvider initialState={corpusState()}>
-            <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white">
-              <header className="fixed top-0 right-0 m-4 z-50 flex items-center space-x-4">
-                <Link
-                  href="https://github.com/OriginalByteMe"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Github className="w-6 h-6 text-[#37304a] transition-colors hover:text-[#5646a8] dark:text-[#eae6f2] dark:hover:text-[#c9b3ec]" />
-                </Link>
-                <Link
-                  href="https://blog.noahrijkaard.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <div className="text-[#37304a] transition-colors hover:text-[#5646a8] hover:underline dark:text-[#eae6f2] dark:hover:text-[#c9b3ec]">
-                    Blog
-                  </div>
-                </Link>
-                <ThemeSwitch />
-              </header>
+            <div className="min-h-screen bg-white text-black dark:bg-black dark:text-white">
               {children}
               <SpeedInsights />
             </div>
@@ -95,4 +73,3 @@ export default function RootLayout({
     </html>
   );
 }
-
