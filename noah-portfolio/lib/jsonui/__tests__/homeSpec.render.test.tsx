@@ -1,8 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, beforeAll, vi } from "vitest";
 import { Renderer, StateProvider, ActionProvider, VisibilityProvider, createStateStore } from "@json-render/react";
-import { registry } from "@/lib/jsonui/registry";
+import { JsonUiProvider } from "@/components/JsonUiProvider";
+import { corpusState } from "@/lib/corpus";
 import { homeSpec } from "@/lib/jsonui/homeSpec";
+import { registry } from "@/lib/jsonui/registry";
 
 vi.mock("@/components/ui/spotify-reveal", () => ({
   default: () => <div>Spotify Magic</div>,
@@ -68,6 +70,14 @@ function renderHome() {
         </VisibilityProvider>
       </ActionProvider>
     </StateProvider>,
+  );
+}
+
+function renderProductionHome(initialState = corpusState()) {
+  return render(
+    <JsonUiProvider initialState={initialState}>
+      <Renderer spec={homeSpec} registry={registry} />
+    </JsonUiProvider>,
   );
 }
 function countVisibleSceneBlocks(section: HTMLElement) {
@@ -157,6 +167,103 @@ describe("homeSpec end-to-end render", () => {
     // ContactCard binds to /corpus/contact and renders the Email card title
     expect(screen.getByRole("heading", { name: "Email" })).toBeInTheDocument();
   });
+  it("renders every repository-authored home Story fact through the production provider", () => {
+    renderProductionHome();
+    const toolbox = screen.getByRole("heading", { name: "The toolbox" }).closest("section");
+    const builds = screen.getByRole("heading", { name: "Things I've built" }).closest("section");
+    const operatingSystems = screen.getByRole("region", { name: "Operating systems" });
+    const contact = screen.getByRole("heading", { name: "Say hi" }).closest("section");
+    expect(toolbox).not.toBeNull();
+    expect(builds).not.toBeNull();
+    expect(contact).not.toBeNull();
+    const toolboxQueries = within(toolbox as HTMLElement);
+    const buildsQueries = within(builds as HTMLElement);
+    const operatingSystemQueries = within(operatingSystems);
+    const contactQueries = within(contact as HTMLElement);
+
+    for (const category of [
+      "Programming Languages",
+      "Frontend Frameworks",
+      "Infrastructure & DevOps",
+      "Databases",
+    ]) {
+      expect(toolboxQueries.getByRole("heading", { name: category })).toBeInTheDocument();
+    }
+    expect(toolboxQueries.getAllByRole("heading", { level: 4 })).toHaveLength(4);
+
+    for (const skill of [
+      "Ruby",
+      "Python",
+      "JavaScript",
+      "TypeScript",
+      "React",
+      "Bash",
+      "Next.js",
+      "Ruby on Rails",
+      "Tailwind CSS",
+      "Docker",
+      "Proxmox",
+      "Unraid",
+      "AWS",
+      "Git",
+      "Terraform",
+      "PostgreSQL",
+      "MySQL",
+      "SQLite",
+      "Redis",
+      "MongoDB",
+    ]) {
+      expect(toolboxQueries.getByText(skill)).toBeInTheDocument();
+    }
+    expect(toolboxQueries.getAllByRole("img")).toHaveLength(20);
+
+    expect(screen.getByText("Bowiq")).toBeInTheDocument();
+    expect(screen.queryByText("Bowiac")).not.toBeInTheDocument();
+
+    for (const project of ["AI Image Cutout Tool", "LLM Comparison app"]) {
+      expect(screen.getByRole("heading", { name: project })).toBeInTheDocument();
+    }
+    expect(buildsQueries.getAllByRole("link")).toHaveLength(2);
+
+    for (const operatingSystem of ["Linux", "Debian", "Ubuntu", "Windows", "WSL2"]) {
+      expect(operatingSystemQueries.getByAltText(operatingSystem)).toBeInTheDocument();
+    }
+    expect(operatingSystemQueries.getAllByRole("img")).toHaveLength(5);
+    expect(screen.getByRole("link", { name: /noahrijkaard@gmail\.com/i })).toHaveAttribute(
+      "href",
+      "mailto:noahrijkaard@gmail.com",
+    );
+    expect(screen.getByRole("link", { name: /github\.com\/OriginalByteMe/i })).toHaveAttribute(
+      "href",
+      "https://github.com/OriginalByteMe",
+    );
+    expect(screen.getByRole("link", { name: /linkedin\.com\/in\/noah-rijkaard/i })).toHaveAttribute(
+      "href",
+      "https://www.linkedin.com/in/noah-rijkaard/",
+    );
+    expect(contactQueries.getAllByRole("link")).toHaveLength(3);
+  });
+
+  it("binds the career chapter to the production Corpus state path", () => {
+    renderProductionHome({
+      ...corpusState(),
+      "/corpus/careerTimeline": [
+        {
+          period: "State period",
+          role: "State-backed role",
+          company: "State-backed company",
+          logo: "",
+          url: "",
+        },
+      ],
+    });
+
+    expect(screen.getByText("State period")).toBeInTheDocument();
+    expect(screen.getByText("State-backed role")).toBeInTheDocument();
+    expect(screen.getByText("State-backed company")).toBeInTheDocument();
+    expect(screen.queryByText("Bowiq")).not.toBeInTheDocument();
+  });
+
   it("renders the operating systems grid and side-project cards in the default homeSpec", () => {
     renderHome();
     expect(screen.getByRole("heading", { name: "Operating systems" })).toBeInTheDocument();

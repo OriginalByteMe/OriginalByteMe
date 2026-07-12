@@ -133,13 +133,20 @@ export const catalog = defineCatalog(schema, {
         "A single big metric that counts up from 0 to value the first time it scrolls into view. suffix is appended to the number (e.g. '+', 'yrs'); caption labels it. Use for stat/dashboard moments.",
     },
     SequencedTimeline: {
-      props: z.object({
-        rows: z.array(
-          z.object({ period: z.string(), role: z.string(), company: z.string() }),
-        ),
-      }),
+      props: z
+        .object({
+          rows: z
+            .array(
+              z.object({ period: z.string(), role: z.string(), company: z.string() }),
+            )
+            .optional(),
+          statePath: z.string().nullable().optional(),
+        })
+        .refine(({ rows, statePath }) => rows !== undefined || Boolean(statePath), {
+          message: "SequencedTimeline requires rows or statePath",
+        }),
       description:
-        "A vertical timeline whose rows reveal sequentially (nested stagger). Each row is {period, role, company}. Promote a heavy timeline to its own Scene.",
+        "A vertical timeline whose rows reveal sequentially (nested stagger). Provide inline rows of {period, role, company}, or statePath to bind rows from Corpus state. Promote a heavy timeline to its own Scene.",
     },
     StaticComposition: {
       props: z.object({}),

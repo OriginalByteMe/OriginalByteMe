@@ -90,12 +90,7 @@ export const homeSpec: Spec = {
     },
     careerTimeline: {
       type: "SequencedTimeline",
-      props: {
-        rows: [
-          { period: "2020 – Present", role: "Full-Stack Developer", company: "Supa" },
-          { period: "2023 – Present", role: "CAD Designer & 3D Printing Engineer", company: "Bowiac" },
-        ],
-      },
+      props: { statePath: "/corpus/careerTimeline" },
       children: [],
     },
 

@@ -242,7 +242,7 @@ export const factComponents = {
     const isDark = useIsDark();
     const environments = useStateValue<OperatingSystem[]>(props.statePath) ?? [];
     return (
-      <div>
+      <div role="region" aria-label={props.title ?? "Operating systems"}>
         {props.title ? (
           <h3 className="mb-6 flex items-center gap-2 font-serif text-2xl tracking-tight text-[#37304a] dark:text-[#eae6f2]">
             <Code2 {...ICON} className="size-5 shrink-0" /> {props.title}
