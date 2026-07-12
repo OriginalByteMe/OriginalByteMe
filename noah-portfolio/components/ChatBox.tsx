@@ -15,7 +15,7 @@ const SUGGESTIONS = [
  * Hero chat input that drives the whole page. Submitting a question hands off
  * to the shared canvas hook, which streams the answer into <PortfolioCanvas/>.
  */
-export default function ChatBox() {
+export default function ChatBox({ autoFocus = false }: { autoFocus?: boolean }) {
   const { ask, mode, reset, question } = useAskMe();
   const [value, setValue] = useState("");
   const loading = mode === "streaming";
@@ -39,6 +39,7 @@ export default function ChatBox() {
           disabled={loading}
           placeholder="Ask me anything about Noah…"
           aria-label="Ask a question about Noah"
+          autoFocus={autoFocus}
           className="min-h-14 w-full rounded-full border border-[#d8cfbf] bg-[#fffdf8] px-5 py-3 pr-14 text-[#37304a] shadow-[0_18px_45px_rgba(55,48,74,0.14)] outline-hidden transition placeholder:text-[#6f6885] focus:border-[#5646a8] focus:ring-2 focus:ring-[#c9b3ec]/60 disabled:opacity-60 dark:border-[#5b506d] dark:bg-[#241f32] dark:text-[#eae6f2] dark:placeholder:text-[#b8b0c7] dark:shadow-[0_18px_45px_rgba(0,0,0,0.35)] dark:focus:border-[#c9b3ec] dark:focus:ring-[#5646a8]/50"
         />
         <button
@@ -47,7 +48,7 @@ export default function ChatBox() {
           aria-label="Send question"
           className="absolute right-1.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[#5646a8] text-white transition hover:bg-[#473795] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5646a8] disabled:opacity-50 dark:bg-[#9d8ff2] dark:text-[#241f32] dark:hover:bg-[#c9b3ec]"
         >
-          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+          {loading ? <Loader2 strokeWidth={1.5} className="size-5 animate-spin" /> : <Send strokeWidth={1.5} className="size-5" />}
         </button>
       </form>
 

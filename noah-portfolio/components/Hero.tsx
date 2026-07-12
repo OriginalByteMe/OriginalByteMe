@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { ImageDithering } from '@paper-design/shaders-react';
 import { ArrowDown, ArrowUpRight, Github, Linkedin, Mail } from 'lucide-react';
 import SpotifyReveal from './ui/spotify-reveal';
-import ChatBox from './ChatBox';
+import AskMeLauncher from './AskMeLauncher';
 import { ThemeSwitch } from './ThemeSwitch';
 import { useTheme } from './ThemeProvider';
 
@@ -38,23 +38,25 @@ function HeroPortrait() {
             priority
             className="object-cover [filter:sepia(0.48)_hue-rotate(240deg)_saturate(1.34)_contrast(1.08)] dark:[filter:sepia(0.62)_hue-rotate(220deg)_saturate(1.65)_contrast(1.12)_brightness(0.78)]"
           />
-          <DitherBoundary fallback={null}>
-            <ImageDithering
-              image="/hero.png"
-              colorFront={palette.colorFront}
-              colorBack={palette.colorBack}
-              colorHighlight={palette.colorHighlight}
-              type="8x8"
-              size={2}
-              colorSteps={3}
-              speed={0}
-              minPixelRatio={1}
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-            />
-          </DitherBoundary>
+          <div aria-hidden className="absolute inset-0">
+            <DitherBoundary fallback={null}>
+              <ImageDithering
+                image="/hero.png"
+                colorFront={palette.colorFront}
+                colorBack={palette.colorBack}
+                colorHighlight={palette.colorHighlight}
+                type="8x8"
+                size={2}
+                colorSteps={3}
+                speed={0}
+                minPixelRatio={1}
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+              />
+            </DitherBoundary>
+          </div>
         </div>
         <figcaption className="px-3 pb-1 pt-3 font-mono text-[10px] uppercase tracking-widest text-[#6f6885] dark:text-[#a9a2bd]">
-          Noah Rijkaard · Kuala Lumpur
+          hero.png · 8×8 ordered dither · Noah Rijkaard
         </figcaption>
       </div>
     </figure>
@@ -90,7 +92,7 @@ export default function Hero() {
           <HeroPortrait />
         </div>
 
-        <aside aria-label="Contact and destinations" className="profile-contact hero-panel p-4 sm:p-5">
+        <aside aria-label="Contact and destinations" className="profile-contact profile-support hero-panel p-6 lg:p-8">
           <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#6f6885] dark:text-[#a9a2bd]">Find me</p>
           <div className="mt-3 grid gap-2">
             <a className={actionClass} href="mailto:noahrijkaard@gmail.com" aria-label="Email Noah">
@@ -106,15 +108,14 @@ export default function Hero() {
           </div>
         </aside>
 
-        <section data-testid="compact-spotify" aria-labelledby="listening-heading" className="profile-listening hero-panel min-w-0 p-4 sm:p-5">
+        <section data-testid="compact-spotify" aria-labelledby="listening-heading" className="profile-listening profile-support hero-panel min-w-0 p-6 lg:p-8">
           <p id="listening-heading" className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#6f6885] dark:text-[#a9a2bd]">Listening context</p>
           <SpotifyReveal />
         </section>
 
-        <section id="ask-me" aria-labelledby="ask-heading" className="profile-ask hero-panel min-w-0 p-4 sm:p-5">
+        <section id="ask-me" aria-label="Ask-Me" className="profile-ask profile-support hero-panel min-w-0 p-6 lg:p-8">
           <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#6f6885] dark:text-[#a9a2bd]">Ask-Me</p>
-          <h2 id="ask-heading" className="mt-2 font-serif text-2xl tracking-tight">Where should we begin?</h2>
-          <ChatBox />
+          <AskMeLauncher />
         </section>
       </div>
     </section>

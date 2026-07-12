@@ -104,6 +104,10 @@ async function pushNextStreamPatch(page: Page) {
   expect(pushed).toBe(true);
 }
 
+async function openAskMe(page: Page) {
+  await page.getByRole("button", { name: "Open Ask-Me" }).click();
+}
+
 /** Stub malformed NDJSON to exercise the client-side stream fallback. */
 async function stubGenerateMalformedStream(page: Page) {
   await page.route("**/api/generate", async (route) => {
@@ -137,6 +141,7 @@ test("home canvas shows default content by default", async ({ page }) => {
 test("asking a question renders an answer and syncs ?q=", async ({ page }) => {
   await stubGenerate(page);
   await page.goto("/");
+  await openAskMe(page);
 
   await page.getByRole("textbox", { name: /ask a question/i }).fill("What are Noah's projects?");
   await page.getByRole("button", { name: /send question/i }).click();
@@ -156,6 +161,7 @@ test("reload with ?q= reproduces the answer", async ({ page }) => {
 test("↺ home restores the default canvas", async ({ page }) => {
   await stubGenerate(page);
   await page.goto("/");
+  await openAskMe(page);
 
   await page.getByRole("textbox", { name: /ask a question/i }).fill("Tell me about Noah");
   await page.getByRole("button", { name: /send question/i }).click();
@@ -173,6 +179,7 @@ test("asking a question progressively assembles an NDJSON answer and steers the 
 }) => {
   await stubGenerateStream(page);
   await page.goto("/");
+  await openAskMe(page);
 
   await page.getByRole("textbox", { name: /ask a question/i }).fill("What are Noah's projects?");
   await page.getByRole("button", { name: /send question/i }).click();
@@ -200,6 +207,7 @@ test("asking a question progressively assembles an NDJSON answer and steers the 
 test("a 500 from /api/generate falls back to home + shows an error", async ({ page }) => {
   await stubGenerateError(page);
   await page.goto("/");
+  await openAskMe(page);
 
   await page.getByRole("textbox", { name: /ask a question/i }).fill("break it");
   await page.getByRole("button", { name: /send question/i }).click();
@@ -213,6 +221,7 @@ test("a 500 from /api/generate falls back to home + shows an error", async ({ pa
 test("malformed NDJSON falls back to home and clears the shared query", async ({ page }) => {
   await stubGenerateMalformedStream(page);
   await page.goto("/");
+  await openAskMe(page);
 
   await page.getByRole("textbox", { name: /ask a question/i }).fill("break the stream");
   await page.getByRole("button", { name: /send question/i }).click();

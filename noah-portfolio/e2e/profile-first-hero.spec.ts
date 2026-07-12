@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+test.use({ hasTouch: true });
+
 const VIEWPORTS = [
   { width: 390, height: 844 },
   { width: 768, height: 1024 },
@@ -26,6 +28,17 @@ test("the profile-first hero keeps its complete composition inside every referen
       const spotify = document.querySelector<HTMLElement>("[data-testid='compact-spotify']")!;
       const portraitBox = portrait.getBoundingClientRect();
       const spotifyBox = spotify.getBoundingClientRect();
+      const blocks = Array.from(document.querySelectorAll<HTMLElement>(".profile-hero-grid > *"));
+      const support = Array.from(document.querySelectorAll<HTMLElement>(".profile-support"));
+      const overlapsPortrait = support.some((element) => {
+        const box = element.getBoundingClientRect();
+        return !(
+          box.right <= portraitBox.left ||
+          box.left >= portraitBox.right ||
+          box.bottom <= portraitBox.top ||
+          box.top >= portraitBox.bottom
+        );
+      });
 
       return {
         documentWidth: document.documentElement.scrollWidth,
@@ -34,6 +47,11 @@ test("the profile-first hero keeps its complete composition inside every referen
         portraitHeight: portraitBox.height,
         spotifyLeft: spotifyBox.left,
         spotifyRight: spotifyBox.right,
+        allBlocksContained: blocks.every((element) => {
+          const box = element.getBoundingClientRect();
+          return box.width > 0 && box.height > 0 && box.left >= 0 && box.right <= window.innerWidth;
+        }),
+        overlapsPortrait,
       };
     });
 
@@ -46,6 +64,8 @@ test("the profile-first hero keeps its complete composition inside every referen
     expect(layout.spotifyRight, `${viewport.width} Spotify right edge`).toBeLessThanOrEqual(
       layout.viewportWidth,
     );
+    expect(layout.allBlocksContained, `${viewport.width} hero block containment`).toBe(true);
+    expect(layout.overlapsPortrait, `${viewport.width} portrait obstruction`).toBe(false);
   }
 });
 
@@ -61,8 +81,7 @@ test("actions are unique, labelled, touch-sized, and follow semantic keyboard or
     hero.getByRole("link", { name: "Visit Noah on LinkedIn" }),
     hero.getByRole("button", { name: "Toggle color theme" }),
     hero.getByRole("button", { name: "Show Noah's listening context" }),
-    hero.getByRole("textbox", { name: "Ask a question about Noah" }),
-    hero.getByRole("button", { name: "Send question" }),
+    hero.getByRole("button", { name: "Open Ask-Me" }),
   ];
 
   for (const action of actions) {
@@ -72,14 +91,25 @@ test("actions are unique, labelled, touch-sized, and follow semantic keyboard or
     expect(box!.height).toBeGreaterThanOrEqual(44);
   }
 
-  await page.keyboard.press("Tab");
-  await expect(actions[0]).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(actions[1]).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(actions[2]).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(actions[3]).toBeFocused();
+  for (const action of actions) {
+    await page.keyboard.press("Tab");
+    await expect(action).toBeFocused();
+    const outline = await action.evaluate((element) => getComputedStyle(element).outlineStyle);
+    expect(outline).not.toBe("none");
+  }
+});
+
+test("Ask-Me expands from a compact entry point and restores keyboard focus", async ({ page }) => {
+  await gotoHero(page);
+  const hero = page.getByRole("region", { name: "Noah Rijkaard" });
+  const launcher = hero.getByRole("button", { name: "Open Ask-Me" });
+
+  await expect(hero.getByRole("textbox", { name: "Ask a question about Noah" })).toHaveCount(0);
+  await launcher.focus();
+  await page.keyboard.press("Enter");
+  await expect(hero.getByRole("textbox", { name: "Ask a question about Noah" })).toBeFocused();
+  await hero.getByRole("button", { name: "Close Ask-Me" }).click();
+  await expect(launcher).toBeFocused();
 });
 
 test("theme and compact Spotify controls expose predictable pressed states", async ({ page }) => {
@@ -88,13 +118,21 @@ test("theme and compact Spotify controls expose predictable pressed states", asy
 
   const theme = hero.getByRole("button", { name: "Toggle color theme" });
   await expect(theme).toHaveAttribute("aria-pressed", "true");
+  const darkSurface = await hero.locator(".hero-panel").first().evaluate((element) =>
+    getComputedStyle(element).backgroundColor,
+  );
   await theme.click();
   await expect(theme).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator("html")).toHaveClass(/light/);
+  const lightSurface = await hero.locator(".hero-panel").first().evaluate((element) =>
+    getComputedStyle(element).backgroundColor,
+  );
+  expect(darkSurface).toBe("rgb(43, 40, 48)");
+  expect(lightSurface).toBe("rgb(255, 253, 248)");
 
   const spotify = hero.getByRole("button", { name: "Show Noah's listening context" });
   await expect(spotify).toHaveAttribute("aria-expanded", "false");
-  await spotify.click();
+  await spotify.tap();
   await expect(hero.getByRole("button", { name: "Hide Noah's listening context" })).toHaveAttribute(
     "aria-expanded",
     "true",
