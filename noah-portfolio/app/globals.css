@@ -291,15 +291,95 @@ body {
 }
 
 @utility hero-panel {
-  border: 1px solid hsl(var(--border) / 0.82);
+  border: 1px solid rgb(55 48 74 / 0.1);
   border-radius: 1.5rem;
-  background:
-    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--card) / 0.94)),
-    radial-gradient(circle at 15% 10%, hsl(var(--primary) / 0.08), transparent 38%);
-  box-shadow:
-    0 22px 54px -36px rgba(50, 41, 67, 0.42),
-    inset 0 1px 0 hsl(var(--foreground) / 0.06);
+  background: #fffdf8;
+  box-shadow: 0 16px 40px -24px rgba(58, 51, 69, 0.35);
   color: hsl(var(--card-foreground));
+}
+
+.dark .hero-panel {
+  border-color: rgb(255 255 255 / 0.1);
+  background: #2b2830;
+}
+
+.profile-hero-grid {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-areas:
+    "identity"
+    "nav"
+    "portrait"
+    "contact"
+    "listening"
+    "ask";
+}
+
+.profile-identity { grid-area: identity; }
+.profile-nav { grid-area: nav; }
+.profile-portrait-cell { grid-area: portrait; }
+.profile-contact { grid-area: contact; }
+.profile-listening { grid-area: listening; }
+.profile-ask { grid-area: ask; }
+
+.hero-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid hsl(var(--border) / 0.88);
+  background: hsl(var(--card));
+  color: #5646a8;
+  box-shadow: 0 14px 30px -24px rgba(58, 51, 69, 0.42);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.hero-action:hover,
+.hero-action[aria-pressed="true"],
+.hero-action[aria-expanded="true"] {
+  border-color: hsl(var(--ring) / 0.55);
+  box-shadow: 0 18px 36px -25px rgba(58, 51, 69, 0.5);
+}
+
+.dark .hero-action {
+  color: #9d8ff2;
+}
+
+.hero-action:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.hero-action:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.hero-action:focus-visible {
+  outline: 3px solid hsl(var(--ring) / 0.34);
+  outline-offset: 3px;
+}
+
+@media (min-width: 1024px) {
+  .profile-hero-grid {
+    min-height: calc(100vh - 5rem);
+    grid-template-columns: minmax(15rem, 0.78fr) minmax(25rem, 1.35fr) minmax(16rem, 0.82fr);
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      "identity portrait nav"
+      "contact portrait listening"
+      "contact portrait ask";
+    align-items: center;
+    gap: clamp(1.25rem, 2.4vw, 3.5rem);
+  }
+
+  .profile-portrait-cell {
+    align-self: center;
+  }
+}
+
+@media (min-width: 1800px) {
+  .profile-hero-grid {
+    grid-template-columns: minmax(17rem, 0.8fr) minmax(30rem, 1.3fr) minmax(18rem, 0.8fr);
+  }
 }
 
 @utility hero-chip {
@@ -416,5 +496,9 @@ body {
   .hero-float-fast {
     animation: none !important;
     transform: none !important;
+  }
+
+  .hero-action {
+    transition: none;
   }
 }

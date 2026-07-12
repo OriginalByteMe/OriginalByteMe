@@ -63,7 +63,7 @@ describe("extraComponents", () => {
         <SpotifyNowPlaying />
       </Provider>,
     );
-    expect(screen.getByRole("button", { name: /click here to see some cool spotify magic/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /show noah's listening context/i })).toBeInTheDocument();
   });
 
   it("SideProjects renders both the 3D printing and blog cards", () => {

@@ -17,7 +17,7 @@ export default async function Home({ searchParams }: HomeProps) {
       <div className="relative z-10">
         <AskMeProvider initialQuery={initialQuery}>
           <Hero />
-          <PortfolioCanvas />
+          <div id="story"><PortfolioCanvas /></div>
         </AskMeProvider>
       </div>
     </main>

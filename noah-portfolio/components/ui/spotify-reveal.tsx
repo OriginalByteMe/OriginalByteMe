@@ -26,34 +26,32 @@ export default function SpotifyReveal() {
   };
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="mt-3 flex min-w-0 flex-col items-stretch">
       <button
         onClick={toggleOpen}
+        type="button"
+        aria-label={isOpen ? "Hide Noah's listening context" : "Show Noah's listening context"}
+        aria-expanded={isOpen}
         className={cn(
-          "flex items-center gap-3 justify-center border-2 border-emerald-200 dark:border-emerald-600 rounded-xl w-max m-2 p-3 transition-all duration-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 cursor-pointer",
-          "hover:shadow-md hover:shadow-emerald-200/30 dark:hover:shadow-emerald-600/20",
-          isOpen && "bg-emerald-50 dark:bg-emerald-950/30 shadow-md shadow-emerald-200/30 dark:shadow-emerald-600/20"
+          "hero-action min-h-11 w-full justify-between rounded-full px-4 text-sm font-medium",
+          isOpen && "border-[#5646a8]/50 dark:border-[#9d8ff2]/60"
         )}
       >
         {isOpen ? (
           <>
-            <X className="h-8 w-8 dark:text-emerald-600 text-emerald-200" />
-            <div>
-              <h1 className="text-sm font-medium dark:text-white text-gray-900">Close Spotify Magic</h1>
-            </div>
+            <span>Hide soundtrack</span>
+            <X className="size-4" strokeWidth={1.5} aria-hidden />
           </>
         ) : (
           <>
-            <Radio className="h-9 w-9 text-emerald-200 dark:text-emerald-600" strokeWidth={1.5} />
-            <div>
-              <h1 className="text-sm font-medium dark:text-white text-gray-900">Hey! Click here to see some cool Spotify Magic✨</h1>
-            </div>
+            <span>Noah&apos;s soundtrack</span>
+            <Radio className="size-4" strokeWidth={1.5} aria-hidden />
           </>
         )}
       </button>
 
       {isOpen && (
-        <div className="flex flex-wrap justify-center gap-4 w-full max-w-4xl mx-auto p-4 mt-2 transition-all duration-500 animate-in fade-in slide-in-from-top-4 bg-gray-50/50 dark:bg-gray-900/30 rounded-xl shadow-lg shadow-emerald-100/20 dark:shadow-emerald-900/10 border border-emerald-100 dark:border-emerald-900/50">
+        <div className="mt-2 flex w-full min-w-0 flex-wrap justify-center gap-3 rounded-2xl border border-[#37304a]/10 bg-[#f4ecdf] p-3 dark:border-white/10 dark:bg-[#26232c]">
           {isLoading ? (
             <div className="flex items-center justify-center p-6 w-full">
               <Loader2 className="h-8 w-8 text-emerald-500 animate-spin" />
