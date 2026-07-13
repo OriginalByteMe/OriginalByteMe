@@ -13,6 +13,8 @@ import {
   Code2,
   Briefcase,
   ArrowUpRight,
+  BookOpen,
+  Sparkles,
 } from "lucide-react";
 import type { BaseComponentProps } from "@json-render/react";
 import { useStateValue } from "@json-render/react";
@@ -43,15 +45,35 @@ const categoryIcons: Record<string, typeof Terminal> = {
   "Programming Languages": Terminal,
   "Frontend Frameworks": Layout,
   "Infrastructure & DevOps": Server,
+  "AI & LLM Tooling": Sparkles,
   Databases: Database,
 };
 
+// Pills pop in one after another once their card is on screen, and lift on
+// hover — a small "alive" treatment for the toolbox (§9.1 spring family).
+const pillEnter = {
+  hidden: { opacity: 0, scale: 0.8, y: 8 },
+  show: (i = 0) => ({
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: { delay: i * 0.04, type: "spring" as const, stiffness: 260, damping: 20 },
+  }),
+};
 
-function SkillPill({ skill, isDark }: { skill: IconRef; isDark: boolean }) {
+function SkillPill({ skill, isDark, index = 0 }: { skill: IconRef; isDark: boolean; index?: number }) {
   const src = isDark ? skill.darkImage : skill.lightImage;
 
   return (
-    <span className={CHIP}>
+    <motion.span
+      custom={index}
+      variants={pillEnter}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, amount: 0.4 }}
+      whileHover={{ scale: 1.08, y: -2 }}
+      className={CHIP}
+    >
       <Image
         src={src}
         alt={skill.name}
@@ -61,7 +83,7 @@ function SkillPill({ skill, isDark }: { skill: IconRef; isDark: boolean }) {
         unoptimized={isSvgSrc(src)}
       />
       {skill.name}
-    </span>
+    </motion.span>
   );
 }
 
@@ -146,10 +168,18 @@ export const factComponents = {
           </h3>
         ) : null}
         <div className="grid gap-4 md:grid-cols-2">
-          {categories.map(({ category, skills }) => {
+          {categories.map(({ category, skills }, cardIndex) => {
             const Icon = categoryIcons[category] ?? Code2;
             return (
-              <div key={category} className={`${SURFACE} p-6`}>
+              <motion.div
+                key={category}
+                custom={cardIndex}
+                variants={enter}
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true, amount: 0.25 }}
+                className={`${SURFACE} p-6`}
+              >
                 <span aria-hidden className={CARD_RULE} />
                 <div className="flex items-start justify-between gap-4">
                   <h4 className="flex items-center gap-2 font-serif text-xl tracking-tight text-[#37304a] dark:text-[#eae6f2]">
@@ -159,11 +189,11 @@ export const factComponents = {
                   <span className={BADGE}>{skills.length} items</span>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {skills.map((skill) => (
-                    <SkillPill key={skill.name} skill={skill} isDark={isDark} />
+                  {skills.map((skill, i) => (
+                    <SkillPill key={skill.name} skill={skill} isDark={isDark} index={i} />
                   ))}
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>
@@ -299,10 +329,33 @@ export const factComponents = {
     const email = contact?.email?.trim() ?? "";
     const github = contact?.github?.trim() ?? "";
     const linkedin = contact?.linkedin?.trim() ?? "";
+    const blog = contact?.blog?.trim() ?? "";
     const cards = [
-      ...(email ? [{ key: "email", Icon: Mail, title: "Email", href: `mailto:${email}`, label: email, external: false }] : []),
+      ...(email
+        ? [
+            {
+              key: "email",
+              Icon: Mail,
+              title: "Email",
+              href: `mailto:${email}`,
+              label: email,
+              blurb: "The fastest way to reach me — say hi, pitch an idea, ask anything.",
+              external: false,
+            },
+          ]
+        : []),
       ...(github
-        ? [{ key: "github", Icon: Github, title: "GitHub", href: github, label: github.replace(/^https?:\/\//, ""), external: true }]
+        ? [
+            {
+              key: "github",
+              Icon: Github,
+              title: "GitHub",
+              href: github,
+              label: github.replace(/^https?:\/\//, ""),
+              blurb: "Side projects, experiments, and the code behind this very site.",
+              external: true,
+            },
+          ]
         : []),
       ...(linkedin
         ? [
@@ -312,14 +365,28 @@ export const factComponents = {
               title: "LinkedIn",
               href: linkedin,
               label: linkedin.replace(/^https?:\/\//, ""),
+              blurb: "The professional trail — roles, history, and a DM inbox I check.",
+              external: true,
+            },
+          ]
+        : []),
+      ...(blog
+        ? [
+            {
+              key: "blog",
+              Icon: BookOpen,
+              title: "Blog",
+              href: blog,
+              label: blog.replace(/^https?:\/\//, ""),
+              blurb: "Tutorials, tinkering notes, and the occasional existential crisis.",
               external: true,
             },
           ]
         : []),
     ];
     return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map(({ key, Icon, title, href, label, external }, i) => (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {cards.map(({ key, Icon, title, href, label, blurb, external }, i) => (
           <motion.a
             key={key}
             custom={i}
@@ -339,7 +406,8 @@ export const factComponents = {
             </div>
             <div className="mt-7">
               <h3 className="font-serif text-3xl tracking-tight text-[#37304a] dark:text-[#eae6f2]">{title}</h3>
-              <span className="mt-3 block break-words text-base leading-relaxed text-[#5646a8] dark:text-[#c9b3ec]">{label}</span>
+              <p className="mt-2 text-pretty text-sm leading-relaxed text-[#5d5673] dark:text-[#bdb6d0]">{blurb}</p>
+              <span className="mt-3 block break-words text-sm leading-relaxed text-[#5646a8] dark:text-[#c9b3ec]">{label}</span>
             </div>
             <span className="mt-6 inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.25em] text-[#6f6885] transition-colors group-hover:text-[#5646a8] group-focus-visible:text-[#5646a8] dark:text-[#a9a2bd] dark:group-hover:text-[#c9b3ec] dark:group-focus-visible:text-[#c9b3ec]">
               {external ? "Open link" : "Send email"}

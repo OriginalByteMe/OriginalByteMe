@@ -13,6 +13,9 @@ import { cacheKey } from "@/lib/cache/key";
 import { kvGet, kvPut } from "@/lib/cache/kv";
 
 export const runtime = "nodejs";
+// The generate/validate/retry loop regularly needs more than Vercel's 10s
+// default — production was 504ing with FUNCTION_INVOCATION_TIMEOUT.
+export const maxDuration = 60;
 
 const MAX_ATTEMPTS = 3;
 const PATCH_DELAY_MS = 30;
@@ -99,8 +102,10 @@ export async function POST(req: NextRequest) {
     }
 
     const model = getModel();
+    // System prompt goes through streamText's dedicated option (not a messages
+    // entry) — the AI SDK flags system-in-messages as a prompt-injection risk.
+    const system = buildSystemPrompt();
     const messages: ModelMessage[] = [
-      { role: "system", content: buildSystemPrompt() },
       { role: "user", content: buildUserMessage(question) },
     ];
 
@@ -108,7 +113,7 @@ export async function POST(req: NextRequest) {
     let lastOutput = "";
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
-        const result = await streamText({ model, messages });
+        const result = await streamText({ model, system, messages });
         let text = "";
         for await (const delta of result.textStream) {
           text += delta;

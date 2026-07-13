@@ -31,7 +31,6 @@ export const homeSpec: Spec = {
         "career",
         "builds",
         "setup",
-        "vibe",
         "contact",
       ],
     },
@@ -133,40 +132,22 @@ export const homeSpec: Spec = {
       children: [],
     },
 
-    /* ---- Scene 06 — off the clock -------------------------------------- */
-    vibe: {
-      type: "Scene",
-      props: { id: "vibe", align: "center", accent: "mint" },
-      children: ["vibeHeading", "spotify", "funFacts"],
-    },
-    vibeHeading: {
-      type: "ChapterHeading",
-      props: { kicker: "Chapter 06", text: "Off the clock" },
-      children: [],
-    },
-    spotify: {
-      type: "SpotifyNowPlaying",
-      props: {},
-      children: [],
-    },
-    funFacts: {
-      type: "Callout",
-      props: {
-        text: "3D printing and CAD are the hands-on side of the same workflow: FDM, high-end materials, Proxmox, and Unraid keep the lab close to the work.",
-        tone: "info",
-      },
-      children: [],
-    },
-
-    /* ---- Scene 07 — contact -------------------------------------------- */
+    /* ---- Scene 06 — contact -------------------------------------------- */
     contact: {
       type: "Scene",
       props: { id: "contact", align: "center", accent: "violet" },
-      children: ["contactHeading", "contactCard"],
+      children: ["contactHeading", "contactBeat", "contactCard"],
     },
     contactHeading: {
       type: "ChapterHeading",
-      props: { kicker: "Chapter 07", text: "Say hi" },
+      props: { kicker: "Chapter 06", text: "Say hi" },
+      children: [],
+    },
+    contactBeat: {
+      type: "NarrativeBeat",
+      props: {
+        text: "Got a project, a role, or just a question about anything on this page? My inbox is open and I actually reply — pick whichever door you like.",
+      },
       children: [],
     },
     contactCard: {

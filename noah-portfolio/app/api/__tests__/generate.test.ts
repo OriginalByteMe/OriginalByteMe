@@ -177,9 +177,12 @@ describe("POST /api/generate", () => {
     const messages = secondCallArgs.messages;
     if (!Array.isArray(messages)) throw new Error("Expected messages array");
     const roles = messages.map((m) => (m && typeof m === "object" && "role" in m ? String(m.role) : ""));
-    expect(roles).toEqual(["system", "user", "assistant", "user"]);
-    expect(messages[2].content).toBe("not valid json at all");
-    expect(messages[3].content).toMatch(/invalid/i);
+    // The system prompt travels via streamText's dedicated `system` option
+    // (not a messages entry), so the retry transcript is user/assistant/user.
+    expect(roles).toEqual(["user", "assistant", "user"]);
+    expect(typeof secondCallArgs.system).toBe("string");
+    expect(messages[1].content).toBe("not valid json at all");
+    expect(messages[2].content).toMatch(/invalid/i);
   });
 
   it("returns 422 with no cache write after 3 consecutive invalid outputs", async () => {

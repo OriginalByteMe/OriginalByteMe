@@ -98,7 +98,6 @@ describe("homeSpec end-to-end render", () => {
       "Where I've been",
       "Things I've built",
       "The rig",
-      "Off the clock",
       "Say hi",
     ]) {
       expect(screen.getByRole("heading", { name })).toBeInTheDocument();
@@ -140,8 +139,7 @@ describe("homeSpec end-to-end render", () => {
       { name: "Where I've been", blocks: 2 },
       { name: "Things I've built", blocks: 2 },
       { name: "The rig", blocks: 3 },
-      { name: "Off the clock", blocks: 3 },
-      { name: "Say hi", blocks: 2 },
+      { name: "Say hi", blocks: 3 },
     ]) {
       const heading = screen.getByRole("heading", { name });
       const section = heading.closest("section");
@@ -183,13 +181,14 @@ describe("homeSpec end-to-end render", () => {
 
     for (const category of [
       "Programming Languages",
+      "AI & LLM Tooling",
       "Frontend Frameworks",
       "Infrastructure & DevOps",
       "Databases",
     ]) {
       expect(toolboxQueries.getByRole("heading", { name: category })).toBeInTheDocument();
     }
-    expect(toolboxQueries.getAllByRole("heading", { level: 4 })).toHaveLength(4);
+    expect(toolboxQueries.getAllByRole("heading", { level: 4 })).toHaveLength(5);
 
     for (const skill of [
       "Ruby",
@@ -198,6 +197,12 @@ describe("homeSpec end-to-end render", () => {
       "TypeScript",
       "React",
       "Bash",
+      "Node.js",
+      "LangChain",
+      "Langfuse",
+      "Ollama",
+      "Hugging Face",
+      "OpenRouter",
       "Next.js",
       "Ruby on Rails",
       "Tailwind CSS",
@@ -215,15 +220,20 @@ describe("homeSpec end-to-end render", () => {
     ]) {
       expect(toolboxQueries.getByText(skill)).toBeInTheDocument();
     }
-    expect(toolboxQueries.getAllByRole("img")).toHaveLength(20);
+    expect(toolboxQueries.getAllByRole("img")).toHaveLength(26);
 
     expect(screen.getByText("Bowiq")).toBeInTheDocument();
     expect(screen.queryByText("Bowiac")).not.toBeInTheDocument();
 
-    for (const project of ["AI Image Cutout Tool", "LLM Comparison app"]) {
+    for (const project of [
+      "AI Image Cutout Tool",
+      "LLM Comparison app",
+      "Moodify",
+      "Ask-Me Portfolio",
+    ]) {
       expect(screen.getByRole("heading", { name: project })).toBeInTheDocument();
     }
-    expect(buildsQueries.getAllByRole("link")).toHaveLength(2);
+    expect(buildsQueries.getAllByRole("link")).toHaveLength(4);
 
     for (const operatingSystem of ["Linux", "Debian", "Ubuntu", "Windows", "WSL2"]) {
       expect(operatingSystemQueries.getByAltText(operatingSystem)).toBeInTheDocument();
@@ -241,7 +251,11 @@ describe("homeSpec end-to-end render", () => {
       "href",
       "https://www.linkedin.com/in/noah-rijkaard/",
     );
-    expect(contactQueries.getAllByRole("link")).toHaveLength(3);
+    expect(screen.getByRole("link", { name: /blog\.noahrijkaard\.com/i })).toHaveAttribute(
+      "href",
+      "https://blog.noahrijkaard.com",
+    );
+    expect(contactQueries.getAllByRole("link")).toHaveLength(4);
   });
 
   it("binds the career chapter to the production Corpus state path", () => {
