@@ -92,7 +92,7 @@ describe("usePortfolioCanvas", () => {
     act(() => stream.push(ANSWER_PATCHES[2]));
     await waitFor(() => expect(result.current.spec.elements.main).toEqual(ANSWER_SPEC.elements.main));
     expect(result.current.mode).toBe("streaming");
-    expect(store.getState().backdrop.preset).toBe("softField");
+    expect(store.getState().backdrop.preset).toBe("ditherViolet");
 
     await act(async () => {
       stream.close();
@@ -108,7 +108,7 @@ describe("usePortfolioCanvas", () => {
     expect(result.current.spec).toBe(homeSpec);
     expect(result.current.question).toBe("");
     expect(window.location.search).toBe("");
-    expect(store.getState().backdrop.preset).toBe("softField");
+    expect(store.getState().backdrop.preset).toBe("ditherViolet");
   });
 
   it("accepts a validated cached full spec and applies its allowlisted backdrop preset", async () => {
@@ -154,7 +154,7 @@ describe("usePortfolioCanvas", () => {
     expect(result.current.spec).toBe(homeSpec);
     expect(result.current.error).toMatch(/malformed patch data/i);
     expect(window.location.search).toBe("");
-    expect(store.getState().backdrop.preset).toBe("softField");
+    expect(store.getState().backdrop.preset).toBe("ditherViolet");
   });
 
   it("falls back to home with the server message for an HTTP error", async () => {
@@ -177,7 +177,30 @@ describe("usePortfolioCanvas", () => {
     expect(result.current.mode).toBe("home");
     expect(result.current.error).toBe("generation unavailable");
     expect(window.location.search).toBe("");
-    expect(store.getState().backdrop.preset).toBe("softField");
+    expect(store.getState().backdrop.preset).toBe("ditherViolet");
+  });
+
+  it("goHome replays the home spec patch-by-patch before landing on the canonical object", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn());
+    const store = makeStore();
+    const { result } = renderHook(() => usePortfolioCanvas(), { wrapper: wrapperFor(store) });
+
+    act(() => result.current.goHome());
+
+    // Mode flips home immediately, but the spec starts rebuilding from scratch.
+    expect(result.current.mode).toBe("home");
+    expect(result.current.spec).not.toBe(homeSpec);
+    expect(Object.keys(result.current.spec.elements).length).toBeLessThan(
+      Object.keys(homeSpec.elements).length,
+    );
+
+    // Play the whole local replay out; it must land on homeSpec by identity.
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.spec).toBe(homeSpec);
+    expect(store.getState().backdrop.preset).toBe("ditherViolet");
   });
 
   it("does not let an in-flight stream restore an answer after reset", async () => {
@@ -204,7 +227,7 @@ describe("usePortfolioCanvas", () => {
     expect(result.current.question).toBe("");
     expect(result.current.error).toBeNull();
     expect(window.location.search).toBe("");
-    expect(store.getState().backdrop.preset).toBe("softField");
+    expect(store.getState().backdrop.preset).toBe("ditherViolet");
   });
 
   it("completes an initial query once through StrictMode effect replay", async () => {

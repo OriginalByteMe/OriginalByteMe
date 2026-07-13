@@ -106,7 +106,7 @@ describe("POST /api/generate", () => {
     expect(streamTextMock).not.toHaveBeenCalled();
   });
 
-  it("returns the cached spec on a cache hit without calling the model", async () => {
+  it("streams the cached spec on a cache hit without calling the model", async () => {
     const question = "What have you built?";
     kvGetMock.mockResolvedValue(JSON.stringify({ spec: VALID_SPEC }));
 
@@ -114,8 +114,9 @@ describe("POST /api/generate", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("x-cache")).toBe("hit");
-    const body: unknown = await res.json();
-    expect(body && typeof body === "object" && "spec" in body && body.spec).toEqual(VALID_SPEC);
+    // Cache hits stream as patch lines too, so answers always assemble live.
+    expect(res.headers.get("content-type")).toContain("application/x-ndjson");
+    expect(await streamToSpec(res)).toEqual(VALID_SPEC);
     expect(streamTextMock).not.toHaveBeenCalled();
     expect(kvGetMock).toHaveBeenCalledWith(cacheKey(question));
   });

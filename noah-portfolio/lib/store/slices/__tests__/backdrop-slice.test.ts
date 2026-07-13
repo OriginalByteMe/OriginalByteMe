@@ -8,10 +8,10 @@ import {
 } from "@/lib/store/slices/backdrop-slice";
 
 describe("backdrop slice (wired through makeStore)", () => {
-  it("initialises backdrop.preset to softField", () => {
+  it("initialises backdrop.preset to ditherViolet", () => {
     const store = makeStore();
-    expect(store.getState().backdrop.preset).toBe("softField");
-    expect(selectBackdropPreset(store.getState())).toBe("softField");
+    expect(store.getState().backdrop.preset).toBe("ditherViolet");
+    expect(selectBackdropPreset(store.getState())).toBe("ditherViolet");
   });
 
   it("applies a valid preset name", () => {
@@ -35,7 +35,7 @@ describe("backdrop slice (wired through makeStore)", () => {
     const store = makeStore();
     store.dispatch(setBackdropPreset("nightMatte"));
     store.dispatch(resetBackdropPreset());
-    expect(store.getState().backdrop.preset).toBe("softField");
-    expect(selectBackdropPreset(store.getState())).toBe("softField");
+    expect(store.getState().backdrop.preset).toBe("ditherViolet");
+    expect(selectBackdropPreset(store.getState())).toBe("ditherViolet");
   });
 });

@@ -108,44 +108,44 @@ describe("Backdrop", () => {
     const backdrop = screen.getByTestId("backdrop");
     expect(backdrop).toBeInTheDocument();
     expect(backdrop).toHaveAttribute("aria-hidden");
-    // softField fallbackClass
-    expect(backdrop.className).toContain("bg-gradient-to-br");
+    // ditherViolet fallbackClass
+    expect(backdrop.className).toContain("bg-gradient-to-b");
     expect(backdrop.className).toContain("dark:");
   });
 
   it("(a) renders gradient only under prefers-reduced-motion, no canvas", () => {
     stubMatchMedia({ reducedMotion: true });
     renderBackdrop();
-    expect(screen.queryByTestId("grain")).not.toBeInTheDocument();
-    expect(screen.getByTestId("backdrop").className).toContain("bg-gradient-to-br");
+    expect(screen.queryByTestId("dither")).not.toBeInTheDocument();
+    expect(screen.getByTestId("backdrop").className).toContain("bg-gradient-to-b");
   });
 
   it("(b) renders gradient only when WebGL2 is unsupported, no canvas", () => {
     mockSupportsWebGL2.mockReturnValue(false);
     renderBackdrop();
-    expect(screen.queryByTestId("grain")).not.toBeInTheDocument();
-    expect(screen.getByTestId("backdrop").className).toContain("bg-gradient-to-br");
+    expect(screen.queryByTestId("dither")).not.toBeInTheDocument();
+    expect(screen.getByTestId("backdrop").className).toContain("bg-gradient-to-b");
   });
 
-  it("(c) renders exactly one shader canvas with the default wave shape", () => {
+  it("(c) renders exactly one shader canvas with the default dither wave shape", () => {
     renderBackdrop();
-    const grains = screen.getAllByTestId("grain");
-    expect(grains).toHaveLength(1);
-    expect(grains[0]).toHaveAttribute("data-shape", "wave");
+    const dithers = screen.getAllByTestId("dither");
+    expect(dithers).toHaveLength(1);
+    expect(dithers[0]).toHaveAttribute("data-shape", "wave");
   });
 
-  it("(d) fades to a single sphere canvas after a nightMatte dispatch", () => {
+  it("(d) cross-fades to a single grain sphere canvas after a nightMatte dispatch", () => {
     vi.useFakeTimers();
     const { store } = renderBackdrop();
 
-    expect(screen.getByTestId("grain")).toHaveAttribute("data-shape", "wave");
+    expect(screen.getByTestId("dither")).toHaveAttribute("data-shape", "wave");
 
     act(() => {
       store.dispatch(setBackdropPreset("nightMatte"));
     });
 
     // During the cross-fade the old + new slots may coexist (never more than 2).
-    const during = screen.getAllByTestId("grain");
+    const during = screen.getAllByTestId(/dither|grain/);
     expect(during.length).toBeGreaterThanOrEqual(1);
     expect(during.length).toBeLessThanOrEqual(2);
 
@@ -154,9 +154,30 @@ describe("Backdrop", () => {
       vi.advanceTimersByTime(800);
     });
 
+    expect(screen.queryByTestId("dither")).not.toBeInTheDocument();
     const after = screen.getAllByTestId("grain");
     expect(after).toHaveLength(1);
     expect(after[0]).toHaveAttribute("data-shape", "sphere");
+  });
+
+  it("tweens dither-flow siblings on one canvas instead of cross-fading", () => {
+    vi.useFakeTimers();
+    const { store } = renderBackdrop();
+
+    expect(screen.getAllByTestId("dither")).toHaveLength(1);
+
+    act(() => {
+      store.dispatch(setBackdropPreset("ditherSky"));
+    });
+
+    // Same shader/shape/color count -> single canvas throughout the tween.
+    expect(screen.getAllByTestId("dither")).toHaveLength(1);
+
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    expect(screen.getAllByTestId("dither")).toHaveLength(1);
   });
 
   it("collapses an interrupted shape cross-fade to the latest shader", () => {
@@ -167,7 +188,7 @@ describe("Backdrop", () => {
       store.dispatch(setBackdropPreset("nightMatte"));
     });
 
-    const crossFade = screen.getAllByTestId("grain");
+    const crossFade = screen.getAllByTestId(/dither|grain/);
     expect(crossFade).toHaveLength(2);
     expect(crossFade[0]).toHaveAttribute("data-shape", "wave");
     expect(crossFade[1]).toHaveAttribute("data-shape", "sphere");
@@ -181,7 +202,7 @@ describe("Backdrop", () => {
     expect(interrupted[0]).toHaveAttribute("data-shape", "sphere");
 
     act(() => {
-      vi.advanceTimersByTime(800);
+      vi.advanceTimersByTime(1200);
     });
 
     const afterTween = screen.getAllByTestId("grain");
@@ -190,24 +211,24 @@ describe("Backdrop", () => {
     expect(afterTween[0]).toHaveAttribute("data-colorback", "#e9e7ef");
   });
 
-  it("cross-fades to a different shader family (metaballs) and back drops the old canvas", () => {
+  it("cross-fades to a different shader family (metaballs) and drops the old canvas", () => {
     vi.useFakeTimers();
     const { store } = renderBackdrop();
 
-    expect(screen.getByTestId("grain")).toBeInTheDocument();
+    expect(screen.getByTestId("dither")).toBeInTheDocument();
 
     act(() => {
       store.dispatch(setBackdropPreset("metaOrbs"));
     });
 
     // During the cross-fade both canvases coexist.
-    expect(screen.getAllByTestId(/grain|metaballs/)).toHaveLength(2);
+    expect(screen.getAllByTestId(/dither|metaballs/)).toHaveLength(2);
 
     act(() => {
       vi.advanceTimersByTime(800);
     });
 
-    expect(screen.queryByTestId("grain")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("dither")).not.toBeInTheDocument();
     const metaballs = screen.getByTestId("metaballs");
     // metaOrbs dark colorBack
     expect(metaballs).toHaveAttribute("data-colorback", "#141319");
@@ -216,7 +237,7 @@ describe("Backdrop", () => {
   it("(e-dark) passes the dark palette colorBack to the shader", () => {
     // beforeEach pins theme=dark; no theme change -> stable colorBack.
     renderBackdrop();
-    expect(screen.getByTestId("grain")).toHaveAttribute("data-colorback", "#222026");
+    expect(screen.getByTestId("dither")).toHaveAttribute("data-colorback", "#1a1721");
   });
 
   it("(e-light) passes the light palette colorBack to the shader", async () => {
@@ -226,7 +247,7 @@ describe("Backdrop", () => {
     renderBackdrop();
     await waitFor(
       () => {
-        expect(screen.getByTestId("grain")).toHaveAttribute("data-colorback", "#f7f2e7");
+        expect(screen.getByTestId("dither")).toHaveAttribute("data-colorback", "#f7f2e7");
       },
       { timeout: 2000 },
     );

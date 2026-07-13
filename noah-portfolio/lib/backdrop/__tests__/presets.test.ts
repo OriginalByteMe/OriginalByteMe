@@ -11,7 +11,13 @@ import {
 const HEX = /^#[0-9a-f]{6}$/i;
 const THEMES = ["light", "dark"] as const;
 const ALL_NAMES = [
+  "ditherEmber",
+  "ditherIndigo",
+  "ditherMint",
+  "ditherRose",
+  "ditherSky",
   "ditherTide",
+  "ditherViolet",
   "meshBloom",
   "metaOrbs",
   "nightMatte",
@@ -37,10 +43,33 @@ describe("backdrop presets registry", () => {
     expect(BACKDROP_PRESETS.metaOrbs.shader).toBe("metaballs");
     expect(BACKDROP_PRESETS.panelParade.shader).toBe("colorPanels");
     expect(BACKDROP_PRESETS.ditherTide.shader).toBe("dithering");
+    expect(BACKDROP_PRESETS.ditherViolet.shader).toBe("dithering");
   });
 
-  it("defaults to softField", () => {
-    expect(DEFAULT_BACKDROP_PRESET).toBe("softField");
+  it("keeps the dither-flow series on one shared geometry so chapters tween, not cross-fade", () => {
+    const series = [
+      BACKDROP_PRESETS.ditherViolet,
+      BACKDROP_PRESETS.ditherSky,
+      BACKDROP_PRESETS.ditherEmber,
+      BACKDROP_PRESETS.ditherMint,
+      BACKDROP_PRESETS.ditherRose,
+      BACKDROP_PRESETS.ditherIndigo,
+    ];
+    for (const preset of series) {
+      expect(preset.shader).toBe("dithering");
+      if (preset.shader !== "dithering") continue;
+      expect(preset.shape).toBe("wave");
+      expect(preset.type).toBe("4x4");
+      expect(preset.palette.light.colors).toHaveLength(1);
+      expect(preset.palette.dark.colors).toHaveLength(1);
+      // One consistent paper base per theme across the whole series.
+      expect(preset.palette.light.colorBack).toBe(BACKDROP_PRESETS.ditherViolet.palette.light.colorBack);
+      expect(preset.palette.dark.colorBack).toBe(BACKDROP_PRESETS.ditherViolet.palette.dark.colorBack);
+    }
+  });
+
+  it("defaults to ditherViolet (the home story's hero preset)", () => {
+    expect(DEFAULT_BACKDROP_PRESET).toBe("ditherViolet");
     expect(BACKDROP_PRESETS[DEFAULT_BACKDROP_PRESET]).toBeDefined();
   });
 
@@ -79,7 +108,7 @@ describe("resolveBackdropPreset", () => {
       | undefined
     )[]) {
       expect(resolveBackdropPreset(bad)).toBe(def);
-      expect(resolveBackdropPreset(bad).name).toBe("softField");
+      expect(resolveBackdropPreset(bad).name).toBe("ditherViolet");
     }
   });
 });

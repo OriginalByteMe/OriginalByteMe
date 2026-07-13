@@ -1,7 +1,6 @@
-import Hero from "@/components/Hero";
 import Backdrop from "@/components/Backdrop";
 import BackdropSceneSync from "@/components/BackdropSceneSync";
-import PortfolioCanvas from "@/components/PortfolioCanvas";
+import SiteShell from "@/components/SiteShell";
 import { AskMeProvider } from "@/components/AskMeProvider";
 import { normalizePortfolioQuery } from "@/lib/portfolio-query";
 
@@ -18,8 +17,7 @@ export default async function Home({ searchParams }: HomeProps) {
       <div className="relative z-10">
         <AskMeProvider initialQuery={initialQuery}>
           <BackdropSceneSync />
-          <Hero />
-          <div id="story"><PortfolioCanvas /></div>
+          <SiteShell />
         </AskMeProvider>
       </div>
     </main>

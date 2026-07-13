@@ -5,10 +5,10 @@ import {
   autoFixSpec,
   formatSpecIssues,
   type Spec,
-  type JsonPatch,
 } from "@json-render/core";
 import { getModel } from "@/lib/llm/openrouter";
 import { buildSystemPrompt, buildUserMessage } from "@/lib/llm/prompt";
+import { specToPatches } from "@/lib/jsonui/spec-patches";
 import { cacheKey } from "@/lib/cache/key";
 import { kvGet, kvPut } from "@/lib/cache/kv";
 
@@ -47,21 +47,6 @@ function looksLikeSpec(parsed: unknown): parsed is Spec {
   );
 }
 
-function escapePointerToken(token: string): string {
-  return token.replaceAll("~", "~0").replaceAll("/", "~1");
-}
-
-/** Generate one RFC 6902 JSON Patch per element so the UI self-assembles. */
-function* specToPatches(spec: Spec): Generator<JsonPatch> {
-  yield { op: "add", path: "/root", value: spec.root };
-  if (spec.state && typeof spec.state === "object" && !Array.isArray(spec.state)) {
-    yield { op: "add", path: "/state", value: spec.state };
-  }
-  for (const [key, element] of Object.entries(spec.elements)) {
-    yield { op: "add", path: `/elements/${escapePointerToken(key)}`, value: element };
-  }
-}
-
 /** Stream a validated spec as newline-delimited JSON Patch lines. */
 function patchStream(spec: Spec, delayMs = PATCH_DELAY_MS): ReadableStream<Uint8Array> {
   return new ReadableStream({
@@ -98,7 +83,20 @@ export async function POST(req: NextRequest) {
     const key = cacheKey(question);
     const cached = await kvGet(key);
     if (cached) {
-      return NextResponse.json(JSON.parse(cached), { status: 200, headers: { "x-cache": "hit" } });
+      // Cache hits stream exactly like fresh generations so the answer is
+      // always "built live" in front of the visitor; a malformed cache entry
+      // falls through to regeneration instead of serving garbage.
+      const parsed: unknown = JSON.parse(cached);
+      const cachedSpec =
+        parsed && typeof parsed === "object" && "spec" in parsed ? parsed.spec : null;
+      if (looksLikeSpec(cachedSpec)) {
+        return new Response(patchStream(cachedSpec, PATCH_DELAY_MS), {
+          headers: {
+            "Content-Type": "application/x-ndjson",
+            "x-cache": "hit",
+          },
+        });
+      }
     }
 
     const model = getModel();

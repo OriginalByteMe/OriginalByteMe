@@ -8,22 +8,24 @@ import type { BackdropPresetName } from '@/lib/backdrop/presets';
 import { useAskMe } from './AskMeProvider';
 
 /**
- * Steers the single Backdrop through the preset allowlist as the visitor
- * scrolls the home story — each chapter gets its own shader family, so the
- * background is a moving tour of the paper-shaders catalog (grain gradient →
- * color panels → mesh gradient → metaballs → dithering → grain sphere).
+ * Steers the single Backdrop through the "dither flow" series as the visitor
+ * scrolls the home story. Every chapter preset shares ONE wave-dither
+ * geometry, so each hand-off is a smooth color tween on the same canvas —
+ * a continuously moving background whose ink hue drifts with the story,
+ * starting at the hero itself.
  *
  * Only active in home mode: generated answers pick their own preset via the
  * spec's "/backdrop/preset" state (usePortfolioCanvas applies it), and this
  * observer must not fight that choice.
  */
 const SCENE_PRESETS: Record<string, BackdropPresetName> = {
-  intro: 'softField',
-  stack: 'panelParade',
-  career: 'meshBloom',
-  builds: 'metaOrbs',
-  setup: 'ditherTide',
-  contact: 'nightMatte',
+  hero: 'ditherViolet',
+  intro: 'ditherViolet',
+  stack: 'ditherSky',
+  career: 'ditherEmber',
+  builds: 'ditherMint',
+  setup: 'ditherRose',
+  contact: 'ditherIndigo',
 };
 
 export default function BackdropSceneSync() {
@@ -34,31 +36,46 @@ export default function BackdropSceneSync() {
     if (mode !== 'home') return;
     if (typeof IntersectionObserver === 'undefined') return;
 
-    let observer: IntersectionObserver | null = null;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (!visible) return;
+        const presetName = SCENE_PRESETS[visible.target.id];
+        if (presetName) dispatch(setBackdropPreset(presetName));
+      },
+      // Fires as a chapter fills the middle of the viewport.
+      { threshold: 0.4 },
+    );
+
     // Bind after the home<->answer cross-fade (350ms) settles so we observe
     // the live sections, not exiting AnimatePresence clones with the same ids.
-    const bindTimer = window.setTimeout(() => {
-      observer = new IntersectionObserver(
-        (entries) => {
-          const visible = entries
-            .filter((e) => e.isIntersecting)
-            .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-          if (!visible) return;
-          const presetName = SCENE_PRESETS[visible.target.id];
-          if (presetName) dispatch(setBackdropPreset(presetName));
-        },
-        // Fires as a chapter fills the middle of the viewport.
-        { threshold: 0.4 },
-      );
+    // The home spec can also stream in progressively (the "rebuild" return
+    // path), so keep retrying until every chapter section exists.
+    const bound = new Set<string>();
+    let retryTimer: number | undefined;
+    let attempts = 0;
+    const bind = () => {
       for (const id of Object.keys(SCENE_PRESETS)) {
+        if (bound.has(id)) continue;
         const section = document.getElementById(id);
-        if (section) observer.observe(section);
+        if (section) {
+          observer.observe(section);
+          bound.add(id);
+        }
       }
-    }, 450);
+      attempts += 1;
+      if (bound.size < Object.keys(SCENE_PRESETS).length && attempts < 12) {
+        retryTimer = window.setTimeout(bind, 500);
+      }
+    };
+    const bindTimer = window.setTimeout(bind, 450);
 
     return () => {
       window.clearTimeout(bindTimer);
-      observer?.disconnect();
+      window.clearTimeout(retryTimer);
+      observer.disconnect();
       dispatch(resetBackdropPreset());
     };
   }, [mode, dispatch]);

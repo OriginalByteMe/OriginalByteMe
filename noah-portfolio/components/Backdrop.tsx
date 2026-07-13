@@ -15,7 +15,7 @@ import { resolveBackdropPreset, type BackdropPreset } from '@/lib/backdrop/prese
 import { supportsWebGL2 } from '@/lib/backdrop/webgl';
 import { selectBackdropPreset } from '@/lib/store/slices/backdrop-slice';
 
-const TWEEN_MS = 600;
+const TWEEN_MS = 900;
 const FADE_MS = 600;
 /** Removal is timer-driven so it never depends on `transitionend` (jsdom omits it). */
 const FADE_REMOVAL_MS = 700;

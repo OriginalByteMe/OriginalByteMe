@@ -12,11 +12,20 @@ const SUGGESTIONS = [
 ];
 
 /**
- * Hero chat input that drives the whole page. Submitting a question hands off
- * to the shared canvas hook, which streams the answer into <PortfolioCanvas/>.
+ * Chat input that drives the whole page (hero panel + floating dock).
+ * Submitting a question hands off to the shared canvas hook, which streams
+ * the answer into <PortfolioCanvas/>. `onSubmitted` fires as soon as a
+ * question is dispatched so hosts (the dock) can close their panel and let
+ * the takeover streaming view shine.
  */
-export default function ChatBox({ autoFocus = false }: { autoFocus?: boolean }) {
-  const { ask, mode, reset, question } = useAskMe();
+export default function ChatBox({
+  autoFocus = false,
+  onSubmitted,
+}: {
+  autoFocus?: boolean;
+  onSubmitted?: () => void;
+}) {
+  const { ask, mode, goHome, question } = useAskMe();
   const [value, setValue] = useState("");
   const loading = mode === "streaming";
 
@@ -25,7 +34,9 @@ export default function ChatBox({ autoFocus = false }: { autoFocus?: boolean }) 
     const q = value.trim();
     if (!q || loading) return;
     setValue("");
-    await ask(q);
+    const pending = ask(q);
+    onSubmitted?.();
+    await pending;
   }
 
   return (
@@ -57,7 +68,7 @@ export default function ChatBox({ autoFocus = false }: { autoFocus?: boolean }) 
           <motion.button
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            onClick={reset}
+            onClick={goHome}
             className="min-h-11 rounded-full border border-[#d8cfbf] bg-[#fffdf8] px-3 py-2 text-xs text-[#5646a8] transition hover:bg-[#f6f4f9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5646a8] dark:border-[#5b506d] dark:bg-[#241f32] dark:text-[#c9b3ec] dark:hover:bg-[#302a42]"
           >
             ↺ Home
@@ -69,7 +80,10 @@ export default function ChatBox({ autoFocus = false }: { autoFocus?: boolean }) 
               key={s}
               type="button"
               disabled={loading}
-              onClick={() => ask(s)}
+              onClick={() => {
+                void ask(s);
+                onSubmitted?.();
+              }}
               className="min-h-11 rounded-full border border-[#d8cfbf] bg-[#fffdf8] px-3 py-2 text-xs text-[#6f6885] transition hover:bg-[#f6f4f9] hover:text-[#5646a8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5646a8] disabled:opacity-50 dark:border-[#5b506d] dark:bg-[#241f32] dark:text-[#b8b0c7] dark:hover:bg-[#302a42] dark:hover:text-[#c9b3ec]"
             >
               {s}

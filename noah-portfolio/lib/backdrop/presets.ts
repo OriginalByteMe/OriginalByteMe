@@ -19,7 +19,13 @@ export type BackdropPresetName =
   | 'meshBloom'
   | 'metaOrbs'
   | 'panelParade'
-  | 'ditherTide';
+  | 'ditherTide'
+  | 'ditherViolet'
+  | 'ditherSky'
+  | 'ditherEmber'
+  | 'ditherMint'
+  | 'ditherRose'
+  | 'ditherIndigo';
 
 export interface BackdropPalette {
   colorBack: string;
@@ -85,7 +91,79 @@ export type BackdropPreset =
   | ColorPanelsPreset
   | DitheringPreset;
 
+/**
+ * The home story's "dither flow" series: six palettes over ONE wave-dither
+ * geometry (same shader/shape/type/pxSize/speed), so scrolling between
+ * chapters tweens colors on a single canvas — a continuous, gently moving
+ * background instead of abrupt cross-fades. Light mode keeps one cream paper
+ * base; dark mode keeps one near-black base; only the ink hue shifts.
+ */
+const DITHER_FLOW = {
+  shader: 'dithering',
+  shape: 'wave',
+  type: '4x4',
+  pxSize: 3,
+  speed: 0.5,
+} as const;
+
+const DITHER_LIGHT_BACK = '#f7f2e7';
+const DITHER_DARK_BACK = '#1a1721';
+
+function ditherFlowPreset(
+  name: BackdropPresetName,
+  label: string,
+  ink: { light: string; dark: string },
+  fallbackClass: string,
+): DitheringPreset {
+  return {
+    name,
+    label,
+    ...DITHER_FLOW,
+    palette: {
+      light: { colorBack: DITHER_LIGHT_BACK, colors: [ink.light] },
+      dark: { colorBack: DITHER_DARK_BACK, colors: [ink.dark] },
+    },
+    fallbackClass,
+  };
+}
+
 export const BACKDROP_PRESETS: Record<BackdropPresetName, BackdropPreset> = {
+  ditherViolet: ditherFlowPreset(
+    'ditherViolet',
+    'Dither Flow — Violet',
+    { light: '#c3aee0', dark: '#4f4670' },
+    'bg-gradient-to-b from-[#f2ecdf] via-[#eae2ef] to-[#efe9dc] dark:from-[#1b1824] dark:via-[#201b2b] dark:to-[#191621]',
+  ),
+  ditherSky: ditherFlowPreset(
+    'ditherSky',
+    'Dither Flow — Sky',
+    { light: '#aac4e6', dark: '#3d5674' },
+    'bg-gradient-to-b from-[#eceff5] via-[#e3e9f2] to-[#eef0ea] dark:from-[#171b23] dark:via-[#1a202b] dark:to-[#171a20]',
+  ),
+  ditherEmber: ditherFlowPreset(
+    'ditherEmber',
+    'Dither Flow — Ember',
+    { light: '#ecc4a2', dark: '#6f5265' },
+    'bg-gradient-to-b from-[#f6ede2] via-[#f2e4d6] to-[#f0ebde] dark:from-[#211a1e] dark:via-[#251c22] dark:to-[#1c171d]',
+  ),
+  ditherMint: ditherFlowPreset(
+    'ditherMint',
+    'Dither Flow — Mint',
+    { light: '#a9d8c0', dark: '#476455' },
+    'bg-gradient-to-b from-[#eaf2ec] via-[#e2eee7] to-[#eef0e6] dark:from-[#161e19] dark:via-[#19231d] dark:to-[#151b17]',
+  ),
+  ditherRose: ditherFlowPreset(
+    'ditherRose',
+    'Dither Flow — Rose',
+    { light: '#eab8cc', dark: '#5d3f50' },
+    'bg-gradient-to-b from-[#f6ecf1] via-[#f2e2ea] to-[#f0eae2] dark:from-[#201720] dark:via-[#241a23] dark:to-[#1b151c]',
+  ),
+  ditherIndigo: ditherFlowPreset(
+    'ditherIndigo',
+    'Dither Flow — Indigo',
+    { light: '#b3b3e6', dark: '#3f3a66' },
+    'bg-gradient-to-b from-[#ecedf6] via-[#e4e4f2] to-[#ebeaf0] dark:from-[#17172a] dark:via-[#1b1a2e] dark:to-[#161624]',
+  ),
   softField: {
     name: 'softField',
     label: 'Soft Field',
@@ -220,7 +298,7 @@ export const BACKDROP_PRESETS: Record<BackdropPresetName, BackdropPreset> = {
   },
 };
 
-export const DEFAULT_BACKDROP_PRESET: BackdropPresetName = 'softField';
+export const DEFAULT_BACKDROP_PRESET: BackdropPresetName = 'ditherViolet';
 
 export function isBackdropPresetName(v: unknown): v is BackdropPresetName {
   return typeof v === 'string' && Object.prototype.hasOwnProperty.call(BACKDROP_PRESETS, v);

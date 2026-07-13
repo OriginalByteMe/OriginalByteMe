@@ -13,7 +13,7 @@ import {
 import { useSelector } from 'react-redux';
 import { ArrowDown, ArrowUpRight, Github, Linkedin, Mail } from 'lucide-react';
 import SpotifyReveal from './ui/spotify-reveal';
-import AskMeLauncher from './AskMeLauncher';
+import ChatBox from './ChatBox';
 import { ThemeSwitch } from './ThemeSwitch';
 import { useTheme } from './ThemeProvider';
 import { ditherPaletteFromTrack, type DitherPalette } from '@/lib/dither-palette';
@@ -155,7 +155,7 @@ function HeroPortrait() {
 
 export default function Hero() {
   return (
-    <section aria-labelledby="profile-heading" className="relative isolate overflow-hidden px-5 pb-20 pt-7 text-[#37304a] dark:text-[#eae6f2] sm:px-8 lg:min-h-screen lg:px-10 lg:py-10">
+    <section id="hero" aria-labelledby="profile-heading" className="relative isolate overflow-hidden px-5 pb-20 pt-7 text-[#37304a] dark:text-[#eae6f2] sm:px-8 lg:min-h-screen lg:px-10 lg:py-10">
       <div className="profile-hero-grid mx-auto w-full max-w-[92rem]">
         <header className="profile-identity self-end text-center lg:text-left">
           <p className="font-mono text-xs uppercase tracking-[0.3em] text-[#6f6885] dark:text-[#a9a2bd]">
@@ -203,9 +203,17 @@ export default function Hero() {
           <SpotifyReveal />
         </section>
 
-        <section id="ask-me" aria-label="Ask-Me" className="profile-ask profile-support hero-panel min-w-0 p-8">
-          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#6f6885] dark:text-[#a9a2bd]">Ask-Me</p>
-          <AskMeLauncher />
+        <section
+          id="ask-me"
+          aria-label="Ask-Me"
+          className="profile-ask profile-support hero-panel min-w-0 p-8 ring-1 ring-[#5646a8]/25 dark:ring-[#9d8ff2]/30"
+        >
+          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#5646a8] dark:text-[#c9b3ec]">Ask-Me</p>
+          <h2 className="mt-2 font-serif text-2xl tracking-tight">Ask me anything</h2>
+          <p className="mt-1 text-sm leading-relaxed text-[#5d5673] dark:text-[#bdb6d0]">
+            This portfolio answers back — it builds a page live for whatever you ask.
+          </p>
+          <ChatBox />
         </section>
       </div>
     </section>

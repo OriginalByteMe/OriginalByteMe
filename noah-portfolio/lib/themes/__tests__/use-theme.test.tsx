@@ -81,19 +81,19 @@ describe("HolidayThemeApplier", () => {
   it("drives the backdrop preset to the active theme and restores it on unmount", () => {
     vi.setSystemTime(HALLOWEEN);
     const store = makeStore();
-    expect(store.getState().backdrop.preset).toBe("softField");
+    expect(store.getState().backdrop.preset).toBe("ditherViolet");
 
     const { unmount } = renderApplier(store, "US");
     expect(store.getState().backdrop.preset).toBe("nightMatte");
 
     unmount();
-    expect(store.getState().backdrop.preset).toBe("softField");
+    expect(store.getState().backdrop.preset).toBe("ditherViolet");
   });
 
   it("leaves the default preset untouched when no theme is active", () => {
     vi.setSystemTime(ORDINARY);
     const store = makeStore();
     renderApplier(store, "US");
-    expect(store.getState().backdrop.preset).toBe("softField");
+    expect(store.getState().backdrop.preset).toBe("ditherViolet");
   });
 });

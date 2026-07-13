@@ -12,11 +12,15 @@ import {
 } from "@json-render/core";
 import { buildSpecFromParts, type DataPart } from "@json-render/react";
 import { homeSpec } from "@/lib/jsonui/homeSpec";
+import { specToPatches } from "@/lib/jsonui/spec-patches";
 import { isBackdropPresetName } from "@/lib/backdrop/presets";
 import { resetBackdropPreset, setBackdropPreset } from "@/lib/store/slices/backdrop-slice";
 import { normalizePortfolioQuery } from "@/lib/portfolio-query";
 
 export type CanvasMode = "home" | "streaming" | "answer";
+
+/** Delay between local patch replays (goHome's rebuild), ms. */
+const LOCAL_PATCH_DELAY_MS = 35;
 
 export interface PortfolioCanvas {
   /** Current view: default home, streaming a generation, or a generated answer. */
@@ -31,6 +35,8 @@ export interface PortfolioCanvas {
   ask: (question: string) => Promise<void>;
   /** Restore the default home canvas and clear the ?q= param. */
   reset: () => void;
+  /** Like reset, but replays the home spec patch-by-patch so the home story visibly rebuilds. */
+  goHome: () => void;
 }
 
 
@@ -149,6 +155,15 @@ export function usePortfolioCanvas(initialQuery = ""): PortfolioCanvas {
   const [question, setQuestion] = useState(normalizedInitialQuery);
   const [error, setError] = useState<string | null>(null);
   const requestRef = useRef<AbortController | null>(null);
+  // Timer driving a local patch replay (goHome's live home rebuild).
+  const localStreamTimer = useRef<number | null>(null);
+
+  const cancelLocalStream = useCallback(() => {
+    if (localStreamTimer.current !== null) {
+      window.clearTimeout(localStreamTimer.current);
+      localStreamTimer.current = null;
+    }
+  }, []);
 
   // Auto-dismiss a transient error a few seconds after it appears.
   useEffect(() => {
@@ -162,6 +177,7 @@ export function usePortfolioCanvas(initialQuery = ""): PortfolioCanvas {
     if (!normalized) return;
 
     requestRef.current?.abort();
+    cancelLocalStream();
     const request = new AbortController();
     requestRef.current = request;
 
@@ -265,24 +281,61 @@ export function usePortfolioCanvas(initialQuery = ""): PortfolioCanvas {
     } finally {
       if (requestRef.current === request) requestRef.current = null;
     }
-  }, [dispatch]);
+  }, [dispatch, cancelLocalStream]);
 
   const reset = useCallback(() => {
     requestRef.current?.abort();
     requestRef.current = null;
+    cancelLocalStream();
     dispatch(resetBackdropPreset());
     setQuestion("");
     setError(null);
     setSpec(homeSpec);
     setMode("home");
     setQueryParam(null);
-  }, [dispatch]);
+  }, [dispatch, cancelLocalStream]);
+
+  // Like reset, but the home story assembles patch-by-patch in front of the
+  // visitor — the same "built live" feel as a streamed answer.
+  const goHome = useCallback(() => {
+    requestRef.current?.abort();
+    requestRef.current = null;
+    cancelLocalStream();
+    dispatch(resetBackdropPreset());
+    setQuestion("");
+    setError(null);
+    setMode("home");
+    setQueryParam(null);
+    // The rebuild starts from the hero — bring the visitor with it.
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    const patches = [...specToPatches(homeSpec)];
+    const compiler = createSpecStreamCompiler<Spec>({ root: "", elements: {} });
+    setSpec({ root: "", elements: {} });
+    let index = 0;
+    const step = () => {
+      const { result } = compiler.push(`${JSON.stringify(patches[index])}\n`);
+      index += 1;
+      if (index < patches.length) {
+        setSpec(snapshotSpec(result));
+        localStreamTimer.current = window.setTimeout(step, LOCAL_PATCH_DELAY_MS);
+      } else {
+        // Land on the canonical object so home mode compares by identity.
+        localStreamTimer.current = null;
+        setSpec(homeSpec);
+      }
+    };
+    step();
+  }, [dispatch, cancelLocalStream]);
 
   useEffect(
     () => () => {
       requestRef.current?.abort();
+      cancelLocalStream();
     },
-    [],
+    [cancelLocalStream],
   );
 
   // Defer the server-seeded shared query until after StrictMode's effect
@@ -300,5 +353,5 @@ export function usePortfolioCanvas(initialQuery = ""): PortfolioCanvas {
     return () => window.clearTimeout(timer);
   }, [ask, normalizedInitialQuery]);
 
-  return { mode, spec, question, error, ask, reset };
+  return { mode, spec, question, error, ask, reset, goHome };
 }
