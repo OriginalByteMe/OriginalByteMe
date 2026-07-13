@@ -7,11 +7,23 @@ import { setBackdropPreset } from "@/lib/store/slices/backdrop-slice";
 import { ThemeProvider, useTheme } from "@/components/ThemeProvider";
 import Backdrop from "@/components/Backdrop";
 
-// The paper-design shader is a WebGL canvas; replace it with a marker div that
-// surfaces the two props the contract cares about (shape + colorBack).
+// The paper-design shaders are WebGL canvases; replace each with a marker div
+// that surfaces the props the contract cares about (shape/colorBack/colors).
 vi.mock("@paper-design/shaders-react", () => ({
   GrainGradient: (props: { shape?: string; colorBack?: string }) => (
     <div data-testid="grain" data-shape={props.shape} data-colorback={props.colorBack} />
+  ),
+  MeshGradient: (props: { colors?: string[] }) => (
+    <div data-testid="mesh" data-colors={props.colors?.join(",")} />
+  ),
+  Metaballs: (props: { colorBack?: string }) => (
+    <div data-testid="metaballs" data-colorback={props.colorBack} />
+  ),
+  ColorPanels: (props: { colorBack?: string }) => (
+    <div data-testid="panels" data-colorback={props.colorBack} />
+  ),
+  Dithering: (props: { shape?: string; colorBack?: string }) => (
+    <div data-testid="dither" data-shape={props.shape} data-colorback={props.colorBack} />
   ),
 }));
 
@@ -176,6 +188,29 @@ describe("Backdrop", () => {
     expect(afterTween).toHaveLength(1);
     expect(afterTween[0]).toHaveAttribute("data-shape", "sphere");
     expect(afterTween[0]).toHaveAttribute("data-colorback", "#e9e7ef");
+  });
+
+  it("cross-fades to a different shader family (metaballs) and back drops the old canvas", () => {
+    vi.useFakeTimers();
+    const { store } = renderBackdrop();
+
+    expect(screen.getByTestId("grain")).toBeInTheDocument();
+
+    act(() => {
+      store.dispatch(setBackdropPreset("metaOrbs"));
+    });
+
+    // During the cross-fade both canvases coexist.
+    expect(screen.getAllByTestId(/grain|metaballs/)).toHaveLength(2);
+
+    act(() => {
+      vi.advanceTimersByTime(800);
+    });
+
+    expect(screen.queryByTestId("grain")).not.toBeInTheDocument();
+    const metaballs = screen.getByTestId("metaballs");
+    // metaOrbs dark colorBack
+    expect(metaballs).toHaveAttribute("data-colorback", "#141319");
   });
 
   it("(e-dark) passes the dark palette colorBack to the shader", () => {

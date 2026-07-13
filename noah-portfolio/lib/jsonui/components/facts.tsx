@@ -51,7 +51,8 @@ const categoryIcons: Record<string, typeof Terminal> = {
 
 // Pills pop in one after another once their card is on screen, and lift on
 // hover — a small "alive" treatment for the toolbox (§9.1 spring family).
-const pillEnter = {
+// The "hover" label propagates to the icon so the logo does a happy wiggle.
+const pillMotion = {
   hidden: { opacity: 0, scale: 0.8, y: 8 },
   show: (i = 0) => ({
     opacity: 1,
@@ -59,6 +60,15 @@ const pillEnter = {
     y: 0,
     transition: { delay: i * 0.04, type: "spring" as const, stiffness: 260, damping: 20 },
   }),
+  hover: { scale: 1.08, y: -2 },
+};
+
+const pillIconMotion = {
+  hover: {
+    rotate: [0, -16, 12, -6, 0],
+    scale: [1, 1.25, 1.1, 1.18, 1],
+    transition: { duration: 0.55, ease: "easeInOut" as const },
+  },
 };
 
 function SkillPill({ skill, isDark, index = 0 }: { skill: IconRef; isDark: boolean; index?: number }) {
@@ -67,21 +77,23 @@ function SkillPill({ skill, isDark, index = 0 }: { skill: IconRef; isDark: boole
   return (
     <motion.span
       custom={index}
-      variants={pillEnter}
+      variants={pillMotion}
       initial="hidden"
       whileInView="show"
       viewport={{ once: true, amount: 0.4 }}
-      whileHover={{ scale: 1.08, y: -2 }}
+      whileHover="hover"
       className={CHIP}
     >
-      <Image
-        src={src}
-        alt={skill.name}
-        width={20}
-        height={20}
-        className="h-5 w-5"
-        unoptimized={isSvgSrc(src)}
-      />
+      <motion.span variants={pillIconMotion} className="flex shrink-0">
+        <Image
+          src={src}
+          alt={skill.name}
+          width={20}
+          height={20}
+          className="h-5 w-5"
+          unoptimized={isSvgSrc(src)}
+        />
+      </motion.span>
       {skill.name}
     </motion.span>
   );
@@ -238,7 +250,7 @@ export const factComponents = {
                 alt={`${job.company} logo`}
                 width={40}
                 height={40}
-                className="h-10 w-10 rounded-lg"
+                className="h-10 w-10 rounded-lg object-contain"
                 unoptimized={isSvgSrc(job.logo)}
               />
               <div>

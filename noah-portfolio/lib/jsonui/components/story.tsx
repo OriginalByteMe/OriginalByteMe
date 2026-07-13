@@ -9,8 +9,9 @@ import {
   useTransform,
   type Variants,
 } from "framer-motion";
+import Image from "next/image";
 import { useStateValue, type BaseComponentProps } from "@json-render/react";
-import { cn } from "@/lib/utils";
+import { cn, isSvgSrc } from "@/lib/utils";
 import { enter } from "../motion";
 
 /**
@@ -219,7 +220,13 @@ function StatReveal({
  * staggerChildren (§9.2). Inherits its show/hidden label from whatever
  * container drives it, then cascades to its own rows.
  */
-type TimelineRow = { period: string; role: string; company: string };
+type TimelineRow = {
+  period: string;
+  role: string;
+  company: string;
+  /** Optional company mark (corpus careerTimeline rows carry one). */
+  logo?: string;
+};
 
 function StateBoundTimeline({ statePath }: { statePath: string }) {
   const rows = useStateValue<TimelineRow[]>(statePath);
@@ -256,6 +263,18 @@ function TimelineRows({ rows }: { rows: TimelineRow[] }) {
             className="absolute left-5 top-5 size-2.5 rounded-full bg-[#7a5fa0] dark:bg-[#c9b3ec]"
           />
           <div className="ml-6 flex flex-wrap items-center gap-2">
+            {row.logo ? (
+              <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#37304a]/10 bg-[#fffdf8] dark:border-white/10 dark:bg-[#2b2830]">
+                <Image
+                  src={row.logo}
+                  alt={`${row.company} logo`}
+                  width={32}
+                  height={32}
+                  className="size-7 object-contain"
+                  unoptimized={isSvgSrc(row.logo)}
+                />
+              </span>
+            ) : null}
             <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-[#6f6885] dark:text-[#a9a2bd]">
               {row.period}
             </span>

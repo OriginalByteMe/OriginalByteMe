@@ -40,11 +40,6 @@ const nextConfig = {
         hostname: "i.scdn.co",
         pathname: "/**",
       },
-      {
-        protocol: "https",
-        hostname: "www.google.com",
-        pathname: "/s2/favicons**",
-      },
     ],
   },
 };

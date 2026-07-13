@@ -10,17 +10,33 @@ import {
 
 const HEX = /^#[0-9a-f]{6}$/i;
 const THEMES = ["light", "dark"] as const;
+const ALL_NAMES = [
+  "ditherTide",
+  "meshBloom",
+  "metaOrbs",
+  "nightMatte",
+  "panelParade",
+  "softField",
+] as const;
 
 describe("backdrop presets registry", () => {
-  it("contains exactly the two sanctioned presets, each self-named", () => {
+  it("contains exactly the allowlisted presets, each self-named", () => {
     const names = Object.keys(BACKDROP_PRESETS).sort();
-    expect(names).toEqual(["nightMatte", "softField"]);
+    expect(names).toEqual([...ALL_NAMES]);
     for (const [key, preset] of Object.entries(BACKDROP_PRESETS)) {
       expect(preset.name).toBe(key);
-      expect(preset.shader).toBe("grainGradient");
       expect(typeof preset.label).toBe("string");
       expect(preset.label.length).toBeGreaterThan(0);
     }
+  });
+
+  it("spans the sanctioned shader families", () => {
+    expect(BACKDROP_PRESETS.softField.shader).toBe("grainGradient");
+    expect(BACKDROP_PRESETS.nightMatte.shader).toBe("grainGradient");
+    expect(BACKDROP_PRESETS.meshBloom.shader).toBe("meshGradient");
+    expect(BACKDROP_PRESETS.metaOrbs.shader).toBe("metaballs");
+    expect(BACKDROP_PRESETS.panelParade.shader).toBe("colorPanels");
+    expect(BACKDROP_PRESETS.ditherTide.shader).toBe("dithering");
   });
 
   it("defaults to softField", () => {
@@ -28,16 +44,17 @@ describe("backdrop presets registry", () => {
     expect(BACKDROP_PRESETS[DEFAULT_BACKDROP_PRESET]).toBeDefined();
   });
 
-  it("carries the contract shapes per preset", () => {
+  it("carries the contract shapes per grain preset", () => {
     expect(BACKDROP_PRESETS.softField.shape).toBe("wave");
     expect(BACKDROP_PRESETS.nightMatte.shape).toBe("sphere");
   });
 });
 
 describe("isBackdropPresetName", () => {
-  it("accepts only the two allowlisted names", () => {
-    expect(isBackdropPresetName("softField")).toBe(true);
-    expect(isBackdropPresetName("nightMatte")).toBe(true);
+  it("accepts every allowlisted name", () => {
+    for (const name of ALL_NAMES) {
+      expect(isBackdropPresetName(name)).toBe(true);
+    }
   });
 
   it("rejects everything else", () => {
@@ -50,8 +67,8 @@ describe("isBackdropPresetName", () => {
 describe("resolveBackdropPreset", () => {
   it("returns the requested preset when the name is valid", () => {
     expect(resolveBackdropPreset("nightMatte").name).toBe("nightMatte");
-    expect(resolveBackdropPreset("nightMatte").shape).toBe("sphere");
     expect(resolveBackdropPreset("softField").name).toBe("softField");
+    expect(resolveBackdropPreset("metaOrbs").name).toBe("metaOrbs");
   });
 
   it("falls back to the default for unknown / empty / nullish input", () => {
@@ -68,19 +85,28 @@ describe("resolveBackdropPreset", () => {
 });
 
 describe("palette invariants", () => {
-  it("every preset x theme has exactly 4 well-formed hex colors and a positive speed", () => {
+  it("every preset x theme has well-formed hex colors, matched counts, and a positive speed", () => {
     for (const preset of Object.values(BACKDROP_PRESETS)) {
       expect(preset.speed).toBeGreaterThan(0);
       expect(preset.fallbackClass).toContain("dark:");
+      // Theme tween runs on one canvas, so light/dark counts must match.
+      expect(preset.palette.light.colors).toHaveLength(preset.palette.dark.colors.length);
       for (const theme of THEMES) {
         const palette = preset.palette[theme];
-        expect(palette.colors).toHaveLength(4);
+        expect(palette.colors.length).toBeGreaterThanOrEqual(1);
         expect(palette.colorBack).toMatch(HEX);
         for (const color of palette.colors) {
           expect(color).toMatch(HEX);
         }
       }
     }
+  });
+
+  it("keeps the four-color invariant for the grainGradient family", () => {
+    expect(BACKDROP_PRESETS.softField.palette.light.colors).toHaveLength(4);
+    expect(BACKDROP_PRESETS.softField.palette.dark.colors).toHaveLength(4);
+    expect(BACKDROP_PRESETS.nightMatte.palette.light.colors).toHaveLength(4);
+    expect(BACKDROP_PRESETS.nightMatte.palette.dark.colors).toHaveLength(4);
   });
 
   it("pins the documented dark colorBack values", () => {

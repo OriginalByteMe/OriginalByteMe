@@ -2,7 +2,13 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { GrainGradient } from '@paper-design/shaders-react';
+import {
+  ColorPanels,
+  Dithering,
+  GrainGradient,
+  MeshGradient,
+  Metaballs,
+} from '@paper-design/shaders-react';
 
 import { useTheme } from '@/components/ThemeProvider';
 import { resolveBackdropPreset, type BackdropPreset } from '@/lib/backdrop/presets';
@@ -16,17 +22,10 @@ const FADE_REMOVAL_MS = 700;
 const MAX_PIXELS_COARSE = 1_600_000;
 const MAX_PIXELS_FINE = 4_000_000;
 
-type BackdropShape = BackdropPreset['shape'];
-type ColorTuple = [string, string, string, string];
-
 interface BackdropScene {
-  shape: BackdropShape;
+  preset: BackdropPreset;
   colorBack: string;
-  colors: ColorTuple;
-  softness: number;
-  intensity: number;
-  noise: number;
-  speed: number;
+  colors: string[];
 }
 
 /** One rendered shader layer. Steady state holds exactly one; two only mid cross-fade. */
@@ -37,15 +36,22 @@ interface Slot extends BackdropScene {
 
 function sceneFor(preset: BackdropPreset, theme: 'light' | 'dark'): BackdropScene {
   const palette = theme === 'dark' ? preset.palette.dark : preset.palette.light;
-  return {
-    shape: preset.shape,
-    colorBack: palette.colorBack,
-    colors: palette.colors,
-    softness: preset.softness,
-    intensity: preset.intensity,
-    noise: preset.noise,
-    speed: preset.speed,
-  };
+  return { preset, colorBack: palette.colorBack, colors: palette.colors };
+}
+
+/**
+ * Two scenes can share one canvas (uniform tween) only when they render the
+ * same shader component with the same pattern shape and equal color counts;
+ * anything else needs a cross-fade to a fresh canvas.
+ */
+function canTween(a: BackdropScene, b: BackdropScene): boolean {
+  const pa = a.preset;
+  const pb = b.preset;
+  if (pa.shader !== pb.shader) return false;
+  if (a.colors.length !== b.colors.length) return false;
+  const shapeOf = (p: BackdropPreset) =>
+    p.shader === 'grainGradient' || p.shader === 'dithering' ? p.shape : '';
+  return shapeOf(pa) === shapeOf(pb);
 }
 
 function easeInOutCubic(t: number): number {
@@ -89,6 +95,95 @@ class ShaderErrorBoundary extends React.Component<
   }
 }
 
+/** Renders the right paper-shaders component for a slot's preset family. */
+function SlotShader({
+  slot,
+  maxPixelCount,
+}: {
+  slot: Slot;
+  maxPixelCount: number;
+}) {
+  const style: React.CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    opacity: slot.opacity,
+    transform: 'scale(1.02)',
+    filter: 'saturate(1.04)',
+    transition: `opacity ${FADE_MS}ms ease`,
+  };
+  const common = { minPixelRatio: 1, maxPixelCount, style };
+  const preset = slot.preset;
+
+  switch (preset.shader) {
+    case 'grainGradient':
+      return (
+        <GrainGradient
+          shape={preset.shape}
+          colorBack={slot.colorBack}
+          colors={slot.colors}
+          softness={preset.softness}
+          intensity={preset.intensity}
+          noise={preset.noise}
+          speed={preset.speed}
+          {...common}
+        />
+      );
+    case 'meshGradient':
+      return (
+        <MeshGradient
+          colors={slot.colors}
+          distortion={preset.distortion}
+          swirl={preset.swirl}
+          speed={preset.speed}
+          {...common}
+        />
+      );
+    case 'metaballs':
+      return (
+        <Metaballs
+          colorBack={slot.colorBack}
+          colors={slot.colors}
+          count={preset.count}
+          size={preset.size}
+          speed={preset.speed}
+          {...common}
+        />
+      );
+    case 'colorPanels':
+      return (
+        <ColorPanels
+          colorBack={slot.colorBack}
+          colors={slot.colors}
+          angle1={preset.angle1}
+          angle2={preset.angle2}
+          length={preset.length}
+          edges={preset.edges}
+          blur={preset.blur}
+          fadeIn={preset.fadeIn}
+          fadeOut={preset.fadeOut}
+          gradient={preset.gradient}
+          density={preset.density}
+          speed={preset.speed}
+          {...common}
+        />
+      );
+    case 'dithering':
+      return (
+        <Dithering
+          colorBack={slot.colorBack}
+          colorFront={slot.colors[0]}
+          shape={preset.shape}
+          type={preset.type}
+          size={preset.pxSize}
+          speed={preset.speed}
+          {...common}
+        />
+      );
+  }
+}
+
 /**
  * Single steerable full-screen backdrop.
  *
@@ -96,8 +191,8 @@ class ShaderErrorBoundary extends React.Component<
  * Redux `backdrop.preset` path (`dispatch(setBackdropPreset(name))`); an
  * always-painted CSS gradient covers SSR/first-paint, reduced-motion, and
  * WebGL2-unavailable environments (all three yield gradient-only, zero canvas).
- * Same-shape changes tween uniforms on one canvas; shape changes cross-fade a
- * second canvas in and drop the old one.
+ * Compatible presets (same shader family/shape/color count) tween uniforms on
+ * one canvas; anything else cross-fades a second canvas in and drops the old.
  */
 export function Backdrop() {
   const presetName = useSelector(selectBackdropPreset);
@@ -113,7 +208,7 @@ export function Backdrop() {
 
   const slotsRef = useRef<Slot[]>([]);
   const sceneRef = useRef(scene);
-  const liveColorsRef = useRef<{ colorBack: string; colors: ColorTuple } | null>(null);
+  const liveColorsRef = useRef<{ colorBack: string; colors: string[] } | null>(null);
   const idRef = useRef(0);
   const tweenRaf = useRef<number | null>(null);
   const fadeRaf = useRef<number | null>(null);
@@ -179,10 +274,10 @@ export function Backdrop() {
 
     cancelAnim();
 
-    if (current.shape === target.shape) {
-      // Same shape -> uniform tween (one canvas). Restart mid-flight from the
-      // latest live colors and clear any stale teardown timer from a prior
-      // cross-fade.
+    if (canTween(current, target)) {
+      // Compatible scenes -> uniform tween (one canvas). Restart mid-flight
+      // from the latest live colors and clear any stale teardown timer from a
+      // prior cross-fade.
       const start = liveColorsRef.current ?? {
         colorBack: current.colorBack,
         colors: current.colors,
@@ -194,7 +289,7 @@ export function Backdrop() {
         if (startTime === null) startTime = now;
         const e = easeInOutCubic(Math.min(1, (now - startTime) / TWEEN_MS));
         const colorBack = lerpHex(start.colorBack, target.colorBack, e);
-        const colors = start.colors.map((c, i) => lerpHex(c, target.colors[i], e)) as ColorTuple;
+        const colors = start.colors.map((c, i) => lerpHex(c, target.colors[i], e));
         liveColorsRef.current = { colorBack, colors };
         commit([
           { ...latest, ...target, colorBack, colors, opacity: 1 },
@@ -205,7 +300,7 @@ export function Backdrop() {
       return;
     }
 
-    // Different shape -> stack the incoming layer on top and cross-fade.
+    // Incompatible scenes -> stack the incoming layer on top and cross-fade.
     const incoming: Slot = { ...target, id: (idRef.current += 1), opacity: 0 };
     liveColorsRef.current = { colorBack: target.colorBack, colors: target.colors };
     commit([{ ...current, opacity: 1 }, incoming]);
@@ -218,17 +313,7 @@ export function Backdrop() {
       removalTimer.current = undefined;
       commit([{ ...incoming, opacity: 1 }]);
     }, FADE_REMOVAL_MS);
-  }, [
-    active,
-    commit,
-    scene.shape,
-    scene.colorBack,
-    scene.colors,
-    scene.softness,
-    scene.intensity,
-    scene.noise,
-    scene.speed,
-  ]);
+  }, [active, commit, preset.name, theme]);
 
   // Clean up any pending animation frames / timers on unmount.
   useEffect(
@@ -253,28 +338,7 @@ export function Backdrop() {
         <ShaderErrorBoundary>
           <div className="absolute inset-0">
             {slots.map((slot) => (
-              <GrainGradient
-                key={slot.id}
-                shape={slot.shape}
-                colorBack={slot.colorBack}
-                colors={slot.colors}
-                softness={slot.softness}
-                intensity={slot.intensity}
-                noise={slot.noise}
-                speed={slot.speed}
-                minPixelRatio={1}
-                maxPixelCount={maxPixelCount}
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  width: '100%',
-                  height: '100%',
-                  opacity: slot.opacity,
-                  transform: 'scale(1.02)',
-                  filter: 'saturate(1.04)',
-                  transition: `opacity ${FADE_MS}ms ease`,
-                }}
-              />
+              <SlotShader key={slot.id} slot={slot} maxPixelCount={maxPixelCount} />
             ))}
           </div>
         </ShaderErrorBoundary>
