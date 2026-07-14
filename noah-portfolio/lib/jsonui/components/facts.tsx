@@ -18,10 +18,9 @@ import {
 } from "lucide-react";
 import type { BaseComponentProps } from "@json-render/react";
 import { useStateValue } from "@json-render/react";
-import { enter } from "../motion";
 import { useIsDark } from "../use-is-dark";
 import type { Project, SkillCategory, Job, Contact, IconRef, OperatingSystem } from "@/lib/corpus/types";
-import { isSvgSrc } from "@/lib/utils";
+import { cn, isSvgSrc } from "@/lib/utils";
 
 // Single lucide treatment everywhere: 1.5 stroke (design-contract §5).
 const ICON = { strokeWidth: 1.5 } as const;
@@ -49,17 +48,9 @@ const categoryIcons: Record<string, typeof Terminal> = {
   Databases: Database,
 };
 
-// Pills pop in one after another once their card is on screen, and lift on
-// hover — a small "alive" treatment for the toolbox (§9.1 spring family).
+// Pills lift on hover — a small "alive" treatment for the toolbox (§9.1 spring family).
 // The "hover" label propagates to the icon so the logo does a happy wiggle.
 const pillMotion = {
-  hidden: { opacity: 0, scale: 0.8, y: 8 },
-  show: (i = 0) => ({
-    opacity: 1,
-    scale: 1,
-    y: 0,
-    transition: { delay: i * 0.04, type: "spring" as const, stiffness: 260, damping: 20 },
-  }),
   hover: { scale: 1.08, y: -2 },
 };
 
@@ -71,16 +62,12 @@ const pillIconMotion = {
   },
 };
 
-function SkillPill({ skill, isDark, index = 0 }: { skill: IconRef; isDark: boolean; index?: number }) {
+function SkillPill({ skill, isDark }: { skill: IconRef; isDark: boolean }) {
   const src = isDark ? skill.darkImage : skill.lightImage;
 
   return (
     <motion.span
-      custom={index}
       variants={pillMotion}
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, amount: 0.4 }}
       whileHover="hover"
       className={CHIP}
     >
@@ -90,7 +77,7 @@ function SkillPill({ skill, isDark, index = 0 }: { skill: IconRef; isDark: boole
           alt={skill.name}
           width={20}
           height={20}
-          className="h-5 w-5"
+          className={cn("h-5 w-5", skill.invertInDark && "dark:invert")}
           unoptimized={isSvgSrc(src)}
         />
       </motion.span>
@@ -106,13 +93,9 @@ export const factComponents = {
     const projects = props.slug ? all.filter((p) => p.slug === props.slug) : all;
     return (
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {projects.map((project, i) => (
+        {projects.map((project) => (
           <motion.a
             key={project.slug}
-            custom={i}
-            variants={enter}
-            initial="hidden"
-            animate="show"
             href={project.url}
             target="_blank"
             rel="noopener noreferrer"
@@ -180,16 +163,11 @@ export const factComponents = {
           </h3>
         ) : null}
         <div className="grid gap-4 md:grid-cols-2">
-          {categories.map(({ category, skills }, cardIndex) => {
+          {categories.map(({ category, skills }) => {
             const Icon = categoryIcons[category] ?? Code2;
             return (
               <motion.div
                 key={category}
-                custom={cardIndex}
-                variants={enter}
-                initial="hidden"
-                whileInView="show"
-                viewport={{ once: true, amount: 0.25 }}
                 className={`${SURFACE} p-6`}
               >
                 <span aria-hidden className={CARD_RULE} />
@@ -201,8 +179,8 @@ export const factComponents = {
                   <span className={BADGE}>{skills.length} items</span>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {skills.map((skill, i) => (
-                    <SkillPill key={skill.name} skill={skill} isDark={isDark} index={i} />
+                  {skills.map((skill) => (
+                    <SkillPill key={skill.name} skill={skill} isDark={isDark} />
                   ))}
                 </div>
               </motion.div>
@@ -236,13 +214,9 @@ export const factComponents = {
           </h3>
         ) : null}
         <ul className="space-y-4">
-          {jobs.map((job, i) => (
+          {jobs.map((job) => (
             <motion.li
               key={job.company}
-              custom={i}
-              variants={enter}
-              initial="hidden"
-              animate="show"
               className="flex items-start gap-4 border-l-2 border-[#37304a]/10 pl-4 dark:border-white/10"
             >
               <Image
@@ -258,9 +232,9 @@ export const factComponents = {
                   <a
                     href={job.url}
                     target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Visit ${job.company}`}
-                    className="inline-flex items-center gap-2 text-[#5646a8] transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a5fa0]/30 dark:text-[#9d8ff2]"
+                    rel="noreferrer noopener"
+                    aria-label={`Visit ${job.company} website`}
+                    className="inline-flex items-center gap-2 rounded-sm text-[#5646a8] transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a5fa0]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffdf8] dark:text-[#9d8ff2] dark:focus-visible:ring-offset-[#2b2830]"
                   >
                     {job.company}
                     <ArrowUpRight {...ICON} aria-hidden="true" className="size-4 shrink-0" />
@@ -291,15 +265,11 @@ export const factComponents = {
           </h3>
         ) : null}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {environments.map((environment, i) => {
+          {environments.map((environment) => {
             const [primary, ...rest] = environment.systems;
             return (
               <motion.div
                 key={environment.name}
-                custom={i}
-                variants={enter}
-                initial="hidden"
-                animate="show"
                 className={`${SURFACE} p-6`}
               >
                 <span aria-hidden className={CARD_RULE} />
@@ -312,7 +282,7 @@ export const factComponents = {
                           alt={primary.name}
                           width={20}
                           height={20}
-                          className="size-4 shrink-0"
+                          className={cn("size-4 shrink-0", primary.invertInDark && "dark:invert")}
                           unoptimized={isSvgSrc(isDark ? primary.darkImage : primary.lightImage)}
                         />
                       </span>
@@ -321,7 +291,9 @@ export const factComponents = {
                       {environment.name}
                     </h4>
                   </div>
-                  <span className={BADGE}>{environment.systems.length} systems</span>
+                  <span className={BADGE}>
+                    {environment.systems.length} {environment.systems.length === 1 ? "system" : "systems"}
+                  </span>
                 </div>
                 <div className="mt-5 flex flex-wrap gap-2">
                   {rest.map((system) => (
@@ -398,13 +370,9 @@ export const factComponents = {
     ];
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map(({ key, Icon, title, href, label, blurb, external }, i) => (
+        {cards.map(({ key, Icon, title, href, label, blurb, external }) => (
           <motion.a
             key={key}
-            custom={i}
-            variants={enter}
-            initial="hidden"
-            animate="show"
             href={href}
             {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
             className={`${INTERACTIVE_SURFACE} group flex h-full min-h-52 flex-col justify-between p-7 text-left`}
@@ -433,9 +401,6 @@ export const factComponents = {
 
   StatCallout: ({ props }: BaseComponentProps<{ value: string; label: string }>) => (
     <motion.div
-      variants={enter}
-      initial="hidden"
-      animate="show"
       className="relative flex flex-col items-center overflow-hidden rounded-2xl border border-[#2e2b38]/10 bg-[#f6f4f9] p-6 text-center shadow-[0_10px_30px_-18px_rgba(20,19,25,0.5)] dark:border-white/10 dark:bg-[#211f29]"
     >
       <span aria-hidden className={CARD_RULE} />

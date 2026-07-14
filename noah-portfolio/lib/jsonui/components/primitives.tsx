@@ -1,10 +1,9 @@
 "use client";
 
-import { motion } from "framer-motion";
 import type { BaseComponentProps } from "@json-render/react";
 import { useStateValue } from "@json-render/react";
 import { cn } from "@/lib/utils";
-import { enter } from "../motion";
+
 
 // Matte Callout left-rule accents use only the fixed violet/mint allowlist
 // (contract §2.2/§3.1); mint collapses to violet emphasis in light mode.
@@ -38,14 +37,9 @@ const titleMbClasses: Record<"sm" | "md" | "lg", string> = {
 
 function ProseParagraph({ text }: { text: string }) {
   return (
-    <motion.p
-      variants={enter}
-      initial="hidden"
-      animate="show"
-      className="mb-6 max-w-2xl text-pretty text-lg leading-relaxed text-[#5d5673] dark:text-[#bdb6d0]"
-    >
+    <p className="mb-6 max-w-2xl text-pretty text-lg leading-relaxed text-[#5d5673] dark:text-[#bdb6d0]">
       {text}
-    </motion.p>
+    </p>
   );
 }
 
@@ -70,10 +64,7 @@ export const primitiveComponents = {
     centered?: boolean | null;
     titleMb?: "sm" | "md" | "lg" | null;
   }>) => (
-    <motion.section
-      variants={enter}
-      initial="hidden"
-      animate="show"
+    <section
       className={cn(
         "relative scroll-mt-24 text-[#37304a] dark:text-[#eae6f2]",
         props.height === "screen"
@@ -95,17 +86,12 @@ export const primitiveComponents = {
         ) : null}
         {children}
       </div>
-    </motion.section>
+    </section>
   ),
   Stack: ({ props, children }: BaseComponentProps<{ gap?: "sm" | "md" | "lg" | null }>) => (
-    <motion.div
-      variants={enter}
-      initial="hidden"
-      animate="show"
-      className={{ sm: "space-y-4", md: "space-y-6", lg: "space-y-12" }[props.gap ?? "md"]}
-    >
+    <div className={{ sm: "space-y-4", md: "space-y-6", lg: "space-y-12" }[props.gap ?? "md"]}>
       {children}
-    </motion.div>
+    </div>
   ),
   Columns: ({ props, children }: BaseComponentProps<{ count: number }>) => (
     <div className={cn("grid gap-4 md:gap-5", columnsClasses[Math.min(3, Math.max(1, Math.round(props.count)))])}>
@@ -128,10 +114,7 @@ export const primitiveComponents = {
     return <Tag className="mb-4 font-serif text-2xl tracking-tight text-[#37304a] dark:text-[#eae6f2]">{props.text}</Tag>;
   },
   Callout: ({ props }: BaseComponentProps<{ text: string; tone?: "info" | "success" | "warn" | null }>) => (
-    <motion.div
-      variants={enter}
-      initial="hidden"
-      animate="show"
+    <div
       className={cn(
         "relative overflow-hidden rounded-3xl border border-l-4 border-[#37304a]/10 bg-[#fffdf8] p-8 text-sm leading-relaxed text-[#5d5673] shadow-[0_16px_40px_-24px_rgba(58,51,69,0.35)] dark:border-white/10 dark:bg-[#2b2830] dark:text-[#bdb6d0]",
         toneClasses[props.tone ?? "info"],
@@ -142,7 +125,7 @@ export const primitiveComponents = {
         className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#7a5fa0]/40 to-transparent dark:via-[#c9b3ec]/40"
       />
       {props.text}
-    </motion.div>
+    </div>
   ),
   Quote: ({ props }: BaseComponentProps<{ text: string; cite?: string | null }>) => (
     <blockquote className="border-l-2 border-[#7a5fa0] pl-4 italic text-[#5d5673] dark:border-[#c9b3ec] dark:text-[#bdb6d0]">

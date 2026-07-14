@@ -70,7 +70,7 @@ export default function SpotifyPill({
     <div
       data-testid="spotify-pill"
       className={cn(
-        "flex w-full min-w-0 max-w-full items-center gap-3 rounded-full p-1 pr-4 shadow-lg transition-all duration-300 sm:w-auto",
+        "group flex w-full min-w-0 max-w-full items-center gap-3 rounded-full p-1 pr-4 shadow-lg transition-all duration-300 sm:w-auto",
         "bg-white dark:bg-black text-gray-800 dark:text-white border border-gray-200 dark:border-gray-800",
         "hover:shadow-md hover:shadow-emerald-500/10 dark:hover:shadow-emerald-500/20",
         className,
@@ -98,19 +98,26 @@ export default function SpotifyPill({
           </div>
         )}
 
-        {isHovered && (
-          <button
-            onClick={handleMagicWandClick}
-            className="absolute inset-0 flex items-center justify-center transition-opacity duration-200 touch-manipulation bg-white/60 dark:bg-black/60"
-          >
-            <Wand2 
-              className={cn(
-                "h-5 w-5 text-emerald-600 dark:text-emerald-400",
-                isJiggling && "magic-wand-jiggle"
-              )}
-            />
-          </button>
-        )}
+        <button
+          onClick={handleMagicWandClick}
+          type="button"
+          aria-label={selectedTrack?.id === currentTrack.id
+            ? `Remove ${currentTrack.title} from the portrait palette`
+            : `Use ${currentTrack.title} for the portrait palette`}
+          aria-pressed={selectedTrack?.id === currentTrack.id}
+          className={cn(
+            "absolute inset-0 flex touch-manipulation items-center justify-center bg-white/60 transition-opacity duration-200 focus:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-emerald-600 dark:bg-black/60 dark:focus-visible:outline-emerald-400",
+            isHovered ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+          )}
+        >
+          <Wand2
+            aria-hidden
+            className={cn(
+              "h-5 w-5 text-emerald-600 dark:text-emerald-400",
+              isJiggling && "magic-wand-jiggle"
+            )}
+          />
+        </button>
       </div>
 
       <div className="flex flex-col min-w-0 flex-1">

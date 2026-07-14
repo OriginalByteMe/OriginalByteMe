@@ -3,10 +3,9 @@ import { render, screen } from "@testing-library/react";
 import { storyComponents } from "@/lib/jsonui/components/story";
 
 /**
- * framer-motion's `whileInView` (Scene) and `useInView` (StatReveal) both
- * mount an IntersectionObserver. jsdom doesn't ship one, so stub a no-op
- * observer; the tests assert static render output, not the view-gated
- * count-up.
+ * StatReveal's `useInView` mounts an IntersectionObserver. jsdom doesn't ship
+ * one, so stub a no-op observer; these tests assert static render output, not
+ * the view-gated count-up.
  */
 beforeAll(() => {
   class NoopIntersectionObserver implements IntersectionObserver {
@@ -84,17 +83,22 @@ describe("storyComponents", () => {
         {...stubHandlers}
       />,
     );
-    // jsdom has no IntersectionObserver → inView stays false → the count
-    // never advances, so we assert the static parts only.
+    // The no-op observer never reports in-view, so the count never advances
+    // and we assert the static parts only.
     expect(screen.getByText("years shipping full-stack")).toBeInTheDocument();
     expect(screen.getByText("+")).toBeInTheDocument();
     expect(container.firstElementChild).toHaveClass("flex", "flex-col");
   });
 
-  it("SequencedTimeline renders every row's period, role and company", () => {
+  it("SequencedTimeline preserves every row and links official company sites externally", () => {
     const SequencedTimeline = storyComponents.SequencedTimeline;
     const rows = [
-      { period: "2020 - Present", role: "Full-Stack Developer", company: "Supa" },
+      {
+        period: "2020 - Present",
+        role: "Full-Stack Developer",
+        company: "Supa",
+        url: "https://www.supa.so",
+      },
       { period: "2023 - Present", role: "CAD Designer", company: "Bowiq" },
     ];
     render(
@@ -102,7 +106,11 @@ describe("storyComponents", () => {
     );
     expect(screen.getByText("2020 - Present")).toBeInTheDocument();
     expect(screen.getByText("Full-Stack Developer")).toBeInTheDocument();
-    expect(screen.getByText("Supa")).toBeInTheDocument();
+    const companyLink = screen.getByRole("link", { name: "Visit Supa website" });
+    expect(companyLink).toHaveAttribute("href", "https://www.supa.so");
+    expect(companyLink).toHaveAttribute("target", "_blank");
+    expect(companyLink).toHaveAttribute("rel", "noreferrer noopener");
+    expect(companyLink).toHaveClass("focus-visible:ring-2");
     expect(screen.getByText("2023 - Present")).toBeInTheDocument();
     expect(screen.getByText("CAD Designer")).toBeInTheDocument();
     expect(screen.getByText("Bowiq")).toBeInTheDocument();
@@ -165,6 +173,39 @@ describe("storyComponents", () => {
       </Scene>,
     );
     expect(container.querySelector(".h-1.w-16")).toBeNull();
+  });
+
+  it("keeps a heading and prose visible when they stream into an already-mounted Scene", () => {
+    const Scene = storyComponents.Scene;
+    const ChapterHeading = storyComponents.ChapterHeading;
+    const NarrativeBeat = storyComponents.NarrativeBeat;
+    const { rerender } = render(
+      <Scene props={{ align: "center" }} {...stubHandlers}>
+        {null}
+      </Scene>,
+    );
+
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+
+    rerender(
+      <Scene props={{ align: "center" }} {...stubHandlers}>
+        <ChapterHeading
+          props={{ text: "A streamed chapter" }}
+          children={null}
+          {...stubHandlers}
+        />
+        <NarrativeBeat
+          props={{ text: "This prose arrived after its scene." }}
+          children={null}
+          {...stubHandlers}
+        />
+      </Scene>,
+    );
+
+    expect(
+      screen.getByRole("heading", { level: 2, name: "A streamed chapter" }),
+    ).toBeVisible();
+    expect(screen.getByText("This prose arrived after its scene.")).toBeVisible();
   });
 
   it("StaticComposition renders children in a centered reading column", () => {

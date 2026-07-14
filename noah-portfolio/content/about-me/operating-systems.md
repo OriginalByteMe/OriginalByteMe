@@ -19,4 +19,19 @@ operatingSystems:
       - name: "WSL2"
         lightImage: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/linux/linux-original.svg"
         darkImage: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/linux/linux-original.svg"
+  - name: "macOS Workstation"
+    systems:
+      - name: "macOS"
+        lightImage: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/apple/apple-original.svg"
+        darkImage: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/apple/apple-original.svg"
+        invertInDark: true
+  - name: "Homelab / Server"
+    systems:
+      - name: "Linux"
+        lightImage: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/linux/linux-original.svg"
+        darkImage: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/linux/linux-original.svg"
+      - name: "Unraid"
+        lightImage: "https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/unraid.svg"
+        darkImage: "https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/unraid.svg"
+        invertInDark: true
 ---

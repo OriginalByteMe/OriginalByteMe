@@ -106,10 +106,11 @@ describe("factComponents", () => {
     expect(screen.getByText("Full-Stack Developer")).toBeInTheDocument();
     expect(screen.getByText("2020 - Present")).toBeInTheDocument();
     expect(screen.getByAltText("Supa logo")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Visit Supa" })).toHaveAttribute(
-      "href",
-      "https://supa.so",
-    );
+    const companyLink = screen.getByRole("link", { name: "Visit Supa website" });
+    expect(companyLink).toHaveAttribute("href", "https://supa.so");
+    expect(companyLink).toHaveAttribute("target", "_blank");
+    expect(companyLink).toHaveAttribute("rel", "noreferrer noopener");
+    expect(companyLink).toHaveClass("focus-visible:ring-2");
   });
 
   it("ContactCard renders email, github, and linkedin from state", () => {
@@ -272,6 +273,36 @@ describe("factComponents", () => {
     // Remaining systems render as labeled pills.
     expect(screen.getByText("Fedora")).toBeInTheDocument();
     expect(screen.getByText("Arch")).toBeInTheDocument();
+  });
+
+  it("OperatingSystemsGrid pluralizes a one-system environment and preserves dark icon contrast", () => {
+    const store = createStateStore({
+      corpus: {
+        operatingSystems: [
+          {
+            name: "macOS Workstation",
+            systems: [
+              {
+                name: "macOS",
+                lightImage: "/apple.svg",
+                darkImage: "/apple.svg",
+                invertInDark: true,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const OperatingSystemsGrid = factComponents.OperatingSystemsGrid;
+    render(
+      <StateProvider store={store}>
+        <OperatingSystemsGrid {...stubHandlers} props={{ statePath: "/corpus/operatingSystems" }} children={null} />
+      </StateProvider>,
+    );
+
+    expect(screen.getByText("1 system")).toBeInTheDocument();
+    expect(screen.queryByText("1 systems")).not.toBeInTheDocument();
+    expect(screen.getByAltText("macOS")).toHaveClass("dark:invert");
   });
 
   it("OperatingSystemsGrid renders no environment cards for an empty state array", () => {

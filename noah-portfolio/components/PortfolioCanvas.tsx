@@ -16,6 +16,8 @@ import { useAskMe } from "./AskMeProvider";
  */
 export default function PortfolioCanvas() {
   const { spec, mode, question, error } = useAskMe();
+  const hasStreamedContent =
+    mode === "streaming" && Boolean(spec.root && spec.elements[spec.root]);
   const isAnswer = mode === "answer" || mode === "streaming";
   // Key the animated wrapper on the current view so home <-> answer cross-
   // fades, but streaming and the final answer share the same key so the
@@ -38,9 +40,33 @@ export default function PortfolioCanvas() {
           className={isAnswer ? "mx-auto w-full max-w-3xl px-4 py-16" : undefined}
         >
           {mode === "streaming" && (
-            <div className="flex items-center justify-center gap-2 py-8 text-[#6f6885] dark:text-[#b8b0c7]">
-              <Loader2 className="h-5 w-5 animate-spin text-[#5646a8] dark:text-[#c9b3ec]" />
-              <span className="text-sm">Composing an answer to &ldquo;{question}&rdquo;&hellip;</span>
+            <div
+              role="status"
+              aria-live="polite"
+              className={
+                hasStreamedContent
+                  ? "flex justify-center pb-10"
+                  : "flex min-h-[52vh] items-center justify-center py-16"
+              }
+            >
+              <div className="relative flex max-w-xl flex-col items-center px-6 text-center">
+                <div
+                  aria-hidden="true"
+                  className="absolute left-1/2 top-7 h-28 w-28 -translate-x-1/2 rounded-full border border-[#7a5fa0]/25 motion-safe:animate-ping dark:border-[#c9b3ec]/20"
+                />
+                <div className="relative mb-7 grid h-16 w-16 place-items-center rounded-full border border-[#7a5fa0]/35 bg-[#f7f2ef]/35 backdrop-blur-[2px] dark:border-[#c9b3ec]/30 dark:bg-[#16121d]/25">
+                  <Loader2
+                    aria-hidden="true"
+                    className="h-7 w-7 animate-spin text-[#5646a8] motion-reduce:animate-none dark:text-[#c9b3ec]"
+                  />
+                </div>
+                <p className="font-serif text-2xl tracking-tight text-[#37304a] dark:text-[#eae6f2]">
+                  Composing your answer
+                </p>
+                <p className="mt-3 text-sm leading-relaxed text-[#6f6885] dark:text-[#b8b0c7]">
+                  Building a generated interface for &ldquo;{question}&rdquo; as the pieces arrive.
+                </p>
+              </div>
             </div>
           )}
           <Renderer spec={spec} registry={registry} />

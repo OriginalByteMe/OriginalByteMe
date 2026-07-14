@@ -4,6 +4,7 @@ import { Provider } from "react-redux";
 import type { ReactNode } from "react";
 
 import { makeStore } from "@/lib/store";
+import { DEFAULT_BACKDROP_PRESET } from "@/lib/backdrop/presets";
 import { HOLIDAY_THEMES } from "@/lib/themes/registry";
 import {
   HolidayThemeProvider,
@@ -81,19 +82,19 @@ describe("HolidayThemeApplier", () => {
   it("drives the backdrop preset to the active theme and restores it on unmount", () => {
     vi.setSystemTime(HALLOWEEN);
     const store = makeStore();
-    expect(store.getState().backdrop.preset).toBe("ditherViolet");
+    expect(store.getState().backdrop.preset).toBe(DEFAULT_BACKDROP_PRESET);
 
     const { unmount } = renderApplier(store, "US");
     expect(store.getState().backdrop.preset).toBe("nightMatte");
 
     unmount();
-    expect(store.getState().backdrop.preset).toBe("ditherViolet");
+    expect(store.getState().backdrop.preset).toBe(DEFAULT_BACKDROP_PRESET);
   });
 
   it("leaves the default preset untouched when no theme is active", () => {
     vi.setSystemTime(ORDINARY);
     const store = makeStore();
     renderApplier(store, "US");
-    expect(store.getState().backdrop.preset).toBe("ditherViolet");
+    expect(store.getState().backdrop.preset).toBe(DEFAULT_BACKDROP_PRESET);
   });
 });

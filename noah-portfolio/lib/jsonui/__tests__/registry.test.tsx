@@ -26,7 +26,10 @@ describe("registry", () => {
         <Renderer spec={spec as never} registry={registry} />
       </JsonUiProvider>,
     );
-    expect(screen.getByText("Supa")).toBeInTheDocument();
+    const companyLink = screen.getByRole("link", { name: "Visit Supa website" });
+    expect(companyLink).toHaveAttribute("href", "#");
+    expect(companyLink).toHaveAttribute("target", "_blank");
+    expect(companyLink).toHaveAttribute("rel", "noreferrer noopener");
   });
 
   it("renders nested primitives through the registry", () => {

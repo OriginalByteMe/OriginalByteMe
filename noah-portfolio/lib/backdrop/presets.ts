@@ -8,12 +8,13 @@
  * parameters remain forbidden (docs/design-contract.md v2 §10).
  *
  * INVARIANT: within one preset, `palette.light.colors` and
- * `palette.dark.colors` have the same length, so theme changes can tween
- * uniforms on a single canvas. Different presets may carry different counts;
- * the Backdrop cross-fades between canvases when counts (or families) differ.
+ * `palette.dark.colors` have the same length. The Backdrop mounts at most one
+ * shader component; preset and theme changes update that component in place or
+ * replace it in one React commit, never by overlapping WebGL canvases.
  */
 
 export type BackdropPresetName =
+  | 'ambientLava'
   | 'softField'
   | 'nightMatte'
   | 'meshBloom'
@@ -45,7 +46,7 @@ interface BackdropPresetBase {
 
 export interface GrainGradientPreset extends BackdropPresetBase {
   shader: 'grainGradient';
-  shape: 'wave' | 'sphere';
+  shape: 'wave' | 'blob' | 'sphere';
   softness: number;
   intensity: number;
   noise: number;
@@ -92,15 +93,13 @@ export type BackdropPreset =
   | DitheringPreset;
 
 /**
- * The home story's "dither flow" series: six palettes over ONE wave-dither
- * geometry (same shader/shape/type/pxSize/speed), so scrolling between
- * chapters tweens colors on a single canvas — a continuous, gently moving
- * background instead of abrupt cross-fades. Light mode keeps one cream paper
- * base; dark mode keeps one near-black base; only the ink hue shifts.
+ * Generated answers can select this "dither flow" series: six palettes with
+ * shared dither rendering settings and distinct Paper Shader shapes. Light
+ * mode keeps one cream paper base; dark mode keeps one near-black base; only
+ * the ink hue shifts.
  */
 const DITHER_FLOW = {
   shader: 'dithering',
-  shape: 'wave',
   type: '4x4',
   pxSize: 3,
   speed: 0.5,
@@ -112,6 +111,7 @@ const DITHER_DARK_BACK = '#1a1721';
 function ditherFlowPreset(
   name: BackdropPresetName,
   label: string,
+  shape: DitheringPreset['shape'],
   ink: { light: string; dark: string },
   fallbackClass: string,
 ): DitheringPreset {
@@ -119,6 +119,7 @@ function ditherFlowPreset(
     name,
     label,
     ...DITHER_FLOW,
+    shape,
     palette: {
       light: { colorBack: DITHER_LIGHT_BACK, colors: [ink.light] },
       dark: { colorBack: DITHER_DARK_BACK, colors: [ink.dark] },
@@ -128,39 +129,63 @@ function ditherFlowPreset(
 }
 
 export const BACKDROP_PRESETS: Record<BackdropPresetName, BackdropPreset> = {
-  ditherViolet: ditherFlowPreset(
-    'ditherViolet',
-    'Dither Flow — Violet',
-    { light: '#c3aee0', dark: '#4f4670' },
-    'bg-gradient-to-b from-[#f2ecdf] via-[#eae2ef] to-[#efe9dc] dark:from-[#1b1824] dark:via-[#201b2b] dark:to-[#191621]',
-  ),
+  ambientLava: {
+    ...ditherFlowPreset(
+      'ambientLava',
+      'Nocturne — Simplex',
+      'simplex',
+      { light: '#b9afc7', dark: '#3d374b' },
+      'bg-gradient-to-b from-[#f4efe6] via-[#ece7ee] to-[#eee9e2] dark:from-[#17151d] dark:via-[#1d1925] dark:to-[#15131a]',
+    ),
+    pxSize: 3.5,
+    speed: 0.18,
+    palette: {
+      light: { colorBack: '#f4efe6', colors: ['#b9afc7'] },
+      dark: { colorBack: '#17151d', colors: ['#3d374b'] },
+    },
+  },
+  ditherViolet: {
+    ...ditherFlowPreset(
+      'ditherViolet',
+      'Dither Flow — Violet',
+      'wave',
+      { light: '#c3aee0', dark: '#4f4670' },
+      'bg-gradient-to-b from-[#f2ecdf] via-[#eae2ef] to-[#efe9dc] dark:from-[#1b1824] dark:via-[#201b2b] dark:to-[#191621]',
+    ),
+    speed: 0.72,
+  },
   ditherSky: ditherFlowPreset(
     'ditherSky',
     'Dither Flow — Sky',
+    'simplex',
     { light: '#aac4e6', dark: '#3d5674' },
     'bg-gradient-to-b from-[#eceff5] via-[#e3e9f2] to-[#eef0ea] dark:from-[#171b23] dark:via-[#1a202b] dark:to-[#171a20]',
   ),
   ditherEmber: ditherFlowPreset(
     'ditherEmber',
     'Dither Flow — Ember',
+    'warp',
     { light: '#ecc4a2', dark: '#6f5265' },
     'bg-gradient-to-b from-[#f6ede2] via-[#f2e4d6] to-[#f0ebde] dark:from-[#211a1e] dark:via-[#251c22] dark:to-[#1c171d]',
   ),
   ditherMint: ditherFlowPreset(
     'ditherMint',
     'Dither Flow — Mint',
+    'sphere',
     { light: '#a9d8c0', dark: '#476455' },
     'bg-gradient-to-b from-[#eaf2ec] via-[#e2eee7] to-[#eef0e6] dark:from-[#161e19] dark:via-[#19231d] dark:to-[#151b17]',
   ),
   ditherRose: ditherFlowPreset(
     'ditherRose',
     'Dither Flow — Rose',
+    'swirl',
     { light: '#eab8cc', dark: '#5d3f50' },
     'bg-gradient-to-b from-[#f6ecf1] via-[#f2e2ea] to-[#f0eae2] dark:from-[#201720] dark:via-[#241a23] dark:to-[#1b151c]',
   ),
   ditherIndigo: ditherFlowPreset(
     'ditherIndigo',
     'Dither Flow — Indigo',
+    'ripple',
     { light: '#b3b3e6', dark: '#3f3a66' },
     'bg-gradient-to-b from-[#ecedf6] via-[#e4e4f2] to-[#ebeaf0] dark:from-[#17172a] dark:via-[#1b1a2e] dark:to-[#161624]',
   ),
@@ -298,7 +323,8 @@ export const BACKDROP_PRESETS: Record<BackdropPresetName, BackdropPreset> = {
   },
 };
 
-export const DEFAULT_BACKDROP_PRESET: BackdropPresetName = 'ditherViolet';
+export const DEFAULT_BACKDROP_PRESET: BackdropPresetName = 'ambientLava';
+
 
 export function isBackdropPresetName(v: unknown): v is BackdropPresetName {
   return typeof v === 'string' && Object.prototype.hasOwnProperty.call(BACKDROP_PRESETS, v);

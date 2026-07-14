@@ -30,6 +30,22 @@ describe("catalog", () => {
       expect(def.safeParse({ rows }).success).toBe(true);
     });
 
+    it("preserves a valid official URL on an inline row", () => {
+      const result = def.safeParse({
+        rows: [{ ...rows[0], url: "https://bowiq.com" }],
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.rows?.[0]).toMatchObject({ url: "https://bowiq.com" });
+      }
+    });
+
+    it("rejects a malformed company URL", () => {
+      expect(
+        def.safeParse({ rows: [{ ...rows[0], url: "bowiq.com" }] }).success,
+      ).toBe(false);
+    });
+
     it("accepts a Corpus statePath only", () => {
       expect(def.safeParse({ statePath: "/corpus/careerTimeline" }).success).toBe(true);
     });

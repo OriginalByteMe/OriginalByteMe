@@ -1,12 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { forwardRef, useEffect, useState, type ButtonHTMLAttributes } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { MessageCircle, X } from 'lucide-react';
 import ChatBox from './ChatBox';
 import { useAskMe } from './AskMeProvider';
 
 const CTA_STORAGE_KEY = 'askDockCtaSeen';
+
+type AskLauncherButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'type'>;
+
+export const AskLauncherButton = forwardRef<HTMLButtonElement, AskLauncherButtonProps>(
+  function AskLauncherButton({ className = '', ...props }, ref) {
+    return (
+      <button
+        ref={ref}
+        type="button"
+        className={`ask-launcher-button ${className}`.trim()}
+        {...props}
+      >
+        <MessageCircle strokeWidth={1.5} aria-hidden />
+      </button>
+    );
+  },
+);
 
 /**
  * The always-available Ask entry point. While the hero's ask panel is on
@@ -39,9 +56,9 @@ export default function AskDock() {
     }
   };
 
-  // Watch the hero's ask panel; the dock exists exactly when it's off screen.
-  // The hero remounts a beat after mode flips home (AnimatePresence exit), so
-  // retry until the panel exists before concluding it's gone.
+  // Keep the dock retracted while the hero launcher is visible or still below
+  // the viewport. It appears only after the visitor has actually scrolled past
+  // that launcher, not merely because a tall mobile hero starts above it.
   useEffect(() => {
     if (mode !== 'home' || typeof IntersectionObserver === 'undefined') {
       setHeroAskVisible(false);
@@ -62,7 +79,9 @@ export default function AskDock() {
         return;
       }
       observer = new IntersectionObserver(
-        ([entry]) => setHeroAskVisible(entry.isIntersecting),
+        ([entry]) => setHeroAskVisible(
+          entry.isIntersecting || entry.boundingClientRect.top >= 0,
+        ),
         { threshold: 0.2 },
       );
       observer.observe(panel);
@@ -86,6 +105,7 @@ export default function AskDock() {
       <AnimatePresence>
         {docked && open && (
           <motion.div
+            id="ask-dock-panel"
             key="panel"
             initial={{ opacity: 0, y: 24, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -132,17 +152,15 @@ export default function AskDock() {
                 Ask me anything ✨
               </motion.span>
             )}
-            <button
-              type="button"
+            <AskLauncherButton
               aria-label="Ask this portfolio a question"
+              aria-expanded={false}
+              aria-controls="ask-dock-panel"
               onClick={() => {
                 setOpen(true);
                 dismissCta();
               }}
-              className="flex size-14 items-center justify-center rounded-full bg-[#5646a8] text-white shadow-[0_18px_44px_-16px_rgba(86,70,168,0.8)] transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5646a8] dark:bg-[#9d8ff2] dark:text-[#241f32]"
-            >
-              <MessageCircle strokeWidth={1.5} className="size-6" aria-hidden />
-            </button>
+            />
           </motion.div>
         )}
       </AnimatePresence>

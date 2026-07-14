@@ -196,4 +196,36 @@ describe("primitiveComponents", () => {
     );
     expect(screen.getByText("fallback")).toBeInTheDocument();
   });
+
+  it("renders entrance primitives as visible semantic elements without motion residue", () => {
+    const Prose = primitiveComponents.Prose;
+    const Section = primitiveComponents.Section;
+    const Stack = primitiveComponents.Stack;
+    const Callout = primitiveComponents.Callout;
+    const { container } = render(
+      <>
+        <Prose props={{ text: "prose" }} {...stubHandlers} />
+        <Section props={{}} {...stubHandlers}>
+          section
+        </Section>
+        <Stack props={{}} {...stubHandlers}>
+          stack
+        </Stack>
+        <Callout props={{ text: "callout" }} {...stubHandlers} />
+      </>,
+    );
+    const roots = [
+      container.querySelector("p"),
+      container.querySelector("section"),
+      container.querySelector("div.space-y-6"),
+      container.querySelector("div.bg-\\[\\#fffdf8\\]"),
+    ];
+    expect(roots.every(Boolean)).toBe(true);
+    for (const element of roots) {
+      expect(element).toBeVisible();
+      expect(element).not.toHaveAttribute("style");
+      expect(element).not.toHaveAttribute("data-framer-appear-id");
+      expect(element).not.toHaveAttribute("data-framer-component");
+    }
+  });
 });

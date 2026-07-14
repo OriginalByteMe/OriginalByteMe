@@ -27,6 +27,33 @@ describe("buildSystemPrompt", () => {
     expect(p).toMatch(/StaticComposition FOR SHORT ANSWERS/i);
   });
 
+  it("teaches ambientLava as the default and requires explicit generated variants", () => {
+    const p = buildSystemPrompt();
+    expect(p).toContain("normal-site default is 'ambientLava'");
+    expect(p).toMatch(
+      /If generated UI selects any backdrop variant, including 'ditherViolet', it MUST set the spec state explicitly to \{ "\/backdrop\/preset": "<name>" \}; omitting that state means ambientLava/,
+    );
+    expect(p).toMatch(/Streaming\/loading choreography is the separate 'ditherViolet' wave/);
+    expect(p).not.toMatch(/default ['"]ditherViolet['"]/i);
+
+    const presets = [
+      "ambientLava",
+      "softField",
+      "nightMatte",
+      "meshBloom",
+      "metaOrbs",
+      "panelParade",
+      "ditherTide",
+      "ditherViolet",
+      "ditherSky",
+      "ditherEmber",
+      "ditherMint",
+      "ditherRose",
+      "ditherIndigo",
+    ];
+    for (const preset of presets) expect(p).toContain(`'${preset}'`);
+  });
+
   it("teaches the backdrop preset allowlist via the state path", () => {
     const p = buildSystemPrompt();
     expect(p).toContain("/backdrop/preset");

@@ -1,12 +1,10 @@
 "use client";
 
-import { motion } from "framer-motion";
 import Image from "next/image";
 import { Code2 } from "lucide-react";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import type { BaseComponentProps } from "@json-render/react";
 import SpotifyReveal from "@/components/ui/spotify-reveal";
-import { enter } from "../motion";
 import { isSvgSrc } from "@/lib/utils";
 
 /** One consistent icon treatment everywhere (design-contract §5). */
@@ -147,14 +145,10 @@ export const extraComponents = {
   StepFlow: ({
     props,
   }: BaseComponentProps<{ steps: { title: string; body: string }[] }>) => (
-    <motion.ol className="space-y-4">
+    <ol className="space-y-4">
       {props.steps.map((step, i) => (
-        <motion.li
+        <li
           key={i}
-          custom={i}
-          variants={enter}
-          initial="hidden"
-          animate="show"
           className={`${SURFACE} flex items-start gap-4 p-5 text-left`}
         >
           <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-[#37304a]/10 bg-[#fffdf8] text-base font-semibold text-[#5646a8] dark:border-white/10 dark:bg-[#26232c] dark:text-[#9d8ff2]">
@@ -168,8 +162,8 @@ export const extraComponents = {
               {step.body}
             </p>
           </div>
-        </motion.li>
+        </li>
       ))}
-    </motion.ol>
+    </ol>
   ),
 };

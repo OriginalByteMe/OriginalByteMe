@@ -5,11 +5,12 @@ import type { Spec } from "@json-render/react";
  *
  * Rebuilt for #41: the corpus (bio, skills, career, projects, OS setup, side
  * projects, Spotify, fun facts, contact) is arranged as a sequence of
- * full-height **Scene** chapters over the signature `softField` Backdrop
- * preset (the Backdrop lives in app/page.tsx and defaults to softField per
- * #38). Each scene pairs a `ChapterHeading` anchor with one or two payload
- * blocks — story primitives (`NarrativeBeat` / `StatReveal` /
- * `SequencedTimeline`) for the narrative beats, and the detailed fact
+ * full-height **Scene** chapters over the signature `ambientLava` Backdrop
+ * preset (a continuous, softly animated grain-gradient blob; the Backdrop
+ * lives in app/page.tsx and uses ambientLava by default). Each scene pairs a
+ * `ChapterHeading` anchor with one or two payload blocks — story primitives
+ * (`NarrativeBeat` / `StatReveal` / `SequencedTimeline`) for the narrative
+ * beats, and the detailed fact
  * components (`SkillGrid` / `ProjectShowcase` / `OperatingSystemsGrid` /
  * `SideProjects` / `SpotifyNowPlaying` / `ContactCard`) for the rich content
  * the visitor should see outright. Design-contract v2 §9 caps each scene at

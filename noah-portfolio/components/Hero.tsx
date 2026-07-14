@@ -3,18 +3,11 @@
 import { Component, useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import { ImageDithering } from '@paper-design/shaders-react';
-import {
-  motion,
-  useAnimationFrame,
-  useMotionValue,
-  useReducedMotion,
-  useSpring,
-} from 'framer-motion';
+import { motion, useAnimationFrame, useMotionValue, useReducedMotion, useSpring } from 'framer-motion';
 import { useSelector } from 'react-redux';
-import { ArrowDown, ArrowUpRight, Github, Linkedin, Mail } from 'lucide-react';
-import SpotifyReveal from './ui/spotify-reveal';
+import { Github, Linkedin, Mail, X } from 'lucide-react';
 import ChatBox from './ChatBox';
-import { ThemeSwitch } from './ThemeSwitch';
+import { AskLauncherButton } from './AskDock';
 import { useTheme } from './ThemeProvider';
 import { ditherPaletteFromTrack, type DitherPalette } from '@/lib/dither-palette';
 import type { RootState } from '@/lib/store';
@@ -31,8 +24,6 @@ class DitherBoundary extends Component<{ fallback: ReactNode; children: ReactNod
   static getDerivedStateFromError = () => ({ failed: true });
   render() { return this.state.failed ? this.props.fallback : this.props.children; }
 }
-
-const actionClass = 'hero-action min-h-11 rounded-full px-4 text-sm font-medium';
 
 /**
  * The dither's own choreography: the Bayer grid stays fixed to the screen
@@ -101,7 +92,6 @@ function HeroPortrait() {
       onPointerLeave={handlePointerLeave}
     >
       <div className="absolute inset-5 rounded-[2.75rem] bg-[#f4ecdf] shadow-[0_32px_90px_-42px_rgba(58,51,69,0.5)] dark:bg-[#26232c]" />
-      {/* Idle drift keeps the plane alive when the pointer is elsewhere… */}
       <motion.div
         style={{ transformStyle: 'preserve-3d' }}
         animate={
@@ -111,7 +101,6 @@ function HeroPortrait() {
         }
         transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
       >
-        {/* …and the springed inner layer answers the pointer. */}
         <motion.div
           style={{ rotateX: tiltX, rotateY: tiltY, transformStyle: 'preserve-3d' }}
           className="relative overflow-hidden rounded-[2.75rem] border border-[#37304a]/10 bg-[#fffdf8] p-3 shadow-[0_28px_80px_-40px_rgba(58,51,69,0.5)] dark:border-white/10 dark:bg-[#2b2830]"
@@ -153,9 +142,71 @@ function HeroPortrait() {
   );
 }
 
+function HeroAskLauncher() {
+  const [expanded, setExpanded] = useState(false);
+  const launcherRef = useRef<HTMLButtonElement>(null);
+
+  const collapse = () => {
+    launcherRef.current?.focus();
+    setExpanded(false);
+  };
+
+  return (
+    <section
+      id="ask-me"
+      aria-label="Ask-Me"
+      className="profile-ask profile-ask-launcher"
+      data-state={expanded ? 'expanded' : 'collapsed'}
+    >
+      <div className="profile-ask-launcher__entry">
+        <AskLauncherButton
+          ref={launcherRef}
+          aria-label={expanded ? 'Ask-Me composer is open' : 'Open Ask-Me composer'}
+          aria-expanded={expanded}
+          aria-controls="ask-me-composer"
+          aria-describedby={expanded ? undefined : 'ask-me-cta'}
+          onClick={() => setExpanded(true)}
+        />
+        {!expanded && (
+          <p id="ask-me-cta" className="profile-ask-launcher__cta">
+            Ask this portfolio anything
+          </p>
+        )}
+      </div>
+
+      {expanded && (
+        <div id="ask-me-composer" className="profile-ask-launcher__composer">
+          <div className="ask-editorial__heading">
+            <div>
+              <p className="ask-editorial__eyebrow">Ask-Me</p>
+              <h2 className="ask-editorial__title">Where should we begin?</h2>
+            </div>
+            <button
+              type="button"
+              aria-label="Collapse Ask-Me"
+              onClick={collapse}
+              className="hero-action size-11 shrink-0 justify-center rounded-full"
+            >
+              <X {...ICON} className="size-4" aria-hidden />
+            </button>
+          </div>
+          <p className="ask-editorial__intro">
+            Choose a route below or write your own. The portfolio will compose an answer around your question.
+          </p>
+          <ChatBox variant="editorial" autoFocus />
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function Hero() {
   return (
-    <section id="hero" aria-labelledby="profile-heading" className="relative isolate overflow-hidden px-5 pb-20 pt-7 text-[#37304a] dark:text-[#eae6f2] sm:px-8 lg:min-h-screen lg:px-10 lg:py-10">
+    <section
+      id="hero"
+      aria-labelledby="profile-heading"
+      className="relative isolate overflow-hidden px-5 pb-20 pt-7 text-[#37304a] dark:text-[#eae6f2] sm:px-8 lg:min-h-screen lg:px-10 lg:py-10"
+    >
       <div className="profile-hero-grid mx-auto w-full max-w-[92rem]">
         <header className="profile-identity self-end text-center lg:text-left">
           <p className="font-mono text-xs uppercase tracking-[0.3em] text-[#6f6885] dark:text-[#a9a2bd]">
@@ -169,52 +220,49 @@ export default function Hero() {
           </p>
         </header>
 
-        <nav aria-label="Primary navigation" className="profile-nav flex flex-wrap items-center justify-center gap-2 lg:justify-end lg:self-start">
-          <a className={actionClass} href="#story" aria-label="Read Noah's story">
-            Story <ArrowDown {...ICON} className="size-4" aria-hidden />
-          </a>
-          <a className={actionClass} href="https://blog.noahrijkaard.com" target="_blank" rel="noreferrer noopener" aria-label="Read Noah's blog">
-            Blog <ArrowUpRight {...ICON} className="size-4" aria-hidden />
-          </a>
-        </nav>
-
         <div className="profile-portrait-cell">
-          <HeroPortrait />
+          <div className="profile-portrait-shell">
+            <HeroPortrait />
+            <nav aria-label="Contact destinations" className="profile-contact-actions">
+              <a
+                className="profile-contact-action"
+                data-contact-anchor="upper-left"
+                href="mailto:noahrijkaard@gmail.com"
+                aria-label="Email Noah"
+                aria-describedby="contact-tooltip-email"
+              >
+                <Mail {...ICON} aria-hidden />
+                <span id="contact-tooltip-email" role="tooltip">Email me</span>
+              </a>
+              <a
+                className="profile-contact-action"
+                data-contact-anchor="middle-right"
+                href="https://github.com/OriginalByteMe"
+                target="_blank"
+                rel="noreferrer noopener"
+                aria-label="Visit Noah on GitHub"
+                aria-describedby="contact-tooltip-github"
+              >
+                <Github {...ICON} aria-hidden />
+                <span id="contact-tooltip-github" role="tooltip">See my GitHub</span>
+              </a>
+              <a
+                className="profile-contact-action"
+                data-contact-anchor="lower-left"
+                href="https://www.linkedin.com/in/noah-rijkaard/"
+                target="_blank"
+                rel="noreferrer noopener"
+                aria-label="Visit Noah on LinkedIn"
+                aria-describedby="contact-tooltip-linkedin"
+              >
+                <Linkedin {...ICON} aria-hidden />
+                <span id="contact-tooltip-linkedin" role="tooltip">Connect on LinkedIn</span>
+              </a>
+            </nav>
+          </div>
         </div>
 
-        <aside aria-label="Contact and destinations" className="profile-contact profile-support hero-panel p-8">
-          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#6f6885] dark:text-[#a9a2bd]">Find me</p>
-          <div className="mt-3 grid gap-2">
-            <a className={actionClass} href="mailto:noahrijkaard@gmail.com" aria-label="Email Noah">
-              <Mail {...ICON} className="size-4" aria-hidden /> Email
-            </a>
-            <a className={actionClass} href="https://github.com/OriginalByteMe" target="_blank" rel="noreferrer noopener" aria-label="Visit Noah on GitHub">
-              <Github {...ICON} className="size-4" aria-hidden /> GitHub
-            </a>
-            <a className={actionClass} href="https://www.linkedin.com/in/noah-rijkaard/" target="_blank" rel="noreferrer noopener" aria-label="Visit Noah on LinkedIn">
-              <Linkedin {...ICON} className="size-4" aria-hidden /> LinkedIn
-            </a>
-            <ThemeSwitch />
-          </div>
-        </aside>
-
-        <section data-testid="compact-spotify" aria-labelledby="listening-heading" className="profile-listening profile-support hero-panel min-w-0 p-8">
-          <p id="listening-heading" className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#6f6885] dark:text-[#a9a2bd]">Listening context</p>
-          <SpotifyReveal />
-        </section>
-
-        <section
-          id="ask-me"
-          aria-label="Ask-Me"
-          className="profile-ask profile-support hero-panel min-w-0 p-8 ring-1 ring-[#5646a8]/25 dark:ring-[#9d8ff2]/30"
-        >
-          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#5646a8] dark:text-[#c9b3ec]">Ask-Me</p>
-          <h2 className="mt-2 font-serif text-2xl tracking-tight">Ask me anything</h2>
-          <p className="mt-1 text-sm leading-relaxed text-[#5d5673] dark:text-[#bdb6d0]">
-            This portfolio answers back — it builds a page live for whatever you ask.
-          </p>
-          <ChatBox />
-        </section>
+        <HeroAskLauncher />
       </div>
     </section>
   );
