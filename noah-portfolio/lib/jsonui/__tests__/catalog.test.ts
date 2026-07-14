@@ -15,6 +15,12 @@ describe("catalog", () => {
     for (const name of ["CareerTimeline", "ProjectShowcase", "SkillGrid", "ContactCard", "StepFlow"])
       expect(prompt).toContain(name);
   });
+
+  it("does not expose retired generated-only components or arbitrary animation URLs", () => {
+    expect(catalog.componentNames).not.toContain("StaticComposition");
+    expect(catalog.componentNames).not.toContain("LottieFigure");
+    expect(catalog.prompt()).not.toMatch(/StaticComposition|LottieFigure/);
+  });
   it("ProjectShowcase rejects a missing statePath prop", () => {
     // catalog.data.components is a library-internal path not reflected in the inferred type;
     // cast via unknown rather than any so the boundary is explicit.
@@ -35,9 +41,22 @@ describe("catalog", () => {
         rows: [{ ...rows[0], url: "https://bowiq.com" }],
       });
       expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.rows?.[0]).toMatchObject({ url: "https://bowiq.com" });
-      }
+      if (!result.success) return;
+
+      const parsedOutput = z
+        .object({
+          rows: z.array(
+            z.object({
+              url: z.string().url().optional(),
+            }),
+          ),
+        })
+        .safeParse(result.data);
+      expect(parsedOutput.success).toBe(true);
+      if (!parsedOutput.success) return;
+      expect(parsedOutput.data.rows[0]).toMatchObject({
+        url: "https://bowiq.com",
+      });
     });
 
     it("rejects a malformed company URL", () => {

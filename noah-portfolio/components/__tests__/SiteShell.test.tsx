@@ -8,6 +8,7 @@ import { makeStore } from '@/lib/store';
 
 const askMeState = vi.hoisted(() => ({ mode: 'home' as 'home' | 'streaming' | 'answer' }));
 const spotifyHook = vi.hoisted(() => ({ fetchSpotifyTracksAndPalettes: vi.fn() }));
+const canvasState = vi.hoisted(() => ({ showChapters: true, renderVersion: 0 }));
 
 vi.mock('@/components/AskMeProvider', () => ({
   useAskMe: () => askMeState,
@@ -17,15 +18,15 @@ vi.mock('@/lib/hooks/useSpotify', () => ({
 }));
 vi.mock('@/components/Hero', () => ({ default: () => <div>Hero surface</div> }));
 vi.mock('@/components/PortfolioCanvas', () => ({
-  default: () => (
-    <div>
+  default: () => canvasState.showChapters ? (
+    <div key={canvasState.renderVersion}>
       <section data-testid="chapter-1">Chapter one</section>
       <section data-testid="chapter-2">Chapter two</section>
       <section data-testid="chapter-3">Chapter three</section>
       <section data-testid="chapter-4">Chapter four</section>
       <section data-testid="chapter-5">Chapter five</section>
     </div>
-  ),
+  ) : <div>Loading portfolio</div>,
 }));
 vi.mock('@/components/CompactHeader', () => ({ default: () => <header>Compact header</header> }));
 vi.mock('@/components/AskDock', () => ({ default: () => <div>Ask dock</div> }));
@@ -45,11 +46,14 @@ vi.mock('next/image', () => ({
 beforeEach(() => {
   askMeState.mode = 'home';
   spotifyHook.fetchSpotifyTracksAndPalettes.mockReset();
+  canvasState.showChapters = true;
+  canvasState.renderVersion = 0;
   window.sessionStorage.clear();
 });
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -60,6 +64,31 @@ describe('site-wide listening easter egg', () => {
     expect(chooseListeningEasterEggSlot(() => 0.34)).toBe('chapter-1-left');
     expect(chooseListeningEasterEggSlot(() => 0.99)).toBe('chapter-5-right');
     expect(chooseListeningEasterEggSlot(() => 1)).toBe('chapter-5-right');
+  });
+
+  it('disables positional hero transitions when reduced motion is requested', () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query.includes('prefers-reduced-motion'),
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    );
+
+    render(
+      <Provider store={makeStore()}>
+        <SiteShell />
+      </Provider>,
+    );
+
+    expect(document.querySelector('.site-shell')).toHaveAttribute('data-reduced-motion', 'true');
+    expect(screen.getByText('Hero surface').parentElement).not.toHaveStyle({ transform: 'translateY(16px)' });
   });
 
   it('chooses once after hydration, persists the slot, and exposes the concise CTA', async () => {
@@ -89,6 +118,50 @@ describe('site-wide listening easter egg', () => {
     );
 
     expect(await screen.findByTestId('listening-easter-egg')).toHaveAttribute('data-slot', 'chapter-5-right');
+  });
+
+  it('attaches to a chapter that appears after the lazy home canvas resolves', async () => {
+    window.sessionStorage.setItem('listeningEasterEggSlot', 'chapter-2-right');
+    canvasState.showChapters = false;
+    const { rerender } = render(
+      <Provider store={makeStore()}>
+        <SiteShell />
+      </Provider>,
+    );
+
+    canvasState.showChapters = true;
+    rerender(
+      <Provider store={makeStore()}>
+        <SiteShell />
+      </Provider>,
+    );
+
+    const easterEgg = await screen.findByTestId('listening-easter-egg');
+    await waitFor(() => expect(easterEgg.closest('[data-testid="chapter-2"]')).toBeInTheDocument());
+    expect(easterEgg.closest('[data-listening-section="2"]')).toBeInTheDocument();
+  });
+
+  it('keeps the mounted listening control when home canvas sections are replaced', async () => {
+    window.sessionStorage.setItem('listeningEasterEggSlot', 'chapter-2-right');
+    const { rerender } = render(
+      <Provider store={makeStore()}>
+        <SiteShell />
+      </Provider>,
+    );
+    const trigger = await screen.findByRole('button', { name: "Show Noah's listening context" });
+
+    canvasState.renderVersion += 1;
+    rerender(
+      <Provider store={makeStore()}>
+        <SiteShell />
+      </Provider>,
+    );
+
+    await waitFor(() => {
+      expect(trigger.isConnected).toBe(true);
+      expect(screen.getByRole('button', { name: "Show Noah's listening context" })).toBe(trigger);
+      expect(trigger.closest('[data-testid="chapter-2"]')).toBeInTheDocument();
+    });
   });
 
   it('keeps one primary navigation and theme control in persistent site chrome across modes', async () => {

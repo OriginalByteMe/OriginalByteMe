@@ -1,112 +1,138 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
-import {
-  autoFixSpec,
-  createSpecStreamCompiler,
-  formatSpecIssues,
-  validateSpec,
-  type Spec,
-  type JsonPatch,
-} from "@json-render/core";
-import { buildSpecFromParts, type DataPart } from "@json-render/react";
+import { createSpecStreamCompiler, type Spec } from "@json-render/core";
+
 import { homeSpec } from "@/lib/jsonui/homeSpec";
 import { specToPatches } from "@/lib/jsonui/spec-patches";
-import { isBackdropPresetName } from "@/lib/backdrop/presets";
+import { normalizeQuestion } from "@/lib/story/normalize";
+import {
+  assertValidPublicStory,
+  assertValidStreamPlan,
+  assertValidStreamScene,
+} from "@/lib/story/public-validation";
+import {
+  PublishStoryResponseSchema,
+  StoryQuestionSchema,
+  StoryStreamEventSchema,
+  type EvidenceRef,
+  type PublicStory,
+  type StoryPlan,
+  type StoryScene,
+  type StoryPublicationToken,
+  type StoryStreamEvent,
+} from "@/lib/story/types";
 import { resetBackdropPreset, setBackdropPreset } from "@/lib/store/slices/backdrop-slice";
-import { normalizePortfolioQuery } from "@/lib/portfolio-query";
 
-export type CanvasMode = "home" | "streaming" | "answer";
+export type CanvasMode = "home" | "streaming" | "answer" | "error";
+export type StoryPhase = Extract<StoryStreamEvent, { type: "phase" }>["phase"];
+export type StoryHistoryMode = "replace" | "push";
 
-/** Delay between local patch replays (goHome's rebuild), ms. */
-const LOCAL_PATCH_DELAY_MS = 35;
+export interface AskOptions {
+  /** Related Questions push a new document; ordinary asks replace the current one. */
+  history?: StoryHistoryMode;
+}
 
 export interface PortfolioCanvas {
-  /** Current view: default home, streaming a generation, or a generated answer. */
   mode: CanvasMode;
-  /** The spec currently driving the <Renderer/> (homeSpec by default). */
+  /** json-render is retained only for the home Tableau. */
   spec: Spec;
-  /** The question backing the current answer (empty in home mode). */
   question: string;
-  /** Transient error message; auto-clears a few seconds after a failed ask(). */
+  phase: StoryPhase | null;
+  plan: StoryPlan | null;
+  scenes: StoryScene[];
+  evidence: EvidenceRef[];
+  /** Present only after the server validates, persists, and publishes the Story. */
+  story: PublicStory | null;
   error: string | null;
-  /** Ask a question: POST /api/generate, render the returned spec. */
-  ask: (question: string) => Promise<void>;
-  /** Restore the default home canvas and clear the ?q= param. */
+  ask: (question: string, options?: AskOptions) => Promise<void>;
   reset: () => void;
-  /** Like reset, but replays the home spec patch-by-patch so the home story visibly rebuilds. */
   goHome: () => void;
 }
 
-
-function setQueryParam(q: string | null) {
-  if (typeof window === "undefined") return;
-  const url = new URL(window.location.href);
-  if (q) {
-    if (url.searchParams.get("q") === q) return;
-    url.searchParams.set("q", q);
-  } else {
-    if (!url.searchParams.has("q")) return;
-    url.searchParams.delete("q");
-  }
-  // Next wraps the history instance to start an RSC navigation. This query is
-  // local canvas state, so preserve Next's state and use the native method to
-  // avoid remounting the provider while a generation is in flight.
-  History.prototype.replaceState.call(window.history, window.history.state, "", url.toString());
+interface StoryHistoryEntry {
+  id: string;
+  scrollY: number;
 }
 
-const PATCH_OPS: Record<JsonPatch["op"], true> = {
-  add: true,
-  remove: true,
-  replace: true,
-  move: true,
-  copy: true,
-  test: true,
+type StoryStreamTerminal =
+  | { kind: "complete"; story: PublicStory }
+  | { kind: "publish"; publicationToken: StoryPublicationToken };
+
+const STORY_PHASE_INDEX: Record<StoryPhase, number> = {
+  planning: 0,
+  composing: 1,
+  validating: 2,
+  publishing: 3,
 };
 
-function parsePatchLine(line: string): JsonPatch {
+const STORY_HISTORY_KEY = "__noahPortfolioStory";
+const LOCAL_PATCH_DELAY_MS = 35;
+
+function historyStateWith(entry: StoryHistoryEntry | null): Record<string, unknown> {
+  const current = window.history.state;
+  const state =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? { ...(current as Record<string, unknown>) }
+      : {};
+  state[STORY_HISTORY_KEY] = entry;
+  return state;
+}
+
+function writeStoryHistory(
+  method: StoryHistoryMode,
+  entry: StoryHistoryEntry | null,
+  url?: string,
+) {
+  if (typeof window === "undefined") return;
+  const state = historyStateWith(entry);
+  const destination = url ?? window.location.href;
+  if (method === "push") {
+    History.prototype.pushState.call(window.history, state, "", destination);
+  } else {
+    History.prototype.replaceState.call(window.history, state, "", destination);
+  }
+}
+
+function readStoryHistory(state: unknown): StoryHistoryEntry | null {
+  if (!state || typeof state !== "object" || Array.isArray(state)) return null;
+  const entry = (state as Record<string, unknown>)[STORY_HISTORY_KEY];
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return null;
+  const candidate = entry as Record<string, unknown>;
+  return typeof candidate.id === "string" &&
+    typeof candidate.scrollY === "number" &&
+    Number.isFinite(candidate.scrollY)
+    ? { id: candidate.id, scrollY: Math.max(0, candidate.scrollY) }
+    : null;
+}
+
+function parseStoryEvent(line: string): StoryStreamEvent {
+  if (!line.trim()) {
+    throw new Error("The Story stream contained an empty event");
+  }
+
   let parsed: unknown;
   try {
     parsed = JSON.parse(line);
   } catch {
-    throw new Error("The generated answer contained malformed patch data");
+    throw new Error("The Story stream contained malformed JSON");
   }
 
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("The generated answer contained malformed patch data");
+  const result = StoryStreamEventSchema.safeParse(parsed);
+  if (!result.success) {
+    throw new Error("The Story stream contained an invalid event");
   }
-
-  const candidate = parsed as Record<string, unknown>;
-  if (
-    typeof candidate.op !== "string" ||
-    !Object.prototype.hasOwnProperty.call(PATCH_OPS, candidate.op) ||
-    typeof candidate.path !== "string" ||
-    (candidate.path !== "" && !candidate.path.startsWith("/"))
-  ) {
-    throw new Error("The generated answer contained malformed patch data");
-  }
-
-  if (
-    (candidate.op === "add" || candidate.op === "replace" || candidate.op === "test") &&
-    !("value" in candidate)
-  ) {
-    throw new Error("The generated answer contained malformed patch data");
-  }
-
-  if (
-    (candidate.op === "move" || candidate.op === "copy") &&
-    (typeof candidate.from !== "string" ||
-      (candidate.from !== "" && !candidate.from.startsWith("/")))
-  ) {
-    throw new Error("The generated answer contained malformed patch data");
-  }
-
-  return candidate as unknown as JsonPatch;
+  return result.data;
 }
 
-function patchPart(patch: JsonPatch): DataPart {
-  return { type: "data-spec", data: { type: "patch", patch } };
+function samePayload(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function parseCompletePublicStory(value: unknown): PublicStory {
+  assertValidPublicStory(value);
+  return value;
 }
 
 function snapshotSpec(spec: Spec): Spec {
@@ -117,46 +143,32 @@ function snapshotSpec(spec: Spec): Spec {
   };
 }
 
-function generatedBackdropPreset(spec: Spec): string | null {
-  const state = spec.state;
-  if (!state || typeof state !== "object" || Array.isArray(state)) return null;
-  const preset = state["/backdrop/preset"];
-  return isBackdropPresetName(preset) ? preset : null;
-}
-
-function finalizeSpec(candidate: Spec): Spec {
-  const { spec: fixed } = autoFixSpec(candidate);
-  const validation = validateSpec(fixed);
-  if (!validation.valid) {
-    throw new Error(formatSpecIssues(validation.issues) || "Invalid spec");
-  }
-  return fixed;
-}
-
-/**
- * Owns the Ask-Me canvas state: the active json-render spec, the view mode,
- * ?q= URL sync, and graceful fallback to homeSpec on any generation failure
- * (issue #19 — the canvas never goes blank).
- *
- * The route (`/api/generate`) streams the answer as newline-delimited RFC 6902
- * JSON Patch lines on a cache miss, or returns the stored full spec as JSON on
- * a cache hit. This hook assembles the spec incrementally with
- * `createSpecStreamCompiler` and validates the final frame with
- * `buildSpecFromParts` + `autoFixSpec`/`validateSpec`.
- */
-export function usePortfolioCanvas(initialQuery = ""): PortfolioCanvas {
-  const normalizedInitialQuery = normalizePortfolioQuery(initialQuery);
-  const hasInitialQuery = normalizedInitialQuery.length > 0;
-  const dispatch = useDispatch();
-  const [mode, setMode] = useState<CanvasMode>(hasInitialQuery ? "streaming" : "home");
-  const [spec, setSpec] = useState<Spec>(() =>
-    hasInitialQuery ? { root: "", elements: {} } : homeSpec,
+export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas {
+  const validatedInitialStory = useMemo(
+    () => (initialStory ? parseCompletePublicStory(initialStory) : undefined),
+    [initialStory],
   );
-  const [question, setQuestion] = useState(normalizedInitialQuery);
+  const dispatch = useDispatch();
+  const [mode, setMode] = useState<CanvasMode>(validatedInitialStory ? "answer" : "home");
+  const [spec, setSpec] = useState<Spec>(homeSpec);
+  const [question, setQuestion] = useState(validatedInitialStory?.displayQuestion ?? "");
+  const [phase, setPhase] = useState<StoryPhase | null>(null);
+  const [plan, setPlan] = useState<StoryPlan | null>(validatedInitialStory?.plan ?? null);
+  const [scenes, setScenes] = useState<StoryScene[]>(validatedInitialStory?.scenes ?? []);
+  const [evidence, setEvidence] = useState<EvidenceRef[]>(validatedInitialStory?.evidence ?? []);
+  const [story, setStory] = useState<PublicStory | null>(validatedInitialStory ?? null);
   const [error, setError] = useState<string | null>(null);
   const requestRef = useRef<AbortController | null>(null);
-  // Timer driving a local patch replay (goHome's live home rebuild).
   const localStreamTimer = useRef<number | null>(null);
+  const storyRef = useRef<PublicStory | null>(validatedInitialStory ?? null);
+  const startedFromPublicRoute = useRef(Boolean(validatedInitialStory));
+  const storyCacheRef = useRef<Map<string, PublicStory> | null>(null);
+  if (!storyCacheRef.current) {
+    storyCacheRef.current = new Map(
+      validatedInitialStory ? [[validatedInitialStory.id, validatedInitialStory]] : [],
+    );
+  }
+  const storyCache = storyCacheRef.current;
 
   const cancelLocalStream = useCallback(() => {
     if (localStreamTimer.current !== null) {
@@ -165,151 +177,376 @@ export function usePortfolioCanvas(initialQuery = ""): PortfolioCanvas {
     }
   }, []);
 
-  // Auto-dismiss a transient error a few seconds after it appears.
+  const adoptCompleteStory = useCallback(
+    (nextStory: PublicStory) => {
+      storyCache.set(nextStory.id, nextStory);
+      storyRef.current = nextStory;
+      setQuestion(nextStory.displayQuestion);
+      setPlan(nextStory.plan);
+      setScenes(nextStory.scenes);
+      setEvidence(nextStory.evidence);
+      setStory(nextStory);
+      setError(null);
+      setMode("answer");
+      dispatch(setBackdropPreset(nextStory.plan.backdropPreset));
+    },
+    [dispatch, storyCache],
+  );
+
   useEffect(() => {
-    if (!error) return;
-    const t = setTimeout(() => setError(null), 6000);
-    return () => clearTimeout(t);
-  }, [error]);
+    if (!validatedInitialStory) return;
+    if (storyRef.current?.id !== validatedInitialStory.id && !requestRef.current) {
+      adoptCompleteStory(validatedInitialStory);
+    } else {
+      storyCache.set(validatedInitialStory.id, validatedInitialStory);
+      dispatch(setBackdropPreset(validatedInitialStory.plan.backdropPreset));
+    }
+    writeStoryHistory("replace", {
+      id: validatedInitialStory.id,
+      scrollY: window.scrollY,
+    });
+  }, [adoptCompleteStory, dispatch, storyCache, validatedInitialStory]);
 
-  const ask = useCallback(async (raw: string) => {
-    const normalized = normalizePortfolioQuery(raw);
-    if (!normalized) return;
-
-    requestRef.current?.abort();
-    cancelLocalStream();
-    const request = new AbortController();
-    requestRef.current = request;
-
-    setQuestion(normalized);
-    setError(null);
-    setMode("streaming");
-    setSpec({ root: "", elements: {} });
-    setQueryParam(normalized);
-    dispatch(resetBackdropPreset());
-
-    try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: normalized }),
-        signal: request.signal,
-      });
-      if (!res.ok) {
-        const detail: unknown = await res.json().catch(() => null);
-        let message = `Generation failed (${res.status})`;
-        if (detail && typeof detail === "object" && "error" in detail && typeof detail.error === "string") {
-          message = detail.error;
+  useEffect(() => {
+    const onPopState = (event: PopStateEvent) => {
+      const entry = readStoryHistory(event.state);
+      if (!entry) {
+        if (window.location.pathname !== "/") return;
+        requestRef.current?.abort();
+        requestRef.current = null;
+        cancelLocalStream();
+        if (startedFromPublicRoute.current) {
+          window.location.assign("/");
+          return;
         }
-        throw new Error(message);
-      }
-
-      const contentType = res.headers.get("content-type") ?? "";
-      if (contentType.includes("application/json")) {
-        // Cache hit: server returns the stored full spec instantly.
-        const data: unknown = await res.json();
-        if (!data || typeof data !== "object" || !("spec" in data)) {
-          throw new Error("No spec returned");
-        }
-        const candidate = data.spec;
-        if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
-          throw new Error("No spec returned");
-        }
-        const fixed = finalizeSpec(candidate as Spec);
-        if (request.signal.aborted || requestRef.current !== request) return;
-        setSpec(fixed);
-        const preset = generatedBackdropPreset(fixed);
-        if (preset) dispatch(setBackdropPreset(preset));
-        setMode("answer");
+        storyRef.current = null;
+        setMode("home");
+        setSpec(homeSpec);
+        setQuestion("");
+        setPhase(null);
+        setPlan(null);
+        setScenes([]);
+        setEvidence([]);
+        setStory(null);
+        setError(null);
+        dispatch(resetBackdropPreset());
         return;
       }
 
-      if (!contentType.includes("application/x-ndjson")) {
-        throw new Error("Unexpected generation response");
+      const cached = storyCache.get(entry.id);
+      if (!cached) return;
+      requestRef.current?.abort();
+      requestRef.current = null;
+      cancelLocalStream();
+      adoptCompleteStory(cached);
+      const restore = () =>
+        window.scrollTo({ top: entry.scrollY, left: 0, behavior: "auto" });
+      if (typeof window.requestAnimationFrame === "function") {
+        window.requestAnimationFrame(() => window.requestAnimationFrame(restore));
+      } else {
+        window.setTimeout(restore, 0);
+      }
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [adoptCompleteStory, cancelLocalStream, dispatch, storyCache]);
+
+  const ask = useCallback(
+    async (raw: string, options: AskOptions = {}) => {
+      const parsedQuestion = StoryQuestionSchema.safeParse(raw);
+      if (!parsedQuestion.success) return;
+      const normalized = parsedQuestion.data;
+
+      const historyMode = options.history ?? "replace";
+      if (historyMode === "push" && storyRef.current) {
+        writeStoryHistory("replace", {
+          id: storyRef.current.id,
+          scrollY: window.scrollY,
+        });
       }
 
-      // Cache miss: stream of RFC 6902 JSON Patch lines.
-      const reader = res.body?.getReader();
-      if (!reader) {
-        throw new Error("No response body");
+      requestRef.current?.abort();
+      cancelLocalStream();
+      const request = new AbortController();
+      requestRef.current = request;
+      storyRef.current = null;
+
+      setQuestion(normalized);
+      setPhase(null);
+      setPlan(null);
+      setScenes([]);
+      setEvidence([]);
+      setStory(null);
+      setError(null);
+      setMode("streaming");
+      setSpec(homeSpec);
+      dispatch(resetBackdropPreset());
+
+      if (historyMode === "push") {
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       }
 
-      const compiler = createSpecStreamCompiler<Spec>({ root: "", elements: {} });
-      const decoder = new TextDecoder();
-      const parts: DataPart[] = [];
-      let buffer = "";
+      let streamPlan: StoryPlan | null = null;
+      let streamEvidence: EvidenceRef[] = [];
+      const streamScenes: StoryScene[] = [];
+      let phaseIndex = -1;
+      let terminal: StoryStreamTerminal | null = null;
 
-      const consumeLine = (line: string) => {
-        const trimmedLine = line.trim();
-        if (!trimmedLine) return;
+      const isCurrentRequest = () =>
+        !request.signal.aborted && requestRef.current === request;
 
-        const patch = parsePatchLine(trimmedLine);
-        const { result, newPatches } = compiler.push(`${trimmedLine}\n`);
-        parts.push(patchPart(patch));
-        if (newPatches.length > 0 && !request.signal.aborted && requestRef.current === request) {
-          setSpec(snapshotSpec(result));
+      const validateCompletion = (
+        value: unknown,
+        source: "stream" | "publish",
+      ): PublicStory => {
+        const completed = parseCompletePublicStory(value);
+        if (
+          normalizeQuestion(completed.displayQuestion) !==
+          normalizeQuestion(normalized)
+        ) {
+          throw new Error("The published Story question differs from the requested question");
+        }
+        if (source === "publish") {
+          return completed;
+        }
+        if (
+          !streamPlan ||
+          streamScenes.length !== streamPlan.scenes.length ||
+          !samePayload(completed.plan, streamPlan) ||
+          !samePayload(completed.scenes, streamScenes) ||
+          !samePayload(completed.evidence, streamEvidence)
+        ) {
+          throw new Error("The cached Story did not match its replayed draft");
+        }
+        return completed;
+      };
+
+      const consumeEvent = (line: string): StoryStreamTerminal | null => {
+        if (!isCurrentRequest()) return null;
+        if (terminal) {
+          throw new Error("The Story stream continued after its terminal event");
+        }
+
+        const event = parseStoryEvent(line);
+        switch (event.type) {
+          case "phase": {
+            const nextPhaseIndex = STORY_PHASE_INDEX[event.phase];
+            if (nextPhaseIndex !== phaseIndex + 1) {
+              throw new Error("The Story stream sent lifecycle phases out of order");
+            }
+            if (event.phase === "composing" && !streamPlan) {
+              throw new Error("The Story stream started composing before its Plan");
+            }
+            if (
+              event.phase === "validating" &&
+              (!streamPlan || streamScenes.length !== streamPlan.scenes.length)
+            ) {
+              throw new Error("The Story stream started validation before every Scene arrived");
+            }
+            phaseIndex = nextPhaseIndex;
+            setPhase(event.phase);
+            return event.phase === "publishing"
+              ? { kind: "publish", publicationToken: event.publicationToken }
+              : null;
+          }
+          case "plan":
+            if (phaseIndex !== STORY_PHASE_INDEX.planning || streamPlan) {
+              throw new Error("The Story stream sent its Plan outside the planning phase");
+            }
+            assertValidStreamPlan(event.plan, event.evidence, normalized);
+            streamPlan = event.plan;
+            streamEvidence = event.evidence;
+            setPlan(event.plan);
+            setEvidence(event.evidence);
+            dispatch(setBackdropPreset(event.plan.backdropPreset));
+            return null;
+          case "scene": {
+            if (!streamPlan || phaseIndex !== STORY_PHASE_INDEX.composing) {
+              throw new Error("The Story stream sent a Scene outside the composing phase");
+            }
+            const expectedIndex = streamScenes.length;
+            if (event.index !== expectedIndex || event.scene.index !== expectedIndex) {
+              throw new Error("The Story stream sent Scenes out of order");
+            }
+            const lockedScene = streamPlan.scenes[expectedIndex];
+            if (!lockedScene) {
+              throw new Error("The Story stream sent an unplanned Scene");
+            }
+            assertValidStreamScene(event.scene, lockedScene, streamEvidence);
+            streamScenes.push(event.scene);
+            setScenes([...streamScenes]);
+            return null;
+          }
+          case "complete":
+            if (!streamPlan || phaseIndex !== STORY_PHASE_INDEX.validating) {
+              throw new Error("The cached Story bypassed its validated lifecycle");
+            }
+            return {
+              kind: "complete",
+              story: validateCompletion(event.story, "stream"),
+            };
+          case "error":
+            throw new Error(event.message);
         }
       };
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) consumeLine(line);
-      }
-      buffer += decoder.decode();
-      if (buffer.trim()) consumeLine(buffer);
+      let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
 
-      const assembled = buildSpecFromParts(parts) ?? compiler.getResult();
-      const fixed = finalizeSpec(assembled);
-      if (request.signal.aborted || requestRef.current !== request) return;
-      setSpec(fixed);
-      const preset = generatedBackdropPreset(fixed);
-      if (preset) dispatch(setBackdropPreset(preset));
-      setMode("answer");
-    } catch (err) {
-      if (request.signal.aborted || requestRef.current !== request) return;
-      // Resilience: keep the home content on screen, surface a transient error.
-      dispatch(resetBackdropPreset());
-      setSpec(homeSpec);
-      setQuestion("");
-      setMode("home");
-      setQueryParam(null);
-      setError(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      if (requestRef.current === request) requestRef.current = null;
-    }
-  }, [dispatch, cancelLocalStream]);
+      try {
+        const response = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: normalized }),
+          signal: request.signal,
+        });
+        if (!response.ok) {
+          const detail: unknown = await response.json().catch(() => null);
+          let message = `Generation failed (${response.status})`;
+          if (
+            detail &&
+            typeof detail === "object" &&
+            "error" in detail &&
+            typeof detail.error === "string"
+          ) {
+            message = detail.error;
+          }
+          throw new Error(message);
+        }
+
+        const contentType = response.headers.get("content-type") ?? "";
+        if (!contentType.includes("application/x-ndjson")) {
+          throw new Error("Unexpected generation response");
+        }
+
+        reader = response.body?.getReader() ?? null;
+        if (!reader) throw new Error("No response body");
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            const nextTerminal = consumeEvent(line);
+            if (nextTerminal) terminal = nextTerminal;
+          }
+        }
+        buffer += decoder.decode();
+        if (buffer) {
+          const nextTerminal = consumeEvent(buffer);
+          if (nextTerminal) terminal = nextTerminal;
+        }
+        if (!terminal) {
+          throw new Error("The Story stream ended before publication");
+        }
+        if (!isCurrentRequest()) return;
+
+        let completedStory: PublicStory;
+        if (terminal.kind === "complete") {
+          completedStory = terminal.story;
+        } else {
+          const publishResponse = await fetch("/api/generate/publish", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ publicationToken: terminal.publicationToken }),
+            signal: request.signal,
+          });
+          if (!publishResponse.ok) {
+            const detail: unknown = await publishResponse.json().catch(() => null);
+            let message = `Publication failed (${publishResponse.status})`;
+            if (
+              detail &&
+              typeof detail === "object" &&
+              "error" in detail &&
+              typeof detail.error === "string"
+            ) {
+              message = detail.error;
+            }
+            throw new Error(message);
+          }
+          const publishContentType = publishResponse.headers.get("content-type") ?? "";
+          if (!publishContentType.includes("application/json")) {
+            throw new Error("Unexpected Story publication response");
+          }
+          const publishPayload: unknown = await publishResponse.json().catch(() => null);
+          const published = PublishStoryResponseSchema.safeParse(publishPayload);
+          if (!published.success) {
+            throw new Error("The Story publication response was invalid");
+          }
+          completedStory = validateCompletion(published.data.story, "publish");
+        }
+
+        if (!isCurrentRequest()) return;
+        adoptCompleteStory(completedStory);
+        writeStoryHistory(
+          historyMode,
+          { id: completedStory.id, scrollY: 0 },
+          `/ask/${encodeURIComponent(completedStory.id)}`,
+        );
+      } catch (caught) {
+        if (!isCurrentRequest()) return;
+        request.abort();
+        void reader?.cancel().catch(() => undefined);
+        storyRef.current = null;
+        setStory(null);
+        setError(caught instanceof Error ? caught.message : "Something went wrong");
+        setMode("error");
+      } finally {
+        if (requestRef.current === request) requestRef.current = null;
+      }
+    },
+    [adoptCompleteStory, cancelLocalStream, dispatch],
+  );
 
   const reset = useCallback(() => {
     requestRef.current?.abort();
     requestRef.current = null;
     cancelLocalStream();
+    storyRef.current = null;
     dispatch(resetBackdropPreset());
-    setQuestion("");
-    setError(null);
-    setSpec(homeSpec);
     setMode("home");
-    setQueryParam(null);
-  }, [dispatch, cancelLocalStream]);
+    setSpec(homeSpec);
+    setQuestion("");
+    setPhase(null);
+    setPlan(null);
+    setScenes([]);
+    setEvidence([]);
+    setStory(null);
+    setError(null);
+    writeStoryHistory("replace", null, "/");
+  }, [cancelLocalStream, dispatch]);
 
-  // Like reset, but the home story assembles patch-by-patch in front of the
-  // visitor — the same "built live" feel as a streamed answer.
   const goHome = useCallback(() => {
     requestRef.current?.abort();
     requestRef.current = null;
     cancelLocalStream();
-    dispatch(resetBackdropPreset());
-    setQuestion("");
-    setError(null);
-    setMode("home");
-    setQueryParam(null);
-    // The rebuild starts from the hero — bring the visitor with it.
-    if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    const currentStory = storyRef.current;
+    if (startedFromPublicRoute.current) {
+      window.location.assign("/");
+      return;
     }
+    if (currentStory) {
+      writeStoryHistory("replace", {
+        id: currentStory.id,
+        scrollY: window.scrollY,
+      });
+    }
+    storyRef.current = null;
+    dispatch(resetBackdropPreset());
+    setMode("home");
+    setQuestion("");
+    setPhase(null);
+    setPlan(null);
+    setScenes([]);
+    setEvidence([]);
+    setStory(null);
+    setError(null);
+    writeStoryHistory("push", null, "/");
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
 
     const patches = [...specToPatches(homeSpec)];
     const compiler = createSpecStreamCompiler<Spec>({ root: "", elements: {} });
@@ -322,13 +559,12 @@ export function usePortfolioCanvas(initialQuery = ""): PortfolioCanvas {
         setSpec(snapshotSpec(result));
         localStreamTimer.current = window.setTimeout(step, LOCAL_PATCH_DELAY_MS);
       } else {
-        // Land on the canonical object so home mode compares by identity.
         localStreamTimer.current = null;
         setSpec(homeSpec);
       }
     };
     step();
-  }, [dispatch, cancelLocalStream]);
+  }, [cancelLocalStream, dispatch]);
 
   useEffect(
     () => () => {
@@ -338,20 +574,18 @@ export function usePortfolioCanvas(initialQuery = ""): PortfolioCanvas {
     [cancelLocalStream],
   );
 
-  // Defer the server-seeded shared query until after StrictMode's effect
-  // replay. Its cleanup cancels the first timer; the live effect issues once.
-  const autoRan = useRef(false);
-  useEffect(() => {
-    if (!normalizedInitialQuery || autoRan.current) return;
-
-    const timer = window.setTimeout(() => {
-      if (autoRan.current) return;
-      autoRan.current = true;
-      void ask(normalizedInitialQuery);
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [ask, normalizedInitialQuery]);
-
-  return { mode, spec, question, error, ask, reset, goHome };
+  return {
+    mode,
+    spec,
+    question,
+    phase,
+    plan,
+    scenes,
+    evidence,
+    story,
+    error,
+    ask,
+    reset,
+    goHome,
+  };
 }

@@ -17,11 +17,10 @@ import { cn, isSvgSrc } from "@/lib/utils";
  * Story primitives — the shipping catalog versions of the scene-prototype
  * components proven under #37 (see docs/design-contract.md §9, §11.3).
  *
- * A generated answer is a Story: an array of Scenes (full-height chapters) or,
- * for short answers, a single StaticComposition reading column. Both are
- * json-render containers whose children can arrive incrementally while an
- * answer streams. Story blocks therefore render visibly by default rather than
- * inheriting a one-shot animation state from their container.
+ * These json-render containers now serve the curated homeSpec only. Generated
+ * answers use the versioned Scene Story renderer and never enter this registry.
+ * Story blocks render visibly by default rather than inheriting a one-shot
+ * animation state from their container.
  *
  * StatReveal retains its independently meaningful in-view count-up. All
  * surfaces are matte pastel tokens (§2); no FrostedGlassBox, no blur.
@@ -38,7 +37,7 @@ const accentBar: Record<"violet" | "mint", string> = {
 /* Components                                                          */
 /* ------------------------------------------------------------------ */
 
-/** A full-height generated chapter (§9.2). */
+/** A full-height curated home chapter (§9.2). */
 function Scene({
   props,
   children,
@@ -154,9 +153,8 @@ function StatReveal({
 }
 
 /**
- * A vertical timeline of generated career rows. Rows are visible immediately
- * because streamed story content must not depend on an ancestor animation
- * label.
+ * A vertical timeline of curated career rows. Rows are visible immediately
+ * so home content does not depend on an ancestor animation label.
  */
 type TimelineRow = {
   period: string;
@@ -245,21 +243,6 @@ function TimelineRows({ rows }: { rows: TimelineRow[] }) {
   );
 }
 
-/**
- * Short-answer fallback (§8.4, §9.5): no scenes or scroll dependency. Renders
- * its child blocks in a centered max-w-3xl reading column.
- */
-function StaticComposition({
-  children,
-}: BaseComponentProps<Record<string, never>>) {
-  return (
-    <div
-      className="mx-auto flex w-full max-w-3xl flex-col items-center gap-6 py-20 text-center text-[#37304a] dark:text-[#eae6f2]"
-    >
-      {children}
-    </div>
-  );
-}
 
 export const storyComponents = {
   Scene,
@@ -267,5 +250,4 @@ export const storyComponents = {
   NarrativeBeat,
   StatReveal,
   SequencedTimeline,
-  StaticComposition,
 };

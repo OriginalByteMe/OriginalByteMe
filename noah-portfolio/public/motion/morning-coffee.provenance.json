@@ -1,0 +1,26 @@
+{
+  "assetId": "morning-coffee",
+  "format": "dotLottie v2",
+  "creator": "LottieFiles community creator (page attribution to confirm)",
+  "sourceKind": "project-authored",
+  "source": "https://lottiefiles.com",
+  "revision": "sha256:0a8bbd33262484f2b18eefb431e77e955a7b6c5df3c39e8f43b5e123ae831d8d",
+  "reviewedOn": "2026-07-14",
+  "embeddedResources": {
+    "images": false,
+    "fonts": false,
+    "audio": false,
+    "themes": false,
+    "stateMachines": false
+  },
+  "runtimeLicense": {
+    "name": "dotLottie React",
+    "identifier": "MIT",
+    "notice": "@lottiefiles/dotlottie-react is distributed under the MIT License."
+  },
+  "choreographyLicense": {
+    "name": "Morning coffee ritual",
+    "identifier": "Lottie Simple License (FL 9.13.21)",
+    "notice": "Downloaded from lottiefiles.com by Noah Rijkaard on 2026-07-14 (file: Morning Coffee.lottie); per-asset page URL and creator attribution to confirm."
+  }
+}

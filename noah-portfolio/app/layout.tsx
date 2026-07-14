@@ -3,8 +3,6 @@ import { Inter } from 'next/font/google'
 import { ThemeProvider } from '../components/ThemeProvider'
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import StoreProvider from '@/app/StoreProvider'
-import { JsonUiProvider } from '@/components/JsonUiProvider'
-import { corpusState } from '@/lib/corpus'
 
 
 const inter = Inter({ subsets: ['latin'] })
@@ -61,12 +59,10 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider>
           <StoreProvider>
-            <JsonUiProvider initialState={corpusState()}>
             <div className="min-h-screen bg-white text-black dark:bg-black dark:text-white">
               {children}
               <SpeedInsights />
             </div>
-            </JsonUiProvider>
           </StoreProvider>
         </ThemeProvider>
       </body>

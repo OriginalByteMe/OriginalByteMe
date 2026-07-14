@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from 'framer-motion';
 import { ArrowDown, ArrowUpRight } from 'lucide-react';
 import Hero from './Hero';
 import PortfolioCanvas from './PortfolioCanvas';
@@ -45,7 +45,7 @@ export function chooseListeningEasterEggSlot(random = Math.random): ListeningEas
   return LISTENING_EASTER_EGG_SLOTS[index];
 }
 
-function ListeningEasterEgg({ mode }: { mode: 'home' | 'streaming' | 'answer' }) {
+function ListeningEasterEgg() {
   const [slot, setSlot] = useState<ListeningEasterEggSlot | null>(null);
   const [sectionHost, setSectionHost] = useState<HTMLDivElement | null>(null);
 
@@ -79,22 +79,30 @@ function ListeningEasterEgg({ mode }: { mode: 'home' | 'streaming' | 'answer' })
       return;
     }
 
-    const section = document.querySelectorAll<HTMLElement>('#story section')[sectionIndex];
-    if (!section) {
-      setSectionHost(null);
-      return;
-    }
+    const story = document.getElementById('story');
+    if (!story) return;
 
     const host = document.createElement('div');
     host.className = 'site-listening-section-anchor';
     host.dataset.listeningSection = String(sectionIndex + 1);
-    section.appendChild(host);
+
+    const attachHost = () => {
+      const section = story.querySelectorAll<HTMLElement>('section')[sectionIndex];
+      if (section && host.parentElement !== section) {
+        section.appendChild(host);
+      }
+    };
+
+    attachHost();
     setSectionHost(host);
+    const observer = new MutationObserver(attachHost);
+    observer.observe(story, { childList: true, subtree: true });
+
     return () => {
-      setSectionHost(null);
+      observer.disconnect();
       host.remove();
     };
-  }, [mode, slot]);
+  }, [slot]);
 
   const layer = (
     <div className="listening-easter-egg-layer">
@@ -112,6 +120,7 @@ function ListeningEasterEgg({ mode }: { mode: 'home' | 'streaming' | 'answer' })
     </div>
   );
 
+  if (slot && LISTENING_SLOT_CONFIG[slot].sectionIndex !== null && !sectionHost) return null;
   return sectionHost ? createPortal(layer, sectionHost) : layer;
 }
 
@@ -122,53 +131,60 @@ function ListeningEasterEgg({ mode }: { mode: 'home' | 'streaming' | 'answer' })
  */
 export default function SiteShell() {
   const { mode } = useAskMe();
+  const reducedMotion = Boolean(useReducedMotion());
   const takeover = mode !== 'home';
 
   return (
-    <div className="site-shell" data-takeover={takeover}>
-      <div className="site-top-chrome">
-        <nav className="site-primary-nav" aria-label="Primary navigation">
-          <a
-            className={TOP_CHROME_ACTION_CLASS}
-            href="#story"
-            aria-label="Read Noah's story"
-          >
-            Story <ArrowDown strokeWidth={1.5} className="size-4" aria-hidden />
-          </a>
-          <a
-            className={TOP_CHROME_ACTION_CLASS}
-            href="https://blog.noahrijkaard.com"
-            target="_blank"
-            rel="noreferrer noopener"
-            aria-label="Read Noah's blog"
-          >
-            Blog <ArrowUpRight strokeWidth={1.5} className="size-4" aria-hidden />
-          </a>
-        </nav>
-        <div className="site-theme-toggle">
-          <ThemeSwitch />
+    <MotionConfig reducedMotion="user">
+      <div
+        className="site-shell"
+        data-reduced-motion={reducedMotion ? 'true' : 'false'}
+        data-takeover={takeover}
+      >
+        <div className="site-top-chrome">
+          <nav className="site-primary-nav" aria-label="Primary navigation">
+            <a
+              className={TOP_CHROME_ACTION_CLASS}
+              href="#story"
+              aria-label="Read Noah's story"
+            >
+              Story <ArrowDown strokeWidth={1.5} className="size-4" aria-hidden />
+            </a>
+            <a
+              className={TOP_CHROME_ACTION_CLASS}
+              href="https://blog.noahrijkaard.com"
+              target="_blank"
+              rel="noreferrer noopener"
+              aria-label="Read Noah's blog"
+            >
+              Blog <ArrowUpRight strokeWidth={1.5} className="size-4" aria-hidden />
+            </a>
+          </nav>
+          <div className="site-theme-toggle">
+            <ThemeSwitch />
+          </div>
         </div>
+        <AnimatePresence mode="wait" initial={false}>
+          {takeover ? (
+            <CompactHeader key="masthead" />
+          ) : (
+            <motion.div
+              key="hero"
+              initial={reducedMotion ? false : { opacity: 0, y: 16 }}
+              animate={reducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+              exit={reducedMotion ? { opacity: 1 } : { opacity: 0, y: -24 }}
+              transition={{ duration: reducedMotion ? 0 : 0.3 }}
+            >
+              <Hero />
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {mode === 'home' ? <ListeningEasterEgg /> : null}
+        <div id="story" className={takeover ? 'pt-16' : undefined}>
+          <PortfolioCanvas />
+        </div>
+        <AskDock />
       </div>
-      <AnimatePresence mode="wait" initial={false}>
-        {takeover ? (
-          <CompactHeader key="masthead" />
-        ) : (
-          <motion.div
-            key="hero"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -24 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Hero />
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <ListeningEasterEgg mode={mode} />
-      <div id="story" className={takeover ? 'pt-16' : undefined}>
-        <PortfolioCanvas />
-      </div>
-      <AskDock />
-    </div>
+    </MotionConfig>
   );
 }

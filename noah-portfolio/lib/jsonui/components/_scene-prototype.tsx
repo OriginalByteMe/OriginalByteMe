@@ -12,7 +12,6 @@ import {
   type Variants,
 } from "framer-motion";
 import clsx from "clsx";
-import { enter } from "@/lib/jsonui/motion";
 
 /**
  * Scene-prototype playground for wayfinder ticket #37.
@@ -20,14 +19,14 @@ import { enter } from "@/lib/jsonui/motion";
  * A THROWAWAY sandbox proving the mechanics of a scroll-driven "story"
  * renderer for the ask-me portfolio:
  *
- *   Story  = a generated answer presented as narrative.
+ *   Story  = serializable narrative prototype data.
  *   Scene  = one full-height chapter with scroll-triggered motion.
  *   Block  = one animated primitive inside a scene (heading, beat, stat...).
  *
  * The load-bearing idea being tested: a Story is authored as a plain,
  * serializable spec object (see `workStory` below) and rendered by a small
- * block-type switch (`renderBlock`) — NOT hand-written JSX per scene. That is
- * the exact shape an LLM would emit at answer-generation time.
+ * block-type switch (`renderBlock`) — NOT hand-written JSX per scene. The
+ * shipping generated Story contract now lives outside json-render.
  *
  * Two trigger models are demonstrated side by side:
  *   - Scenes are VIEWPORT-TRIGGERED (whileInView, once) — a one-shot reveal.
@@ -36,8 +35,7 @@ import { enter } from "@/lib/jsonui/motion";
  */
 
 /* ------------------------------------------------------------------ */
-/* Motion variants (local to the prototype; the shared `enter` from    */
-/* motion.ts is reused only for the static fallback path).             */
+/* Motion variants local to the scroll-driven scene prototype.        */
 /* ------------------------------------------------------------------ */
 
 // A scene's inner column: no visual change of its own, it just orchestrates
@@ -288,24 +286,20 @@ export type SceneSpec = {
 };
 
 export type StorySpec = {
-  /** "scenes" → full-height scroll story; "static" → short-answer fallback. */
-  mode: "scenes" | "static";
   scenes: SceneSpec[];
 };
 
 /**
- * The block-type switch. `reveal` is threaded to leaf blocks: in a Scene they
- * self-animate (reveal=true); in the static fallback an outer `enter` wrapper
- * animates them (reveal=false) so motion isn't doubled.
+ * The block-type switch. Leaf blocks self-animate as their Scene enters.
  */
-function renderBlock(block: StoryBlock, key: React.Key, reveal: boolean) {
+function renderBlock(block: StoryBlock, key: React.Key) {
   switch (block.type) {
     case "chapterHeading":
-      return <ChapterHeading key={key} {...block.props} reveal={reveal} />;
+      return <ChapterHeading key={key} {...block.props} reveal />;
     case "narrativeBeat":
-      return <NarrativeBeat key={key} {...block.props} reveal={reveal} />;
+      return <NarrativeBeat key={key} {...block.props} reveal />;
     case "statReveal":
-      return <StatReveal key={key} {...block.props} reveal={reveal} />;
+      return <StatReveal key={key} {...block.props} reveal />;
     case "timeline":
       // Self-driving stagger parent; inherits its label from the wrapper.
       return <SequencedTimeline key={key} {...block.props} />;
@@ -325,42 +319,20 @@ export function StoryRenderer({ spec }: { spec: StorySpec }) {
     <>
       {spec.scenes.map((scene) => (
         <Scene key={scene.id} id={scene.id} accent={scene.accent} align={scene.align}>
-          {scene.blocks.map((block, j) => renderBlock(block, `${scene.id}-${j}`, true))}
+          {scene.blocks.map((block, j) => renderBlock(block, `${scene.id}-${j}`))}
         </Scene>
       ))}
     </>
   );
 }
 
-/**
- * Short-answer fallback: no scenes, no scroll dependency. All blocks flatten
- * into one centered column that reveals with a plain mount stagger driven by
- * the shared `enter` variant (custom index → cascading delay).
- */
-export function StaticComposition({ spec }: { spec: StorySpec }) {
-  const blocks = spec.scenes.flatMap((scene) => scene.blocks);
-  return (
-    <motion.div
-      initial="hidden"
-      animate="show"
-      className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-16 text-center"
-    >
-      {blocks.map((block, i) => (
-        <motion.div key={i} variants={enter} custom={i} className="flex w-full flex-col items-center">
-          {renderBlock(block, i, false)}
-        </motion.div>
-      ))}
-    </motion.div>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /* Benchmark story — "What does Noah do for work?" (from content/about-me) */
-/* Pure serializable data; no JSX. This is what an LLM would emit.     */
+/* Pure serializable prototype data; no JSX.                           */
 /* ------------------------------------------------------------------ */
 
 const workStory: StorySpec = {
-  mode: "scenes",
   scenes: [
     {
       id: "intro",
@@ -447,31 +419,6 @@ const workStory: StorySpec = {
   ],
 };
 
-// Trimmed short-answer variant: same data model, single scene, static mode.
-const shortStory: StorySpec = {
-  mode: "static",
-  scenes: [
-    {
-      id: "short",
-      blocks: [
-        {
-          type: "chapterHeading",
-          props: { kicker: "Short answer", heading: "What does Noah do for work?" },
-        },
-        {
-          type: "narrativeBeat",
-          props: {
-            text: "Full-stack software engineer in Kuala Lumpur — Full-Stack Developer at Supa by day, CAD Designer & 3D Printing Engineer at Bowiq on the side.",
-          },
-        },
-        {
-          type: "statReveal",
-          props: { value: 6, suffix: "+", caption: "years shipping full-stack" },
-        },
-      ],
-    },
-  ],
-};
 
 /* ------------------------------------------------------------------ */
 /* Playground page                                                     */
@@ -489,10 +436,8 @@ export function ScenePrototype() {
   return (
     <main className="relative bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
       <SceneProgress />
-      <DemoDivider label="Demo A: scroll-driven scenes" />
+      <DemoDivider label="Scroll-driven Scene prototype" />
       <StoryRenderer spec={workStory} />
-      <DemoDivider label="Demo B: rich static fallback" />
-      <StaticComposition spec={shortStory} />
     </main>
   );
 }

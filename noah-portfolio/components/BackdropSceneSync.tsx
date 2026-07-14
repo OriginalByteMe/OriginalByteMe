@@ -7,27 +7,28 @@ import { resetBackdropPreset, setBackdropPreset } from '@/lib/store/slices/backd
 import { useAskMe } from './AskMeProvider';
 
 /**
- * Owns backdrop changes that belong to application mode.
- *
- * Home always uses the hero's nocturne shader and decorative scene across the
- * full page. Streaming is pinned to the violet wave. Answer mode deliberately
- * dispatches nothing so the generated spec's allowlisted choice remains in
- * control.
+ * Keeps application mode and the Story Plan's single allowlisted preset in
+ * sync. Scene cues are applied by the active Story document as bounded data.
  */
 export default function BackdropSceneSync() {
-  const { mode } = useAskMe();
+  const { mode, plan } = useAskMe();
   const dispatch = useDispatch();
 
   useEffect(() => {
-    if (mode === 'answer') return;
-
-    if (mode === 'streaming') {
-      dispatch(setBackdropPreset('ditherViolet'));
+    if (mode === 'home') {
+      dispatch(resetBackdropPreset());
       return;
     }
 
-    dispatch(resetBackdropPreset());
-  }, [mode, dispatch]);
+    if (plan) {
+      dispatch(setBackdropPreset(plan.backdropPreset));
+      return;
+    }
+
+    if (mode === 'streaming') {
+      dispatch(setBackdropPreset('ditherViolet'));
+    }
+  }, [mode, plan, dispatch]);
 
   return null;
 }

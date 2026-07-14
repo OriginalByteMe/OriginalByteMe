@@ -70,15 +70,21 @@ describe("ChatBox editorial prompt surface", () => {
     expect(onSubmitted).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps loading controls disabled and exposes busy state without naming the loader", () => {
+  it("dispatches a newer question while exposing streaming busy state", async () => {
     askMeState.mode = "streaming";
     const { container } = render(<ChatBox variant="editorial" />);
 
     expect(container.querySelector("form")).toHaveAttribute("aria-busy", "true");
-    expect(screen.getByRole("textbox", { name: "Ask a question about Noah" })).toBeDisabled();
+    const input = screen.getByRole("textbox", { name: "Ask a question about Noah" });
+    expect(input).toBeEnabled();
+    fireEvent.change(input, { target: { value: "What should replace this Story?" } });
     const submit = screen.getByRole("button", { name: "Send question" });
-    expect(submit).toBeDisabled();
+    expect(submit).toBeEnabled();
     expect(submit.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    fireEvent.click(submit);
+    await waitFor(() =>
+      expect(askMeState.ask).toHaveBeenCalledWith("What should replace this Story?"),
+    );
   });
 
   it("preserves the editorial Home action accessible name", () => {

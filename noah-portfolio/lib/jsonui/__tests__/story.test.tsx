@@ -208,20 +208,4 @@ describe("storyComponents", () => {
     expect(screen.getByText("This prose arrived after its scene.")).toBeVisible();
   });
 
-  it("StaticComposition renders children in a centered reading column", () => {
-    const StaticComposition = storyComponents.StaticComposition;
-    const { container } = render(
-      <StaticComposition props={{}} {...stubHandlers}>
-        <p>static child</p>
-      </StaticComposition>,
-    );
-    expect(screen.getByText("static child")).toBeInTheDocument();
-    expect(container.firstElementChild).toHaveClass(
-      "mx-auto",
-      "w-full",
-      "max-w-3xl",
-      "items-center",
-      "text-center",
-    );
-  });
 });

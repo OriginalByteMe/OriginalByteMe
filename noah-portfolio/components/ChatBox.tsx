@@ -34,7 +34,7 @@ export default function ChatBox({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const q = value.trim();
-    if (!q || loading) return;
+    if (!q) return;
     setValue("");
     const pending = ask(q);
     onSubmitted?.();
@@ -44,13 +44,12 @@ export default function ChatBox({
   if (variant === "default") {
     return (
       <div className="mt-4 w-full min-w-0">
-        <form onSubmit={onSubmit} className="relative">
+        <form onSubmit={onSubmit} className="relative" aria-busy={loading}>
           <input
             type="text"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             maxLength={280}
-            disabled={loading}
             placeholder="Ask me anything about Noah…"
             aria-label="Ask a question about Noah"
             autoFocus={autoFocus}
@@ -58,7 +57,7 @@ export default function ChatBox({
           />
           <button
             type="submit"
-            disabled={loading || !value.trim()}
+            disabled={!value.trim()}
             aria-label="Send question"
             className="absolute right-1.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[#5646a8] text-white transition hover:bg-[#473795] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5646a8] disabled:opacity-50 dark:bg-[#9d8ff2] dark:text-[#241f32] dark:hover:bg-[#c9b3ec]"
           >
@@ -115,7 +114,6 @@ export default function ChatBox({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             maxLength={280}
-            disabled={loading}
             placeholder="Ask me anything about Noah…"
             aria-label="Ask a question about Noah"
             autoFocus={autoFocus}
@@ -123,7 +121,7 @@ export default function ChatBox({
           />
           <button
             type="submit"
-            disabled={loading || !value.trim()}
+            disabled={!value.trim()}
             aria-label="Send question"
             className="ask-composer__submit"
           >

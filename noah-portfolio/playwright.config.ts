@@ -1,7 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import { PLAYWRIGHT_STORY_RECORDS } from "./app/ask/[storyId]/__tests__/story-fixtures";
 
 const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3100);
 const BASE_URL = `http://localhost:${PORT}`;
+const STORY_FIXTURES = JSON.stringify(PLAYWRIGHT_STORY_RECORDS);
 
 /**
  * E2E config for the Ask-Me flows. Playwright builds once, then serves the
@@ -29,6 +31,12 @@ export default defineConfig({
     url: BASE_URL,
     reuseExistingServer: false,
     timeout: 300_000,
-    env: { OPENROUTER_API_KEY: "test-key-not-used" },
+    env: {
+      OPENROUTER_API_KEY: "test-key-not-used",
+      STORY_CACHE_HMAC_KEY: "playwright-only-hmac-key-64-story-fixtures",
+      STORY_CACHE_HMAC_KEY_ID: "playwright-v1",
+      PLAYWRIGHT_TEST_MODE: "1",
+      PLAYWRIGHT_STORY_FIXTURES: STORY_FIXTURES,
+    },
   },
 });

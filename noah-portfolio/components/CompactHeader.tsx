@@ -15,6 +15,7 @@ export default function CompactHeader() {
 
   return (
     <motion.header
+      role="banner"
       initial={{ y: -64, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: -64, opacity: 0 }}

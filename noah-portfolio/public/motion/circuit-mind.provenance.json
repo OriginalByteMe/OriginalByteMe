@@ -1,0 +1,26 @@
+{
+  "assetId": "circuit-mind",
+  "format": "dotLottie v2",
+  "creator": "LottieFiles community creator (page attribution to confirm)",
+  "sourceKind": "project-authored",
+  "source": "https://lottiefiles.com",
+  "revision": "sha256:d6052554fe53aa778e63414efb549ff803b1b32d4922d83af89f7e39d18fc975",
+  "reviewedOn": "2026-07-14",
+  "embeddedResources": {
+    "images": false,
+    "fonts": false,
+    "audio": false,
+    "themes": false,
+    "stateMachines": false
+  },
+  "runtimeLicense": {
+    "name": "dotLottie React",
+    "identifier": "MIT",
+    "notice": "@lottiefiles/dotlottie-react is distributed under the MIT License."
+  },
+  "choreographyLicense": {
+    "name": "Isometric AI robot brain",
+    "identifier": "Lottie Simple License (FL 9.13.21)",
+    "notice": "Downloaded from lottiefiles.com by Noah Rijkaard on 2026-07-14 (file: Technology isometric ai robot brain.lottie); per-asset page URL and creator attribution to confirm."
+  }
+}

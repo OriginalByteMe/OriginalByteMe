@@ -1,8 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Code2 } from "lucide-react";
-import { DotLottieReact } from "@lottiefiles/dotlottie-react";
+import { BookOpen, Code2 } from "lucide-react";
 import type { BaseComponentProps } from "@json-render/react";
 import SpotifyReveal from "@/components/ui/spotify-reveal";
 import { isSvgSrc } from "@/lib/utils";
@@ -24,20 +23,6 @@ const BADGE =
 
 
 export const extraComponents = {
-  LottieFigure: ({
-    props,
-  }: BaseComponentProps<{ src: string; caption?: string | null }>) => (
-    <figure className={`${SURFACE} flex flex-col gap-3 p-4`}>
-      <span aria-hidden className={CARD_RULE} />
-      <DotLottieReact src={props.src} loop autoplay className="w-full max-w-sm self-center" />
-      {props.caption ? (
-        <figcaption className="text-center font-mono text-xs uppercase tracking-[0.2em] text-[#6f6885] dark:text-[#a9a2bd]">
-          {props.caption}
-        </figcaption>
-      ) : null}
-    </figure>
-  ),
-
   SpotifyNowPlaying: () => <SpotifyReveal />,
 
   /**
@@ -96,12 +81,12 @@ export const extraComponents = {
           <span aria-hidden className={CARD_RULE} />
           <div className="mb-4 flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
-              <DotLottieReact
-                src="https://lottie.host/ef9b2abd-0371-4525-ad25-ad50ff45c364/JSqmr4sTA8.lottie"
-                loop
-                autoplay
-                className="h-14 w-14"
-              />
+              <span
+                aria-hidden="true"
+                className="flex size-14 shrink-0 items-center justify-center rounded-2xl border border-border bg-secondary text-primary"
+              >
+                <BookOpen {...ICON} className="size-6" />
+              </span>
               <h4 className="text-lg font-semibold tracking-tight text-[#37304a] transition-colors group-hover:text-[#5646a8] dark:text-[#eae6f2] dark:group-hover:text-[#c9b3ec]">
                 My blog!
               </h4>
