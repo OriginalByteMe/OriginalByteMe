@@ -122,6 +122,7 @@ function HeroPortrait() {
                   colorBack={palette.colorBack}
                   colorHighlight={palette.colorHighlight}
                   type="8x8"
+                  speed={0}
                   size={dither.size}
                   colorSteps={3}
                   scale={dither.scale}

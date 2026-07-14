@@ -6,8 +6,8 @@ import type { Spec } from "@json-render/react";
  * Rebuilt for #41: the corpus (bio, skills, career, projects, OS setup, side
  * projects, Spotify, fun facts, contact) is arranged as a sequence of
  * full-height **Scene** chapters over the signature `ambientLava` Backdrop
- * preset (a continuous, softly animated grain-gradient blob; the Backdrop
- * lives in app/page.tsx and uses ambientLava by default). Each scene pairs a
+ * preset (a continuous dithered nocturne field with subtle 2.5D geometry; the
+ * Backdrop lives in app/page.tsx and uses ambientLava by default). Each scene pairs a
  * `ChapterHeading` anchor with one or two payload blocks — story primitives
  * (`NarrativeBeat` / `StatReveal` / `SequencedTimeline`) for the narrative
  * beats, and the detailed fact
