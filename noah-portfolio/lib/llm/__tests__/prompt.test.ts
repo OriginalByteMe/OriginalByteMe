@@ -5,12 +5,14 @@ import {
   getMotionAsset,
   motionAssetPromptCatalog,
 } from "@/lib/motion-assets/catalog";
-import { CORPUS_EVIDENCE_REFS } from "@/lib/story/evidence";
+import {
+  CORPUS_EVIDENCE_REFS,
+  CORPUS_PROJECT_PROMPT_CATALOG,
+} from "@/lib/story/evidence";
 import {
   FIVE_SCENE_PROJECT_USAGE_EXAMPLE,
   THREE_SCENE_PROJECT_USAGE_EXAMPLE,
 } from "@/lib/llm/examples";
-import { CORPUS_PROJECT_PROMPT_CATALOG } from "@/lib/story/projects.server";
 import {
   PROJECT_SLUGS,
   SCENE_PATTERNS,

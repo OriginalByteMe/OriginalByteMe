@@ -6,15 +6,11 @@ import { useEffect, useRef, useState } from "react";
 import {
   PublishStoryRequestSchema,
   PublishStoryResponseSchema,
-  StoryStreamEventSchema,
-  type EvidenceRef,
-  type StoryPlan,
-  type StoryScene,
 } from "@/lib/story/types";
+import { consumeStoryStream } from "@/lib/story/consume-story-stream";
 import {
   assertValidPublicStory,
   assertValidStreamPlan,
-  assertValidStreamScene,
 } from "@/lib/story/public-validation";
 
 interface OutdatedStoryProps {
@@ -25,11 +21,6 @@ type RegenerationOutcome =
   | { storyId: string }
   | { publicationToken: string };
 
-type StreamStage = "start" | "planning" | "planned" | "composing" | "validated";
-
-function samePayload(left: unknown, right: unknown): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
 
 async function readRegenerationOutcome(
   response: Response,
@@ -45,108 +36,14 @@ async function readRegenerationOutcome(
     throw new Error("The regeneration stream ended before the Story was ready.");
   }
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let pending = "";
-  let stage: StreamStage = "start";
-  let plan: StoryPlan | null = null;
-  let evidence: EvidenceRef[] = [];
-  const scenes: StoryScene[] = [];
-
-  const consumeLine = (line: string): RegenerationOutcome | null => {
-    if (!line.trim()) return null;
-
-    const event = StoryStreamEventSchema.parse(JSON.parse(line));
-    if (event.type === "error") throw new Error(event.message);
-
-    if (event.type === "phase") {
-      if (event.phase === "planning") {
-        if (stage !== "start") {
-          throw new Error("The regeneration stream repeated its planning phase.");
-        }
-        stage = "planning";
-        return null;
-      }
-      if (event.phase === "composing") {
-        if (stage !== "planned") {
-          throw new Error("The regeneration stream composed before its Plan.");
-        }
-        stage = "composing";
-        return null;
-      }
-      if (event.phase === "validating") {
-        if (stage !== "composing" || !plan || scenes.length !== plan.scenes.length) {
-          throw new Error("The regeneration stream validated before every Scene was ready.");
-        }
-        stage = "validated";
-        return null;
-      }
-      if (event.phase !== "publishing") {
-        throw new Error("The regeneration stream sent an unknown phase.");
-      }
-      if (stage !== "validated") {
-        throw new Error("The regeneration stream published before validation.");
-      }
-      return { publicationToken: event.publicationToken };
-    }
-
-    if (event.type === "plan") {
-      if (stage !== "planning" || plan) {
-        throw new Error("The regeneration stream sent its Plan out of order.");
-      }
-      assertValidStreamPlan(event.plan, event.evidence, expectedQuestion);
-      plan = event.plan;
-      evidence = event.evidence;
-      stage = "planned";
-      return null;
-    }
-
-    if (event.type === "scene") {
-      if (stage !== "composing" || !plan || event.index !== scenes.length) {
-        throw new Error("The regeneration stream sent Scenes out of order.");
-      }
-      const lockedScene = plan.scenes[event.index];
-      if (!lockedScene) {
-        throw new Error("The regeneration stream sent an unplanned Scene.");
-      }
-      assertValidStreamScene(event.scene, lockedScene, evidence);
-      scenes.push(event.scene);
-      return null;
-    }
-
-    assertValidPublicStory(event.story);
-    if (
-      stage !== "validated" ||
-      !plan ||
-      !samePayload(event.story.plan, plan) ||
-      !samePayload(event.story.scenes, scenes) ||
-      !samePayload(event.story.evidence, evidence)
-    ) {
-      throw new Error("The completed Story did not match its validated stream.");
-    }
-    return { storyId: event.story.id };
-  };
-
-  while (true) {
-    const { done, value } = await reader.read();
-    pending += decoder.decode(value, { stream: !done });
-
-    const lines = pending.split("\n");
-    pending = lines.pop() ?? "";
-    for (const line of lines) {
-      const outcome = consumeLine(line);
-      if (outcome) {
-        await reader.cancel();
-        return outcome;
-      }
-    }
-
-    if (done) break;
-  }
-
-  const outcome = consumeLine(pending);
-  if (outcome) return outcome;
-  throw new Error("The regeneration stream ended before the Story was ready.");
+  const terminal = await consumeStoryStream({
+    body: response.body,
+    expectedQuestion,
+    context: "regeneration",
+  });
+  return terminal.kind === "complete"
+    ? { storyId: terminal.story.id }
+    : { publicationToken: terminal.publicationToken };
 }
 
 async function publishStory(

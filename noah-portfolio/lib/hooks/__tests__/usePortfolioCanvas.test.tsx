@@ -208,7 +208,7 @@ describe("usePortfolioCanvas", () => {
 
     act(() => stream.push({ type: "plan", plan: completed.plan, evidence: completed.evidence }));
     await waitFor(() => expect(result.current.plan).toEqual(completed.plan));
-    expect(store.getState().backdrop.preset).toBe("ditherIndigo");
+    expect(store.getState().backdrop.preset).toBe(DEFAULT_BACKDROP_PRESET);
 
     act(() => stream.push({ type: "phase", phase: "composing" }));
     act(() =>
@@ -516,7 +516,7 @@ describe("usePortfolioCanvas", () => {
     expect(result.current.story).toEqual(initial);
     expect(result.current.question).toBe("Initial Story");
     expect(scrollTo).toHaveBeenCalledWith({ top: 321, left: 0, behavior: "auto" });
-    expect(store.getState().backdrop.preset).toBe("ditherIndigo");
+    expect(store.getState().backdrop.preset).toBe(DEFAULT_BACKDROP_PRESET);
   });
 
   it("accepts a cache-hit Story whose question differs only by canonical normalization", async () => {
@@ -805,7 +805,7 @@ describe("usePortfolioCanvas", () => {
     expect(result.current.mode).toBe("home");
     expect(result.current.spec).toBe(homeSpec);
     expect(result.current.plan).toBeNull();
-    expect(store.getState().backdrop.preset).toBe(DEFAULT_BACKDROP_PRESET);
+    expect(store.getState().backdrop.preset).toBe("nightMatte");
     expect(window.location.pathname).toBe("/");
   });
 });

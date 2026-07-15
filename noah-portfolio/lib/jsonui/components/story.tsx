@@ -14,7 +14,7 @@ import { useStateValue, type BaseComponentProps } from "@json-render/react";
 import { cn, isSvgSrc } from "@/lib/utils";
 
 /**
- * Story primitives — the shipping catalog versions of the scene-prototype
+ * Story primitives — the shipping catalog versions of the scroll-driven scene
  * components proven under #37 (see docs/design-contract.md §9, §11.3).
  *
  * These json-render containers now serve the curated homeSpec only. Generated

@@ -67,11 +67,16 @@ class MotionRuntimeBoundary extends Component<
 }
 
 function DotLottieAsset({
-  asset,
+  renderer,
+  replay,
   playbackState,
   onRuntimeError,
 }: {
-  asset: MotionAssetRecord & { renderer: Extract<MotionAssetRecord["renderer"], { kind: "dotlottie" }> };
+  renderer: Extract<
+    MotionAssetRecord["renderer"],
+    { kind: "dotlottie" }
+  >;
+  replay: MotionAssetRecord["playback"]["replay"];
   playbackState: MotionPlaybackState;
   onRuntimeError: () => void;
 }) {
@@ -116,10 +121,10 @@ function DotLottieAsset({
 
   return (
     <LazyDotLottie
-      src={asset.renderer.src}
-      animationId={asset.renderer.animationId}
+      src={renderer.src}
+      animationId={renderer.animationId}
       autoplay={false}
-      loop={asset.playback.replay === "loop"}
+      loop={replay === "loop"}
       dotLottieRefCallback={setPlayerRef}
       renderConfig={{ autoResize: true }}
       className="size-full"
@@ -146,9 +151,8 @@ function MotionAssetVisual({
     return (
       <Suspense fallback={<StaticAsset playbackState="static" />}>
         <DotLottieAsset
-          asset={asset as MotionAssetRecord & {
-            renderer: Extract<MotionAssetRecord["renderer"], { kind: "dotlottie" }>;
-          }}
+          renderer={asset.renderer}
+          replay={asset.playback.replay}
           playbackState={playbackState}
           onRuntimeError={onRuntimeError}
         />

@@ -8,8 +8,10 @@ import {
   buildSystemPrompt,
   buildUserMessage,
 } from "@/lib/llm/prompt";
-import { CORPUS_EVIDENCE_REFS } from "@/lib/story/evidence";
-import { resolveStoryProjects } from "@/lib/story/projects.server";
+import {
+  CORPUS_EVIDENCE_REFS,
+  resolveStoryProjects,
+} from "@/lib/story/evidence";
 import {
   MAX_STORY_QUESTION_LENGTH,
   StoryQuestionSchema,
@@ -17,7 +19,6 @@ import {
 } from "@/lib/story/types";
 import { findCurrentStory, findPreparedStory, prepareCompleteStory } from "@/lib/story/store";
 import type {
-  EvidenceRef,
   ScenePlan,
   StoryPlan,
   StoryPublicationToken,
@@ -27,8 +28,11 @@ import type {
 } from "@/lib/story/types";
 import {
   assertValidStoryPlan,
+  assertValidStoryPlanWithEvidence,
   assertValidStoryRecord,
-  assertValidStoryScene,
+  assertValidStorySceneWithEvidence,
+  validateCanonicalStoryEvidence,
+  type ValidatedStoryEvidence,
 } from "@/lib/story/validation";
 
 export const runtime = "nodejs";
@@ -104,10 +108,15 @@ async function generatePlan(question: string, signal: AbortSignal): Promise<Stor
   throw new Error(lastError);
 }
 
-function evidenceForPlan(plan: StoryPlan, expectedQuestion: string): EvidenceRef[] {
+function evidenceForPlan(
+  plan: StoryPlan,
+  expectedQuestion: string,
+): ValidatedStoryEvidence {
   const usedIds = new Set(plan.scenes.flatMap((scene) => scene.evidenceRefIds));
-  const evidence = CORPUS_EVIDENCE_REFS.filter((ref) => usedIds.has(ref.id));
-  assertValidStoryPlan(plan, evidence, expectedQuestion);
+  const evidence = validateCanonicalStoryEvidence(
+    CORPUS_EVIDENCE_REFS.filter((ref) => usedIds.has(ref.id)),
+  );
+  assertValidStoryPlanWithEvidence(plan, evidence, expectedQuestion);
   return evidence;
 }
 
@@ -128,10 +137,10 @@ function parseSceneBody(output: string): string {
 
 async function composeScene(
   lockedPlan: ScenePlan,
-  storyEvidence: readonly EvidenceRef[],
+  storyEvidence: ValidatedStoryEvidence,
   signal: AbortSignal,
 ): Promise<StoryScene> {
-  const lockedEvidence = storyEvidence.filter((ref) => lockedPlan.evidenceRefIds.includes(ref.id));
+  const lockedEvidence = storyEvidence.refs.filter((ref) => lockedPlan.evidenceRefIds.includes(ref.id));
   const resolvedProjects = resolveStoryProjects(lockedPlan.projectSlugs);
   const messages: ModelMessage[] = [{ role: "user", content: buildSceneUserMessage() }];
   let lastError = "The model did not return a valid Scene body.";
@@ -149,7 +158,7 @@ async function composeScene(
         body: parseSceneBody(output),
         ...(resolvedProjects ? { projects: resolvedProjects } : {}),
       };
-      assertValidStoryScene(scene, lockedPlan, storyEvidence);
+      assertValidStorySceneWithEvidence(scene, lockedPlan, storyEvidence);
       return scene;
     } catch (error) {
       abortIfNeeded(signal);
@@ -167,7 +176,7 @@ async function composeScene(
     body: lockedPlan.claim.trim(),
     ...(resolvedProjects ? { projects: resolvedProjects } : {}),
   };
-  assertValidStoryScene(fallback, lockedPlan, storyEvidence);
+  assertValidStorySceneWithEvidence(fallback, lockedPlan, storyEvidence);
   return fallback;
 }
 
@@ -242,7 +251,7 @@ function generationStream(
           emit({ type: "phase", phase: "planning" });
           const plan = await generatePlan(question, signal);
           const evidence = evidenceForPlan(plan, question);
-          emit({ type: "plan", plan, evidence });
+          emit({ type: "plan", plan, evidence: evidence.refs });
 
           emit({ type: "phase", phase: "composing" });
           const scenes: StoryScene[] = [];
@@ -253,10 +262,6 @@ function generationStream(
           }
 
           emit({ type: "phase", phase: "validating" });
-          assertValidStoryPlan(plan, evidence, question);
-          for (let index = 0; index < scenes.length; index += 1) {
-            assertValidStoryScene(scenes[index], plan.scenes[index], evidence);
-          }
           abortIfNeeded(signal);
 
           const prepared = await prepareCompleteStory(
@@ -264,7 +269,7 @@ function generationStream(
               displayQuestion: question,
               plan,
               scenes,
-              evidence,
+              evidence: evidence.refs,
             },
             { signal },
           );

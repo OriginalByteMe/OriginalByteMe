@@ -1,32 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useDispatch } from "react-redux";
 import { createSpecStreamCompiler, type Spec } from "@json-render/core";
 
 import { homeSpec } from "@/lib/jsonui/homeSpec";
 import { specToPatches } from "@/lib/jsonui/spec-patches";
-import { normalizeQuestion } from "@/lib/story/normalize";
+import { consumeStoryStream } from "@/lib/story/consume-story-stream";
+import { assertValidPublicStory } from "@/lib/story/public-validation";
 import {
-  assertValidPublicStory,
-  assertValidStreamPlan,
-  assertValidStreamScene,
-} from "@/lib/story/public-validation";
-import {
+  normalizeQuestion,
   PublishStoryResponseSchema,
   StoryQuestionSchema,
-  StoryStreamEventSchema,
   type EvidenceRef,
   type PublicStory,
+  type StoryPhase,
   type StoryPlan,
   type StoryScene,
-  type StoryPublicationToken,
-  type StoryStreamEvent,
 } from "@/lib/story/types";
-import { resetBackdropPreset, setBackdropPreset } from "@/lib/store/slices/backdrop-slice";
 
 export type CanvasMode = "home" | "streaming" | "answer" | "error";
-export type StoryPhase = Extract<StoryStreamEvent, { type: "phase" }>["phase"];
+export type { StoryPhase };
 export type StoryHistoryMode = "replace" | "push";
 
 export interface AskOptions {
@@ -56,16 +49,6 @@ interface StoryHistoryEntry {
   scrollY: number;
 }
 
-type StoryStreamTerminal =
-  | { kind: "complete"; story: PublicStory }
-  | { kind: "publish"; publicationToken: StoryPublicationToken };
-
-const STORY_PHASE_INDEX: Record<StoryPhase, number> = {
-  planning: 0,
-  composing: 1,
-  validating: 2,
-  publishing: 3,
-};
 
 const STORY_HISTORY_KEY = "__noahPortfolioStory";
 const LOCAL_PATCH_DELAY_MS = 35;
@@ -107,28 +90,6 @@ function readStoryHistory(state: unknown): StoryHistoryEntry | null {
     : null;
 }
 
-function parseStoryEvent(line: string): StoryStreamEvent {
-  if (!line.trim()) {
-    throw new Error("The Story stream contained an empty event");
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(line);
-  } catch {
-    throw new Error("The Story stream contained malformed JSON");
-  }
-
-  const result = StoryStreamEventSchema.safeParse(parsed);
-  if (!result.success) {
-    throw new Error("The Story stream contained an invalid event");
-  }
-  return result.data;
-}
-
-function samePayload(left: unknown, right: unknown): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
 
 function parseCompletePublicStory(value: unknown): PublicStory {
   assertValidPublicStory(value);
@@ -148,7 +109,6 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
     () => (initialStory ? parseCompletePublicStory(initialStory) : undefined),
     [initialStory],
   );
-  const dispatch = useDispatch();
   const [mode, setMode] = useState<CanvasMode>(validatedInitialStory ? "answer" : "home");
   const [spec, setSpec] = useState<Spec>(homeSpec);
   const [question, setQuestion] = useState(validatedInitialStory?.displayQuestion ?? "");
@@ -188,9 +148,8 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
       setStory(nextStory);
       setError(null);
       setMode("answer");
-      dispatch(setBackdropPreset(nextStory.plan.backdropPreset));
     },
-    [dispatch, storyCache],
+    [storyCache],
   );
 
   useEffect(() => {
@@ -199,13 +158,12 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
       adoptCompleteStory(validatedInitialStory);
     } else {
       storyCache.set(validatedInitialStory.id, validatedInitialStory);
-      dispatch(setBackdropPreset(validatedInitialStory.plan.backdropPreset));
     }
     writeStoryHistory("replace", {
       id: validatedInitialStory.id,
       scrollY: window.scrollY,
     });
-  }, [adoptCompleteStory, dispatch, storyCache, validatedInitialStory]);
+  }, [adoptCompleteStory, storyCache, validatedInitialStory]);
 
   useEffect(() => {
     const onPopState = (event: PopStateEvent) => {
@@ -229,7 +187,6 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
         setEvidence([]);
         setStory(null);
         setError(null);
-        dispatch(resetBackdropPreset());
         return;
       }
 
@@ -250,7 +207,7 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
 
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, [adoptCompleteStory, cancelLocalStream, dispatch, storyCache]);
+  }, [adoptCompleteStory, cancelLocalStream, storyCache]);
 
   const ask = useCallback(
     async (raw: string, options: AskOptions = {}) => {
@@ -281,25 +238,15 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
       setError(null);
       setMode("streaming");
       setSpec(homeSpec);
-      dispatch(resetBackdropPreset());
 
       if (historyMode === "push") {
         window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       }
 
-      let streamPlan: StoryPlan | null = null;
-      let streamEvidence: EvidenceRef[] = [];
-      const streamScenes: StoryScene[] = [];
-      let phaseIndex = -1;
-      let terminal: StoryStreamTerminal | null = null;
-
       const isCurrentRequest = () =>
         !request.signal.aborted && requestRef.current === request;
 
-      const validateCompletion = (
-        value: unknown,
-        source: "stream" | "publish",
-      ): PublicStory => {
+      const validateCompletion = (value: unknown): PublicStory => {
         const completed = parseCompletePublicStory(value);
         if (
           normalizeQuestion(completed.displayQuestion) !==
@@ -307,91 +254,9 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
         ) {
           throw new Error("The published Story question differs from the requested question");
         }
-        if (source === "publish") {
-          return completed;
-        }
-        if (
-          !streamPlan ||
-          streamScenes.length !== streamPlan.scenes.length ||
-          !samePayload(completed.plan, streamPlan) ||
-          !samePayload(completed.scenes, streamScenes) ||
-          !samePayload(completed.evidence, streamEvidence)
-        ) {
-          throw new Error("The cached Story did not match its replayed draft");
-        }
         return completed;
       };
 
-      const consumeEvent = (line: string): StoryStreamTerminal | null => {
-        if (!isCurrentRequest()) return null;
-        if (terminal) {
-          throw new Error("The Story stream continued after its terminal event");
-        }
-
-        const event = parseStoryEvent(line);
-        switch (event.type) {
-          case "phase": {
-            const nextPhaseIndex = STORY_PHASE_INDEX[event.phase];
-            if (nextPhaseIndex !== phaseIndex + 1) {
-              throw new Error("The Story stream sent lifecycle phases out of order");
-            }
-            if (event.phase === "composing" && !streamPlan) {
-              throw new Error("The Story stream started composing before its Plan");
-            }
-            if (
-              event.phase === "validating" &&
-              (!streamPlan || streamScenes.length !== streamPlan.scenes.length)
-            ) {
-              throw new Error("The Story stream started validation before every Scene arrived");
-            }
-            phaseIndex = nextPhaseIndex;
-            setPhase(event.phase);
-            return event.phase === "publishing"
-              ? { kind: "publish", publicationToken: event.publicationToken }
-              : null;
-          }
-          case "plan":
-            if (phaseIndex !== STORY_PHASE_INDEX.planning || streamPlan) {
-              throw new Error("The Story stream sent its Plan outside the planning phase");
-            }
-            assertValidStreamPlan(event.plan, event.evidence, normalized);
-            streamPlan = event.plan;
-            streamEvidence = event.evidence;
-            setPlan(event.plan);
-            setEvidence(event.evidence);
-            dispatch(setBackdropPreset(event.plan.backdropPreset));
-            return null;
-          case "scene": {
-            if (!streamPlan || phaseIndex !== STORY_PHASE_INDEX.composing) {
-              throw new Error("The Story stream sent a Scene outside the composing phase");
-            }
-            const expectedIndex = streamScenes.length;
-            if (event.index !== expectedIndex || event.scene.index !== expectedIndex) {
-              throw new Error("The Story stream sent Scenes out of order");
-            }
-            const lockedScene = streamPlan.scenes[expectedIndex];
-            if (!lockedScene) {
-              throw new Error("The Story stream sent an unplanned Scene");
-            }
-            assertValidStreamScene(event.scene, lockedScene, streamEvidence);
-            streamScenes.push(event.scene);
-            setScenes([...streamScenes]);
-            return null;
-          }
-          case "complete":
-            if (!streamPlan || phaseIndex !== STORY_PHASE_INDEX.validating) {
-              throw new Error("The cached Story bypassed its validated lifecycle");
-            }
-            return {
-              kind: "complete",
-              story: validateCompletion(event.story, "stream"),
-            };
-          case "error":
-            throw new Error(event.message);
-        }
-      };
-
-      let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
 
       try {
         const response = await fetch("/api/generate", {
@@ -419,30 +284,20 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
           throw new Error("Unexpected generation response");
         }
 
-        reader = response.body?.getReader() ?? null;
-        if (!reader) throw new Error("No response body");
+        const body = response.body;
+        if (!body) throw new Error("No response body");
 
-        const decoder = new TextDecoder();
-        let buffer = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-          for (const line of lines) {
-            const nextTerminal = consumeEvent(line);
-            if (nextTerminal) terminal = nextTerminal;
-          }
-        }
-        buffer += decoder.decode();
-        if (buffer) {
-          const nextTerminal = consumeEvent(buffer);
-          if (nextTerminal) terminal = nextTerminal;
-        }
-        if (!terminal) {
-          throw new Error("The Story stream ended before publication");
-        }
+        const terminal = await consumeStoryStream({
+          body,
+          expectedQuestion: normalized,
+          isActive: isCurrentRequest,
+          onPhase: setPhase,
+          onPlan: (nextPlan, nextEvidence) => {
+            setPlan(nextPlan);
+            setEvidence(nextEvidence);
+          },
+          onScene: (_nextScene, nextScenes) => setScenes([...nextScenes]),
+        });
         if (!isCurrentRequest()) return;
 
         let completedStory: PublicStory;
@@ -477,7 +332,7 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
           if (!published.success) {
             throw new Error("The Story publication response was invalid");
           }
-          completedStory = validateCompletion(published.data.story, "publish");
+          completedStory = validateCompletion(published.data.story);
         }
 
         if (!isCurrentRequest()) return;
@@ -490,7 +345,6 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
       } catch (caught) {
         if (!isCurrentRequest()) return;
         request.abort();
-        void reader?.cancel().catch(() => undefined);
         storyRef.current = null;
         setStory(null);
         setError(caught instanceof Error ? caught.message : "Something went wrong");
@@ -499,7 +353,7 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
         if (requestRef.current === request) requestRef.current = null;
       }
     },
-    [adoptCompleteStory, cancelLocalStream, dispatch],
+    [adoptCompleteStory, cancelLocalStream],
   );
 
   const reset = useCallback(() => {
@@ -507,7 +361,6 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
     requestRef.current = null;
     cancelLocalStream();
     storyRef.current = null;
-    dispatch(resetBackdropPreset());
     setMode("home");
     setSpec(homeSpec);
     setQuestion("");
@@ -518,7 +371,7 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
     setStory(null);
     setError(null);
     writeStoryHistory("replace", null, "/");
-  }, [cancelLocalStream, dispatch]);
+  }, [cancelLocalStream]);
 
   const goHome = useCallback(() => {
     requestRef.current?.abort();
@@ -536,7 +389,6 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
       });
     }
     storyRef.current = null;
-    dispatch(resetBackdropPreset());
     setMode("home");
     setQuestion("");
     setPhase(null);
@@ -564,7 +416,7 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
       }
     };
     step();
-  }, [cancelLocalStream, dispatch]);
+  }, [cancelLocalStream]);
 
   useEffect(
     () => () => {

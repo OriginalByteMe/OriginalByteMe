@@ -32,7 +32,7 @@ import {
   CURRENT_PUBLICATION_TOKEN,
   CURRENT_STORY_RECORD,
   CURRENT_STORY_ID,
-} from "./story-fixtures";
+} from "@/lib/story/__fixtures__/story-fixtures";
 
 function regenerationNdjson(terminalEvent: unknown): string {
   return [

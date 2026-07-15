@@ -1,43 +1,70 @@
-import { CORPUS_EVIDENCE_REFS } from "@/lib/story/evidence";
-import { questionDigest } from "@/lib/story/identity";
 import {
-  assertKnownStoryPlanProjectSlugs,
+  CORPUS_EVIDENCE_REFS,
   assertCanonicalStoryProjects,
+  assertKnownStoryPlanProjectSlugs,
   resolveStoryProjects,
-} from "@/lib/story/projects.server";
+} from "@/lib/story/evidence";
 import {
-  assertValidStreamPlan,
-  assertValidStreamScene,
+  assertValidParsedStreamPlan,
+  assertValidParsedStreamScene,
+  evidenceIdsFor,
+  parseEvidence,
+  validationError,
 } from "@/lib/story/public-validation";
 import {
-  EvidenceRefSchema,
+  ScenePlanSchema,
+  StoryPlanSchema,
   StoryRecordSchema,
+  StorySceneSchema,
   type EvidenceRef,
   type ScenePlan,
   type StoryPlan,
   type StoryRecord,
   type StoryScene,
 } from "@/lib/story/types";
-import { z } from "zod";
 
-function validationError(label: string, error: z.ZodError): Error {
-  const details = error.issues
-    .map((issue) => `${issue.path.join(".") || "value"}: ${issue.message}`)
-    .join("; ");
-  return new Error(`Invalid ${label}: ${details}`);
+const canonicalEvidenceById = new Map(CORPUS_EVIDENCE_REFS.map((ref) => [ref.id, ref]));
+
+export interface ValidatedStoryEvidence {
+  readonly refs: EvidenceRef[];
+  readonly ids: ReadonlySet<string>;
 }
 
-function assertCanonicalEvidence(value: unknown): asserts value is EvidenceRef[] {
-  const parsed = z.array(EvidenceRefSchema).min(1).max(64).safeParse(value);
-  if (!parsed.success) throw validationError("Evidence Refs", parsed.error);
-
-  const vocabulary = new Map(CORPUS_EVIDENCE_REFS.map((ref) => [ref.id, ref]));
-  for (const ref of parsed.data) {
-    const canonical = vocabulary.get(ref.id);
-    if (!canonical || JSON.stringify(canonical) !== JSON.stringify(ref)) {
+function assertCanonicalEvidence(evidence: readonly EvidenceRef[]): void {
+  for (const ref of evidence) {
+    const canonical = canonicalEvidenceById.get(ref.id);
+    if (
+      !canonical ||
+      canonical.path !== ref.path ||
+      canonical.label !== ref.label ||
+      canonical.excerpt !== ref.excerpt
+    ) {
       throw new Error(`Invalid Evidence Refs: ${ref.id} is not in the active Corpus vocabulary`);
     }
   }
+}
+
+function validatedStoryEvidenceFromParsed(refs: EvidenceRef[]): ValidatedStoryEvidence {
+  const ids = evidenceIdsFor(refs);
+  assertCanonicalEvidence(refs);
+  return { refs, ids };
+}
+
+/** Parse and validate one exact active-Corpus Evidence vocabulary at its boundary. */
+export function validateCanonicalStoryEvidence(evidence: unknown): ValidatedStoryEvidence {
+  return validatedStoryEvidenceFromParsed(parseEvidence(evidence));
+}
+
+export function assertValidStoryPlanWithEvidence(
+  plan: unknown,
+  evidence: ValidatedStoryEvidence,
+  expectedQuestion: string,
+): asserts plan is StoryPlan {
+  assertKnownStoryPlanProjectSlugs(plan);
+  const parsed = StoryPlanSchema.safeParse(plan);
+  if (!parsed.success) throw validationError("Story Plan", parsed.error);
+  assertValidParsedStreamPlan(parsed.data, evidence.ids, expectedQuestion);
+  for (const scene of parsed.data.scenes) resolveStoryProjects(scene.projectSlugs);
 }
 
 /** Server validator: shared semantics plus exact active-Corpus Evidence records. */
@@ -46,10 +73,24 @@ export function assertValidStoryPlan(
   evidence: unknown,
   expectedQuestion: string,
 ): asserts plan is StoryPlan {
-  assertKnownStoryPlanProjectSlugs(plan);
-  assertValidStreamPlan(plan, evidence, expectedQuestion);
-  assertCanonicalEvidence(evidence);
-  for (const scene of plan.scenes) resolveStoryProjects(scene.projectSlugs);
+  assertValidStoryPlanWithEvidence(
+    plan,
+    validateCanonicalStoryEvidence(evidence),
+    expectedQuestion,
+  );
+}
+
+export function assertValidStorySceneWithEvidence(
+  scene: unknown,
+  lockedPlan: ScenePlan,
+  evidence: ValidatedStoryEvidence,
+): asserts scene is StoryScene {
+  const parsed = StorySceneSchema.safeParse(scene);
+  if (!parsed.success) throw validationError("Story Scene", parsed.error);
+  const locked = ScenePlanSchema.safeParse(lockedPlan);
+  if (!locked.success) throw validationError("locked Scene Plan", locked.error);
+  assertValidParsedStreamScene(parsed.data, locked.data, evidence.ids);
+  assertCanonicalStoryProjects(parsed.data);
 }
 
 /** Server validator: shared locked-Scene semantics plus exact active-Corpus Evidence. */
@@ -58,25 +99,32 @@ export function assertValidStoryScene(
   lockedPlan: ScenePlan,
   evidence: unknown,
 ): asserts scene is StoryScene {
-  assertValidStreamScene(scene, lockedPlan, evidence);
-  assertCanonicalEvidence(evidence);
-  assertCanonicalStoryProjects(scene);
+  assertValidStorySceneWithEvidence(
+    scene,
+    lockedPlan,
+    validateCanonicalStoryEvidence(evidence),
+  );
 }
 
-/** Complete private-record validation adds digest integrity to shared Public Story semantics. */
-export function assertValidStoryRecord(record: unknown): asserts record is StoryRecord {
-  const parsed = StoryRecordSchema.safeParse(record);
-  if (!parsed.success) throw validationError("Story Record", parsed.error);
-
-  const { plan, scenes, evidence, displayQuestion } = parsed.data;
-  assertValidStoryPlan(plan, evidence, displayQuestion);
+/** Validate a schema-parsed private record without re-parsing its Evidence. */
+export function assertValidParsedStoryRecord(record: StoryRecord): void {
+  const { plan, scenes, evidence, displayQuestion } = record;
+  const validatedEvidence = validatedStoryEvidenceFromParsed(evidence);
+  assertKnownStoryPlanProjectSlugs(plan);
+  assertValidParsedStreamPlan(plan, validatedEvidence.ids, displayQuestion);
+  for (const scene of plan.scenes) resolveStoryProjects(scene.projectSlugs);
   if (scenes.length !== plan.scenes.length) {
     throw new Error("Invalid Story Record: Scene count differs from the locked Story Plan");
   }
   for (const [index, scene] of scenes.entries()) {
-    assertValidStoryScene(scene, plan.scenes[index], evidence);
+    assertValidParsedStreamScene(scene, plan.scenes[index], validatedEvidence.ids);
+    assertCanonicalStoryProjects(scene);
   }
-  if (parsed.data.questionDigest !== questionDigest(displayQuestion)) {
-    throw new Error("Invalid Story Record: question digest does not match display question");
-  }
+}
+
+/** Complete private-record validation adds active-Corpus semantics to its strict schema. */
+export function assertValidStoryRecord(record: unknown): asserts record is StoryRecord {
+  const parsed = StoryRecordSchema.safeParse(record);
+  if (!parsed.success) throw validationError("Story Record", parsed.error);
+  assertValidParsedStoryRecord(parsed.data);
 }

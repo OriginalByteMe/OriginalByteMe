@@ -5,6 +5,12 @@ import StoryExperience from "@/components/story/StoryExperience";
 import { CORPUS_EVIDENCE_REFS } from "@/lib/story/evidence";
 import type { PublicStory, StoryPlan, StoryScene } from "@/lib/story/types";
 
+const motionState = vi.hoisted(() => ({ reducedMotion: false }));
+
+vi.mock("framer-motion", () => ({
+  useReducedMotion: () => motionState.reducedMotion,
+}));
+
 vi.mock("@/components/story/MotionAsset", () => ({
   MotionAsset: ({ assetId }: { assetId: string }) => (
     <div data-testid="motion-asset" data-asset-id={assetId}>
@@ -104,6 +110,7 @@ class TestIntersectionObserver implements IntersectionObserver {
 
 beforeEach(() => {
   intersectionCallback = null;
+  motionState.reducedMotion = false;
   vi.stubGlobal("IntersectionObserver", TestIntersectionObserver);
   Element.prototype.scrollIntoView = vi.fn();
   vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
@@ -193,14 +200,7 @@ describe("StoryExperience", () => {
   });
 
   it("swaps complete Prelude phrases without typewriter motion when reduced motion is preferred", async () => {
-    vi.stubGlobal(
-      "matchMedia",
-      vi.fn().mockReturnValue({
-        matches: true,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-      } as unknown as MediaQueryList),
-    );
+    motionState.reducedMotion = true;
 
     render(
       <StoryExperience
@@ -313,19 +313,18 @@ describe("StoryExperience", () => {
   it("exposes ready, active, and pending Rail targets on desktop and mobile", () => {
     const plan = makePlan();
     const scenes = makeScenes(plan);
-    render(
-      <StoryExperience
-        question={QUESTION}
-        phase="composing"
-        plan={plan}
-        scenes={scenes.slice(0, 2)}
-        evidence={[...EVIDENCE]}
-        story={null}
-        error={null}
-        onRetry={vi.fn()}
-        onRelatedQuestion={vi.fn()}
-      />,
-    );
+    const props = {
+      question: QUESTION,
+      phase: "composing" as const,
+      plan,
+      scenes: scenes.slice(0, 2),
+      evidence: [...EVIDENCE],
+      story: null,
+      error: null,
+      onRetry: vi.fn(),
+      onRelatedQuestion: vi.fn(),
+    };
+    const { rerender } = render(<StoryExperience {...props} />);
 
     const desktopRail = screen.getByRole("navigation", { name: "Story scenes" });
     expect(desktopRail.closest(".story-document")).toHaveAttribute(
@@ -357,10 +356,8 @@ describe("StoryExperience", () => {
     expect(options[0]).toBeEnabled();
     expect(options[1]).toBeEnabled();
     expect(options[2]).toBeDisabled();
-    vi.stubGlobal(
-      "matchMedia",
-      vi.fn().mockReturnValue({ matches: true } as MediaQueryList),
-    );
+    motionState.reducedMotion = true;
+    rerender(<StoryExperience {...props} />);
     vi.mocked(Element.prototype.scrollIntoView).mockClear();
     fireEvent.change(mobile, { target: { value: "0" } });
     expect(mobile).toHaveValue("0");

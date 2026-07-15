@@ -8,7 +8,7 @@
  * most saturated remaining swatch and colorHighlight the next one.
  */
 
-export type RgbTuple = number[];
+export type RgbTuple = [number, number, number];
 
 export interface DitherPalette {
   colorFront: string;

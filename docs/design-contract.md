@@ -61,6 +61,8 @@ Every factual content unit in the Story Plan and composed Story carries one or m
 
 ## 3. Story lifecycle
 
+> Status: **Shipped.** The plan-first, progressive Story lifecycle is implemented by the current v5 Story contract.
+
 ### 3.1 Question submission
 
 Submitting a question enters a dedicated full-page Story mode. Home content does not remain in the Story document.
@@ -140,6 +142,8 @@ Every grounded Story must satisfy all of these rules:
 Anything that fails this contract is repaired before reveal. Prompt guidance alone is insufficient.
 
 ## 5. Scene Pattern Catalog
+
+> Status: **Roadmap.** The shipped v5 allowlist contains seven patterns: `hero-statement`, `project-spotlight`, `evidence-ledger`, `timeline`, `capability-map`, `system-diagram`, and `closing-synthesis`. The 17-pattern catalog below is not the current generated Spec enum.
 
 The initial Catalog contains the following 17 Patterns. Pattern names are stable schema identifiers. Each Pattern owns responsive hierarchy, choreography, accessibility behavior, and its typed content shape.
 
@@ -221,6 +225,8 @@ Bright saturated one-off accents are prohibited. Themes may modulate approved to
 
 ## 7. Registers
 
+> Status: **Roadmap.** The shipped v5 contract currently exposes four registers: `editorial`, `technical`, `diagrammatic`, and `reflective`. The three-register taxonomy below is not the current generated allowlist.
+
 Nocturne has exactly three controlled **Registers**:
 
 ### Editorial
@@ -251,6 +257,8 @@ The Tableau does not react to home Story Scene entry because home content is not
 
 ### 8.2 Story Presets
 
+> Status: **Roadmap.** The shipped planner and validator currently expose every name in `BACKDROP_PRESETS`; they do not yet enforce this dither-only generated subset.
+
 Generated Stories select one Preset from the dither family:
 
 - `ditherTide`
@@ -266,6 +274,8 @@ Generated Stories select one Preset from the dither family:
 Specs select a Preset name only. Raw shader type, palette, speed, pixel size, shape, or other uniforms are renderer-owned.
 
 ### 8.3 Scene Cues
+
+> Status: **Roadmap.** Shipped Scene Cues use the bounded `{ phase, focus, intensity }` schema and apply focus/intensity to the single Backdrop. The named `calm` / `focus` / `lift` / `resolve` vocabulary below is not the current schema.
 
 A Scene may select one bounded Cue within the Story's chosen Preset:
 
@@ -347,6 +357,8 @@ The final Scene's Related Questions start new Stories. Selecting one:
 
 ## 11. Story identity, caching, and invalidation
 
+> Status: **Shipped.** The current Story store uses private normalized cache identity, opaque public IDs, and Corpus/contract-version compatibility checks.
+
 ### 11.1 Cache identity
 
 Complete Stories are reused by a key derived from:
@@ -380,6 +392,8 @@ A Story ID is current only when both its Corpus revision and Story Contract vers
 - Regeneration creates or reuses a new current Story ID; it never mutates the old ID's rendition in place.
 
 ## 12. Recovery behavior
+
+> Status: **Shipped.** Current generation and replay paths implement bounded repair, explicit plan/service failures, and cache-failure handling.
 
 ### 12.1 Scene repair
 
@@ -446,6 +460,8 @@ Do not replace Stories with generic mobile card stacks.
 Performance degradation changes effects, never Story facts, Scene count, or access to evidence.
 
 ## 15. Validation and acceptance
+
+> Status: **Roadmap.** These checks describe the full v3 acceptance target. Current automated validation covers the shipped seven-pattern v5 contract, not the 17-pattern experience matrix below.
 
 Implementation is not complete until focused automated and browser-level checks prove:
 

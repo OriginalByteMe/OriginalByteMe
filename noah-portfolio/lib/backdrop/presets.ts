@@ -30,7 +30,7 @@ export type BackdropPresetName =
 
 export interface BackdropPalette {
   colorBack: string;
-  colors: string[];
+  colors: [string, ...string[]];
 }
 
 interface BackdropPresetBase {
@@ -129,20 +129,21 @@ function ditherFlowPreset(
 }
 
 export const BACKDROP_PRESETS: Record<BackdropPresetName, BackdropPreset> = {
+  // Keep the legacy ambientLava key because preset names persist in stored Stories.
   ambientLava: {
-    ...ditherFlowPreset(
-      'ambientLava',
-      'Nocturne — Simplex',
-      'simplex',
-      { light: '#b9afc7', dark: '#3d374b' },
-      'bg-gradient-to-b from-[#f4efe6] via-[#ece7ee] to-[#eee9e2] dark:from-[#17151d] dark:via-[#1d1925] dark:to-[#15131a]',
-    ),
+    name: 'ambientLava',
+    label: 'Nocturne — Simplex',
+    shader: 'dithering',
+    type: '4x4',
     pxSize: 3.5,
     speed: 0.18,
+    shape: 'simplex',
     palette: {
       light: { colorBack: '#f4efe6', colors: ['#b9afc7'] },
       dark: { colorBack: '#17151d', colors: ['#3d374b'] },
     },
+    fallbackClass:
+      'bg-gradient-to-b from-[#f4efe6] via-[#ece7ee] to-[#eee9e2] dark:from-[#17151d] dark:via-[#1d1925] dark:to-[#15131a]',
   },
   ditherViolet: {
     ...ditherFlowPreset(
@@ -324,6 +325,7 @@ export const BACKDROP_PRESETS: Record<BackdropPresetName, BackdropPreset> = {
 };
 
 export const DEFAULT_BACKDROP_PRESET: BackdropPresetName = 'ambientLava';
+export const STREAMING_BACKDROP_PRESET: BackdropPresetName = 'ditherViolet';
 
 
 export function isBackdropPresetName(v: unknown): v is BackdropPresetName {

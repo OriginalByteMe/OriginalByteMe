@@ -1,10 +1,27 @@
 import { z } from "zod";
+import circuitMindProvenance from "@/public/motion/circuit-mind.provenance.json";
+import containerStackProvenance from "@/public/motion/container-stack.provenance.json";
+import dataCenterProvenance from "@/public/motion/data-center.provenance.json";
+import morningCoffeeProvenance from "@/public/motion/morning-coffee.provenance.json";
+import printLayersProvenance from "@/public/motion/print-layers.provenance.json";
+import printerForgeProvenance from "@/public/motion/printer-forge.provenance.json";
+import serverSweepProvenance from "@/public/motion/server-sweep.provenance.json";
+import sparkLoaderProvenance from "@/public/motion/spark-loader.provenance.json";
+
+export const MOTION_ASSET_IDS = [
+  "printer-forge",
+  "print-layers",
+  "circuit-mind",
+  "spark-loader",
+  "data-center",
+  "server-sweep",
+  "container-stack",
+  "morning-coffee",
+] as const;
+
+export type MotionAssetId = (typeof MOTION_ASSET_IDS)[number];
 
 const nonEmptyText = z.string().trim().min(1);
-const localComponentSource = z.string().refine(
-  (source) => source.startsWith("@/lib/motion-assets/"),
-  "Motion SVG sources must be project-owned modules under @/lib/motion-assets/",
-);
 const localPublicSource = z.string().refine(
   (source) => source.startsWith("/motion/") && !source.startsWith("//"),
   "dotLottie sources must be local files under /motion/",
@@ -57,34 +74,23 @@ const scenePatternSchema = z.enum([
   "closing-synthesis",
 ]);
 
-const staticRendererSchema = z.enum([
-  "printer-forge",
-  "print-layers",
-  "circuit-mind",
-  "spark-loader",
-  "data-center",
-  "server-sweep",
-  "container-stack",
-  "morning-coffee",
-]);
+const staticRendererSchema = z.enum(MOTION_ASSET_IDS);
 
 const motionSvgRendererSchema = z
   .object({
     kind: z.literal("motion-svg"),
     component: staticRendererSchema,
-    localSource: localComponentSource,
   })
   .strict();
 
 const dotLottieRendererSchema = z
   .object({
     kind: z.literal("dotlottie"),
-    src: localPublicSource.refine((source) => source.endsWith(".lottie"), "Expected a .lottie package"),
-    animationId: nonEmptyText,
-    localSource: localPublicSource.refine(
+    src: localPublicSource.refine(
       (source) => source.endsWith(".lottie"),
-      "Expected a local .lottie package",
+      "Expected a .lottie package",
     ),
+    animationId: nonEmptyText,
     embeddedResources: z
       .object({
         images: z.boolean(),
@@ -92,6 +98,29 @@ const dotLottieRendererSchema = z
         audio: z.literal(false),
       })
       .strict(),
+  })
+  .strict();
+
+const intakeProvenanceFileSchema = z
+  .object({
+    assetId: staticRendererSchema,
+    format: z.literal("dotLottie v2"),
+    creator: nonEmptyText,
+    sourceKind: z.literal("project-authored"),
+    source: nonEmptyText,
+    revision: nonEmptyText,
+    reviewedOn: reviewedDate,
+    embeddedResources: z
+      .object({
+        images: z.boolean(),
+        fonts: z.literal(false),
+        audio: z.literal(false),
+        themes: z.literal(false),
+        stateMachines: z.literal(false),
+      })
+      .strict(),
+    runtimeLicense: licenseSchema,
+    choreographyLicense: licenseSchema,
   })
   .strict();
 
@@ -184,78 +213,78 @@ export const motionAssetRecordSchema = z
 
 export type MotionAssetRecord = z.infer<typeof motionAssetRecordSchema>;
 
-export const MOTION_ASSET_IDS = [
-  "printer-forge",
-  "print-layers",
-  "circuit-mind",
-  "spark-loader",
-  "data-center",
-  "server-sweep",
-  "container-stack",
-  "morning-coffee",
-] as const;
+const motionAssetProvenanceSchema = z.record(
+  staticRendererSchema,
+  intakeProvenanceFileSchema,
+);
+const provenanceByAsset = motionAssetProvenanceSchema.parse({
+  "printer-forge": printerForgeProvenance,
+  "print-layers": printLayersProvenance,
+  "circuit-mind": circuitMindProvenance,
+  "spark-loader": sparkLoaderProvenance,
+  "data-center": dataCenterProvenance,
+  "server-sweep": serverSweepProvenance,
+  "container-stack": containerStackProvenance,
+  "morning-coffee": morningCoffeeProvenance,
+});
 
-export type MotionAssetId = (typeof MOTION_ASSET_IDS)[number];
-
-const DOTLOTTIE_RUNTIME_LICENSE = {
-  name: "dotLottie React",
-  identifier: "MIT",
-  notice: "@lottiefiles/dotlottie-react is distributed under the MIT License.",
-} as const;
-
-const LOTTIEFILES_CREATOR =
-  "LottieFiles community creator (page attribution to confirm)";
 const SHARED_PLAYBACK = {
   trigger: "viewport",
   replay: "loop",
   offscreen: "pause",
 } as const;
 
-function dotLottieRenderer(
-  id: MotionAssetId,
-  images = false,
-) {
-  const source = `/motion/${id}.lottie`;
+function dotLottieRenderer(id: MotionAssetId) {
+  const { embeddedResources } = provenanceByAsset[id];
   return {
     kind: "dotlottie",
-    src: source,
+    src: `/motion/${id}.lottie`,
     animationId: id,
-    localSource: source,
-    embeddedResources: { images, fonts: false, audio: false },
-  } as const;
-}
-
-function intakeProvenance(
-  id: MotionAssetId,
-  revision: string,
-  ...assetNotices: string[]
-) {
-  return {
-    sourceKind: "project-authored",
-    creator: LOTTIEFILES_CREATOR,
-    source: "https://lottiefiles.com",
-    revision,
-    notices: [
-      `Intake provenance and license review are recorded in /motion/${id}.provenance.json.`,
-      "The LottieFiles creator page and attribution are pending confirmation.",
-      ...assetNotices,
-    ],
-    reviewedOn: "2026-07-14",
-  } as const;
-}
-
-function intakeLicenses(name: string, notice: string) {
-  return {
-    runtime: DOTLOTTIE_RUNTIME_LICENSE,
-    choreography: {
-      name,
-      identifier: "Lottie Simple License (FL 9.13.21)",
-      notice,
+    embeddedResources: {
+      images: embeddedResources.images,
+      fonts: embeddedResources.fonts,
+      audio: embeddedResources.audio,
     },
   } as const;
 }
 
-const catalogInputs: Record<MotionAssetId, unknown> = {
+function intakeMetadata(
+  id: MotionAssetId,
+): Pick<
+  z.input<typeof motionAssetRecordSchema>,
+  "provenance" | "licenses"
+> {
+  const intake = provenanceByAsset[id];
+  if (intake.assetId !== id) {
+    throw new Error(
+      `Motion provenance ${intake.assetId} was registered for catalog asset ${id}.`,
+    );
+  }
+
+  return {
+    provenance: {
+      sourceKind: intake.sourceKind,
+      creator: intake.creator,
+      source: intake.source,
+      revision: intake.revision,
+      notices: [
+        `Intake provenance and license review are recorded in /motion/${id}.provenance.json.`,
+        intake.choreographyLicense.notice,
+      ],
+      reviewedOn: intake.reviewedOn,
+    },
+    licenses: {
+      runtime: intake.runtimeLicense,
+      choreography: intake.choreographyLicense,
+    },
+  };
+}
+
+const motionAssetCatalogSchema = z.record(
+  staticRendererSchema,
+  motionAssetRecordSchema,
+);
+const catalogInputs: z.input<typeof motionAssetCatalogSchema> = {
   "printer-forge": {
     id: "printer-forge",
     status: "active",
@@ -277,14 +306,7 @@ const catalogInputs: Record<MotionAssetId, unknown> = {
       defaultLabel: "A 3D printer builds an object layer by layer",
       staticEquivalent: "A printer gantry sits above a layered object on the print bed.",
     },
-    provenance: intakeProvenance(
-      "printer-forge",
-      "sha256:ac4b7ee5d702839e536c41b4c51b7dc994aaa778441e99cdbab3437b31a0e4a5",
-    ),
-    licenses: intakeLicenses(
-      "3D printer at work",
-      "Downloaded from lottiefiles.com by Noah Rijkaard on 2026-07-14 (file: 3D printer.lottie); per-asset page URL and creator attribution to confirm.",
-    ),
+    ...intakeMetadata("printer-forge"),
   },
   "print-layers": {
     id: "print-layers",
@@ -303,14 +325,7 @@ const catalogInputs: Record<MotionAssetId, unknown> = {
       defaultLabel: "A layered 3D print assembles from stacked slices",
       staticEquivalent: "Four offset material slices stack into a complete printed form.",
     },
-    provenance: intakeProvenance(
-      "print-layers",
-      "sha256:256f036581d3a08712cdb5afc2f81ec21607688ed01ec027b52d93a67d51773c",
-    ),
-    licenses: intakeLicenses(
-      "Layered 3D print",
-      "Downloaded from lottiefiles.com by Noah Rijkaard on 2026-07-14 (file: 3d print.lottie); per-asset page URL and creator attribution to confirm.",
-    ),
+    ...intakeMetadata("print-layers"),
   },
   "circuit-mind": {
     id: "circuit-mind",
@@ -329,14 +344,7 @@ const catalogInputs: Record<MotionAssetId, unknown> = {
       defaultLabel: "Circuit paths animate through an isometric robot brain",
       staticEquivalent: "A brain-shaped circuit network links several processing nodes.",
     },
-    provenance: intakeProvenance(
-      "circuit-mind",
-      "sha256:d6052554fe53aa778e63414efb549ff803b1b32d4922d83af89f7e39d18fc975",
-    ),
-    licenses: intakeLicenses(
-      "Isometric AI robot brain",
-      "Downloaded from lottiefiles.com by Noah Rijkaard on 2026-07-14 (file: Technology isometric ai robot brain.lottie); per-asset page URL and creator attribution to confirm.",
-    ),
+    ...intakeMetadata("circuit-mind"),
   },
   "spark-loader": {
     id: "spark-loader",
@@ -355,14 +363,7 @@ const catalogInputs: Record<MotionAssetId, unknown> = {
       defaultLabel: null,
       staticEquivalent: "Small sparkle marks provide atmosphere; adjacent status text carries all meaning.",
     },
-    provenance: intakeProvenance(
-      "spark-loader",
-      "sha256:2449093a911387f96bce14c8af18b4e3fdbf336e0028fc7b1e244ffa5e2183bd",
-    ),
-    licenses: intakeLicenses(
-      "AI sparkles loader",
-      "Downloaded from lottiefiles.com by Noah Rijkaard on 2026-07-14 (file: Sparkles Loop Loader ai.lottie); per-asset page URL and creator attribution to confirm.",
-    ),
+    ...intakeMetadata("spark-loader"),
   },
   "data-center": {
     id: "data-center",
@@ -381,14 +382,7 @@ const catalogInputs: Record<MotionAssetId, unknown> = {
       defaultLabel: "Rows of data center racks pulse with network activity",
       staticEquivalent: "Three populated server racks stand together with active status lights.",
     },
-    provenance: intakeProvenance(
-      "data-center",
-      "sha256:4245a0ff0becc3963f9abd4981fa1643d31a9fdabc6f41ef2b2dd19268ca9bcf",
-    ),
-    licenses: intakeLicenses(
-      "Data center racks",
-      "Downloaded from lottiefiles.com by Noah Rijkaard on 2026-07-14 (file: Data Center Blue Orange.lottie); per-asset page URL and creator attribution to confirm.",
-    ),
+    ...intakeMetadata("data-center"),
   },
   "server-sweep": {
     id: "server-sweep",
@@ -407,14 +401,7 @@ const catalogInputs: Record<MotionAssetId, unknown> = {
       defaultLabel: "A maintenance sweep clears a server rack",
       staticEquivalent: "A clean sweep passes across an orderly stack of server trays.",
     },
-    provenance: intakeProvenance(
-      "server-sweep",
-      "sha256:8a3ad7566a0999bcbfd7c13336d50bccb9169d1235d186d1b3bf5ab111b6c056",
-    ),
-    licenses: intakeLicenses(
-      "Server maintenance sweep",
-      "Downloaded from lottiefiles.com by Noah Rijkaard on 2026-07-14 (file: ServerDeleting.lottie); per-asset page URL and creator attribution to confirm.",
-    ),
+    ...intakeMetadata("server-sweep"),
   },
   "container-stack": {
     id: "container-stack",
@@ -423,7 +410,7 @@ const catalogInputs: Record<MotionAssetId, unknown> = {
     description: "A container stack makes deployable infrastructure and composable services tangible.",
     semanticTags: ["containers", "docker", "infrastructure", "deployment"],
     eligibleScenePatterns: ["system-diagram", "capability-map", "project-spotlight"],
-    renderer: dotLottieRenderer("container-stack", true),
+    renderer: dotLottieRenderer("container-stack"),
     intrinsic: { width: 850, height: 832, viewBox: "0 0 850 832" },
     bounds: { minWidth: 220, maxWidth: 640, aspectRatio: 850 / 832 },
     playback: SHARED_PLAYBACK,
@@ -433,15 +420,7 @@ const catalogInputs: Record<MotionAssetId, unknown> = {
       defaultLabel: "Software containers assemble into an infrastructure stack",
       staticEquivalent: "Three deployable containers interlock into one stable stack.",
     },
-    provenance: intakeProvenance(
-      "container-stack",
-      "sha256:377f07f1912fe7ce20b7aa1f9597cbb426d294d86355ac2f9d34a671d58d41b9",
-      "The reviewed package contains inlined raster image resources and no remote references.",
-    ),
-    licenses: intakeLicenses(
-      "Docker container stack",
-      "Downloaded from lottiefiles.com by Noah Rijkaard on 2026-07-14 (file: docker.lottie); per-asset page URL and creator attribution to confirm.",
-    ),
+    ...intakeMetadata("container-stack"),
   },
   "morning-coffee": {
     id: "morning-coffee",
@@ -460,21 +439,12 @@ const catalogInputs: Record<MotionAssetId, unknown> = {
       defaultLabel: "A steaming cup completes a morning coffee ritual",
       staticEquivalent: "A warm cup and saucer sit beneath two calm curls of steam.",
     },
-    provenance: intakeProvenance(
-      "morning-coffee",
-      "sha256:0a8bbd33262484f2b18eefb431e77e955a7b6c5df3c39e8f43b5e123ae831d8d",
-    ),
-    licenses: intakeLicenses(
-      "Morning coffee ritual",
-      "Downloaded from lottiefiles.com by Noah Rijkaard on 2026-07-14 (file: Morning Coffee.lottie); per-asset page URL and creator attribution to confirm.",
-    ),
+    ...intakeMetadata("morning-coffee"),
   },
 };
 
 const motionAssets = Object.freeze(
-  Object.fromEntries(
-    MOTION_ASSET_IDS.map((id) => [id, motionAssetRecordSchema.parse(catalogInputs[id])]),
-  ) as Record<MotionAssetId, MotionAssetRecord>,
+  motionAssetCatalogSchema.parse(catalogInputs),
 );
 
 export function isMotionAssetId(value: unknown): value is MotionAssetId {

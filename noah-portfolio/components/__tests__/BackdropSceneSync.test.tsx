@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import BackdropSceneSync from "@/components/BackdropSceneSync";
 import {
   DEFAULT_BACKDROP_PRESET,
+  STREAMING_BACKDROP_PRESET,
   type BackdropPresetName,
 } from "@/lib/backdrop/presets";
 import { makeStore } from "@/lib/store";
@@ -12,6 +13,7 @@ import { setBackdropPreset } from "@/lib/store/slices/backdrop-slice";
 
 const askMeState = vi.hoisted(() => ({
   mode: "home" as "home" | "streaming" | "answer",
+  plan: null as { backdropPreset: BackdropPresetName } | null,
 }));
 
 vi.mock("@/components/AskMeProvider", () => ({
@@ -33,6 +35,7 @@ function renderSceneSync(initialPreset?: BackdropPresetName) {
 
 beforeEach(() => {
   askMeState.mode = "home";
+  askMeState.plan = null;
   document.body.innerHTML = `
     <div data-backdrop-scene data-chapter="hero"></div>
     <section id="hero"></section>
@@ -76,12 +79,12 @@ describe("BackdropSceneSync", () => {
     expect(intersectionObserver).not.toHaveBeenCalled();
   });
 
-  it("holds ditherViolet throughout streaming without observing or scheduling", () => {
+  it("holds the typed streaming preset without observing or scheduling", () => {
     vi.useFakeTimers();
     askMeState.mode = "streaming";
 
     const { store } = renderSceneSync("nightMatte");
-    expect(store.getState().backdrop.preset).toBe("ditherViolet");
+    expect(store.getState().backdrop.preset).toBe(STREAMING_BACKDROP_PRESET);
     expect(document.querySelector("[data-backdrop-scene]")).toHaveAttribute(
       "data-chapter",
       "hero",
@@ -90,13 +93,14 @@ describe("BackdropSceneSync", () => {
     expect(vi.getTimerCount()).toBe(0);
 
     act(() => vi.advanceTimersByTime(35_000));
-    expect(store.getState().backdrop.preset).toBe("ditherViolet");
+    expect(store.getState().backdrop.preset).toBe(STREAMING_BACKDROP_PRESET);
   });
 
-  it("preserves model selection in answer mode without changing the hero scene", () => {
+  it("derives the generated preset from the Story Plan", () => {
     askMeState.mode = "answer";
+    askMeState.plan = { backdropPreset: "panelParade" };
 
-    const { store } = renderSceneSync("panelParade");
+    const { store } = renderSceneSync("nightMatte");
     expect(store.getState().backdrop.preset).toBe("panelParade");
     expect(document.querySelector("[data-backdrop-scene]")).toHaveAttribute(
       "data-chapter",
@@ -105,18 +109,37 @@ describe("BackdropSceneSync", () => {
     expect(intersectionObserver).not.toHaveBeenCalled();
   });
 
-  it("preserves a generated preset at completion and restores hero on home entry", () => {
-    askMeState.mode = "streaming";
-    const { store, rerender } = renderSceneSync();
-    act(() => store.dispatch(setBackdropPreset("panelParade")));
+  it("owns home, planned, and immediate unplanned-streaming transitions", () => {
+    const { store, rerender } = renderSceneSync("ditherEmber");
+    expect(store.getState().backdrop.preset).toBe(DEFAULT_BACKDROP_PRESET);
 
     askMeState.mode = "answer";
+    askMeState.plan = { backdropPreset: "panelParade" };
     rerender(
       <Provider store={store}>
         <BackdropSceneSync />
       </Provider>,
     );
     expect(store.getState().backdrop.preset).toBe("panelParade");
+
+    const streamingPresets: BackdropPresetName[] = [];
+    const unsubscribe = store.subscribe(() => {
+      streamingPresets.push(store.getState().backdrop.preset);
+    });
+
+    askMeState.mode = "streaming";
+    askMeState.plan = null;
+    rerender(
+      <Provider store={store}>
+        <BackdropSceneSync />
+      </Provider>,
+    );
+    expect(store.getState().backdrop.preset).toBe(STREAMING_BACKDROP_PRESET);
+    expect(streamingPresets).toEqual([
+      DEFAULT_BACKDROP_PRESET,
+      STREAMING_BACKDROP_PRESET,
+    ]);
+    unsubscribe();
 
     askMeState.mode = "home";
     rerender(
@@ -125,10 +148,5 @@ describe("BackdropSceneSync", () => {
       </Provider>,
     );
     expect(store.getState().backdrop.preset).toBe(DEFAULT_BACKDROP_PRESET);
-    expect(document.querySelector("[data-backdrop-scene]")).toHaveAttribute(
-      "data-chapter",
-      "hero",
-    );
-    expect(intersectionObserver).not.toHaveBeenCalled();
   });
 });

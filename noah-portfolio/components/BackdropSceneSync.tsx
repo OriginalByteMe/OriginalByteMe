@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 
+import { STREAMING_BACKDROP_PRESET } from '@/lib/backdrop/presets';
 import { resetBackdropPreset, setBackdropPreset } from '@/lib/store/slices/backdrop-slice';
 import { useAskMe } from './AskMeProvider';
 
@@ -26,7 +27,8 @@ export default function BackdropSceneSync() {
     }
 
     if (mode === 'streaming') {
-      dispatch(setBackdropPreset('ditherViolet'));
+      dispatch(resetBackdropPreset());
+      dispatch(setBackdropPreset(STREAMING_BACKDROP_PRESET));
     }
   }, [mode, plan, dispatch]);
 

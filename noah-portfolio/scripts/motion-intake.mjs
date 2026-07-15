@@ -637,8 +637,18 @@ function quote(value) {
   return JSON.stringify(value);
 }
 
+function provenanceImportName(id) {
+  const pascalId = id
+    .split("-")
+    .map((part) => `${part[0].toUpperCase()}${part.slice(1)}`)
+    .join("");
+  return `motion${pascalId}Provenance`;
+}
+
 function catalogStub(metadata) {
-  const tags = [...new Set([...metadata.id.split("-"), "motion"])];
+  const tags = [
+    ...new Set([...metadata.id.split("-"), "animation", "motion"]),
+  ];
   const minWidth = Math.min(240, metadata.animation.w);
   const maxWidth = Math.max(minWidth, metadata.animation.w);
   const aspectRatio = metadata.animation.w / metadata.animation.h;
@@ -648,12 +658,11 @@ function catalogStub(metadata) {
   generatorEligible: false,
   description: ${quote(metadata.title)},
   semanticTags: ${JSON.stringify(tags)},
-  eligibleScenePatterns: ["hero-statement"], // TODO: human-review eligible Scene Patterns.
+  eligibleScenePatterns: [],
   renderer: {
     kind: "dotlottie",
     src: ${quote(`/motion/${metadata.id}.lottie`)},
     animationId: ${quote(metadata.animationId)},
-    localSource: ${quote(`@/lib/motion-assets/dotlottie/${metadata.id}/a/${metadata.animationId}.json`)},
     embeddedResources: ${JSON.stringify({
       images: metadata.embeddedResources.images,
       fonts: metadata.embeddedResources.fonts,
@@ -668,38 +677,19 @@ function catalogStub(metadata) {
   bounds: {
     minWidth: ${minWidth}, // TODO: human-review responsive minimum bound.
     maxWidth: ${maxWidth}, // TODO: human-review responsive maximum bound.
-    aspectRatio: ${aspectRatio}, // TODO: human-review intrinsic aspect ratio.
+    aspectRatio: ${aspectRatio},
   },
-  playback: { trigger: "viewport", replay: "once", offscreen: "pause" },
+  playback: { trigger: "viewport", replay: "loop", offscreen: "pause" },
   reducedMotion: {
     strategy: "curated-static",
-    staticRenderer: "signal-lantern", // TODO: create and review an asset-specific static renderer.
+    staticRenderer: "spark-loader",
   },
   accessibility: {
-    kind: "meaningful", // TODO: human-review decorative vs meaningful policy.
-    defaultLabel: "TODO: provide a concise accessible label",
-    staticEquivalent: "TODO: describe the complete static semantic equivalent",
+    kind: "decorative",
+    defaultLabel: null,
+    staticEquivalent: ${quote(metadata.title)},
   },
-  provenance: {
-    sourceKind: "project-authored",
-    creator: ${quote(metadata.creator)},
-    source: ${quote(metadata.sourceUrl)},
-    revision: ${quote(`sha256:${metadata.sha256}`)},
-    notices: [${quote(metadata.notes)}],
-    reviewedOn: ${quote(metadata.reviewedOn)},
-  },
-  licenses: {
-    runtime: {
-      name: "dotLottie React",
-      identifier: "MIT",
-      notice: "@lottiefiles/dotlottie-react is distributed under the MIT License.",
-    },
-    choreography: {
-      name: ${quote(metadata.title)},
-      identifier: ${quote(metadata.license)},
-      notice: ${quote(metadata.notes)},
-    },
-  },
+  ...intakeMetadata(${quote(metadata.id)}),
 }`;
 }
 
@@ -802,6 +792,15 @@ async function main() {
 
   console.log("\nCatalog entry stub — HUMAN REVIEW REQUIRED before cataloging.");
   console.log("Resolve every TODO, verify rights, accessibility, reduced motion, responsive bounds, and Scene eligibility.");
+  const provenanceImport = provenanceImportName(options.id);
+  console.log(`1. Add ${quote(options.id)} to MOTION_ASSET_IDS.`);
+  console.log(
+    `2. Import the generated metadata: import ${provenanceImport} from ${quote(`@/public/motion/${options.id}.provenance.json`)};`,
+  );
+  console.log(
+    `3. Register it in provenanceByAsset: ${quote(options.id)}: ${provenanceImport},`,
+  );
+  console.log("4. Paste and review this catalog entry:");
   console.log(catalogStub(metadata));
 }
 

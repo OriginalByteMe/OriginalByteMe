@@ -1,15 +1,17 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { streamText } from "ai";
 import { getModel } from "@/lib/llm/openrouter";
-import { CORPUS_EVIDENCE_REFS } from "@/lib/story/evidence";
-import { questionDigest } from "@/lib/story/identity";
-import { resolveStoryProjects } from "@/lib/story/projects.server";
+import {
+  CORPUS_EVIDENCE_REFS,
+  resolveStoryProjects,
+} from "@/lib/story/evidence";
 import {
   findCurrentStory,
   findPreparedStory,
   prepareCompleteStory,
   publishPreparedStory,
+  seedStoryFixtures,
 } from "@/lib/story/store";
 import {
   CORPUS_REVISION,
@@ -25,6 +27,7 @@ import {
 import { assertValidStoryPlan, assertValidStoryScene } from "@/lib/story/validation";
 import { POST as generate } from "@/app/api/generate/route";
 import { POST as publish } from "@/app/api/generate/publish/route";
+import { POST as seedFixtures } from "@/app/api/playwright-seed/route";
 
 vi.mock("ai", () => ({ streamText: vi.fn() }));
 vi.mock("@/lib/llm/openrouter", () => ({ getModel: vi.fn() }));
@@ -33,6 +36,7 @@ vi.mock("@/lib/story/store", () => ({
   findPreparedStory: vi.fn(),
   prepareCompleteStory: vi.fn(),
   publishPreparedStory: vi.fn(),
+  seedStoryFixtures: vi.fn(),
 }));
 
 const streamTextMock = vi.mocked(streamText);
@@ -41,6 +45,7 @@ const findCurrentStoryMock = vi.mocked(findCurrentStory);
 const findPreparedStoryMock = vi.mocked(findPreparedStory);
 const prepareCompleteStoryMock = vi.mocked(prepareCompleteStory);
 const publishPreparedStoryMock = vi.mocked(publishPreparedStory);
+const seedStoryFixturesMock = vi.mocked(seedStoryFixtures);
 
 const QUESTION = "What kind of work does Noah do?";
 const PUBLIC_ID = "AbCdEfGhIjKlMnOpQrStUvWx";
@@ -171,7 +176,6 @@ function storyFromInput(input: NewStoryRecord): StoryRecord {
   return {
     id: PUBLIC_ID,
     displayQuestion: input.displayQuestion,
-    questionDigest: questionDigest(input.displayQuestion),
     corpusRevision: CORPUS_REVISION,
     storyContractVersion: STORY_CONTRACT_VERSION,
     createdAt: "2026-07-14T08:00:00.000Z",
@@ -677,5 +681,30 @@ describe("POST /api/generate/publish", () => {
 
     expect(response.status).toBe(499);
     await expect(response.text()).resolves.toBe("");
+  });
+});
+
+describe("POST /api/playwright-seed", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("hard-refuses outside explicit Playwright mode and seeds only when enabled", async () => {
+    const request = () => new Request(
+      "http://localhost/api/playwright-seed",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify([{ id: PUBLIC_ID }]),
+      },
+    );
+
+    vi.stubEnv("PLAYWRIGHT_TEST_MODE", "");
+    expect((await seedFixtures(request())).status).toBe(404);
+    expect(seedStoryFixturesMock).not.toHaveBeenCalled();
+
+    vi.stubEnv("PLAYWRIGHT_TEST_MODE", "1");
+    expect((await seedFixtures(request())).status).toBe(204);
+    expect(seedStoryFixturesMock).toHaveBeenCalledWith([{ id: PUBLIC_ID }]);
   });
 });

@@ -1,19 +1,19 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useReducedMotion } from 'framer-motion';
 import { ArrowRight, Check, CircleDashed, Info, Link2, RotateCcw } from 'lucide-react';
 
 import type {
   EvidenceRef,
   StoryPlan,
   PublicStory,
+  StoryPhase,
   StoryScene,
-  StoryStreamEvent,
 } from '@/lib/story/types';
 import { MotionAsset } from '@/components/story/MotionAsset';
 import { StoryProjects } from '@/components/story/StoryProjects';
 
-export type StoryPhase = Extract<StoryStreamEvent, { type: 'phase' }>['phase'];
 
 const PHASE_LABELS: Record<StoryPhase, string> = {
   planning: 'Planning the Story',
@@ -62,23 +62,63 @@ interface StoryRailProps {
   onNavigate: (index: number) => void;
 }
 
-function usePrefersReducedMotion() {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+function useStoryScrollSpy(
+  rootRef: RefObject<HTMLElement | null>,
+  sceneCount: number,
+  question: string,
+) {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => setActiveIndex(0), [question]);
 
   useEffect(() => {
-    if (typeof window.matchMedia !== 'function') return;
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const updatePreference = () => setPrefersReducedMotion(mediaQuery.matches);
-    updatePreference();
-    mediaQuery.addEventListener?.('change', updatePreference);
-    return () => mediaQuery.removeEventListener?.('change', updatePreference);
-  }, []);
+    if (sceneCount === 0) return;
+    setActiveIndex((current) => Math.min(current, sceneCount - 1));
 
-  return prefersReducedMotion;
+    const sceneElements = rootRef.current?.querySelectorAll<HTMLElement>('[data-story-scene]');
+    if (!sceneElements?.length || typeof IntersectionObserver === 'undefined') return;
+
+    const ratios = new Map<number, number>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const index = Number((entry.target as HTMLElement).dataset.storySceneIndex);
+          ratios.set(index, entry.isIntersecting ? entry.intersectionRatio : 0);
+        }
+        let nextIndex: number | null = null;
+        let nextRatio = 0;
+        for (const [index, ratio] of ratios) {
+          if (ratio > nextRatio) {
+            nextIndex = index;
+            nextRatio = ratio;
+          }
+        }
+        if (nextIndex !== null) setActiveIndex(nextIndex);
+      },
+      { rootMargin: '-20% 0px -35%', threshold: [0.2, 0.45, 0.7] },
+    );
+
+    sceneElements.forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [question, rootRef, sceneCount]);
+
+  return [activeIndex, setActiveIndex] as const;
+}
+
+function useBackdropCue(plan: StoryPlan | null, activeIndex: number) {
+  useEffect(() => {
+    const backdrop = document.querySelector<HTMLElement>('.backdrop-root');
+    const cue = plan?.scenes[activeIndex]?.cue;
+    if (!backdrop || cue === undefined) return;
+    backdrop.dataset.storyCue = JSON.stringify(cue);
+    return () => {
+      delete backdrop.dataset.storyCue;
+    };
+  }, [activeIndex, plan]);
 }
 
 function StoryPhraseCarousel() {
-  const prefersReducedMotion = usePrefersReducedMotion();
+  const prefersReducedMotion = Boolean(useReducedMotion());
   const [phraseState, setPhraseState] = useState({ index: 0, length: 0 });
   const phrase = PRELUDE_PHRASES[phraseState.index];
 
@@ -235,7 +275,7 @@ function StoryPrelude({
   );
 }
 
-export function StoryRail({ plan, readyCount, activeIndex, onNavigate }: StoryRailProps) {
+function StoryRail({ plan, readyCount, activeIndex, onNavigate }: StoryRailProps) {
   const activeValue = String(Math.min(activeIndex, Math.max(readyCount - 1, 0)));
 
   return (
@@ -446,58 +486,17 @@ export default function StoryExperience({
   onRelatedQuestion,
 }: StoryExperienceProps) {
   const rootRef = useRef<HTMLElement>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useStoryScrollSpy(rootRef, scenes.length, question);
   const [shareStatus, setShareStatus] = useState('');
+  const reducedMotion = Boolean(useReducedMotion());
+  useBackdropCue(plan, activeIndex);
   const evidenceById = useMemo(
     () => new Map(evidence.map((evidenceRef) => [evidenceRef.id, evidenceRef])),
     [evidence],
   );
 
-  useEffect(() => {
-    setActiveIndex(0);
-    setShareStatus('');
-  }, [question]);
+  useEffect(() => setShareStatus(''), [question]);
 
-  useEffect(() => {
-    if (scenes.length === 0) return;
-    setActiveIndex((current) => Math.min(current, scenes.length - 1));
-
-    const sceneElements = rootRef.current?.querySelectorAll<HTMLElement>('[data-story-scene]');
-    if (!sceneElements?.length || typeof IntersectionObserver === 'undefined') return;
-
-    const ratios = new Map<number, number>();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const index = Number((entry.target as HTMLElement).dataset.storySceneIndex);
-          ratios.set(index, entry.isIntersecting ? entry.intersectionRatio : 0);
-        }
-        let nextIndex: number | null = null;
-        let nextRatio = 0;
-        for (const [index, ratio] of ratios) {
-          if (ratio > nextRatio) {
-            nextIndex = index;
-            nextRatio = ratio;
-          }
-        }
-        if (nextIndex !== null) setActiveIndex(nextIndex);
-      },
-      { rootMargin: '-20% 0px -35%', threshold: [0.2, 0.45, 0.7] },
-    );
-
-    sceneElements.forEach((element) => observer.observe(element));
-    return () => observer.disconnect();
-  }, [scenes.length, question]);
-
-  useEffect(() => {
-    const backdrop = document.querySelector<HTMLElement>('.backdrop-root');
-    const cue = plan?.scenes[activeIndex]?.cue;
-    if (!backdrop || cue === undefined) return;
-    backdrop.dataset.storyCue = JSON.stringify(cue);
-    return () => {
-      delete backdrop.dataset.storyCue;
-    };
-  }, [activeIndex, plan]);
 
   if (!plan) {
     return (
@@ -512,11 +511,11 @@ export default function StoryExperience({
 
   const navigateToScene = (index: number) => {
     if (index < 0 || index >= scenes.length) return;
-    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const behavior = reducedMotion ? 'auto' : 'smooth';
     setActiveIndex(index);
     rootRef.current
       ?.querySelector<HTMLElement>(`[data-story-scene-index="${index}"]`)
-      ?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+      ?.scrollIntoView({ behavior, block: 'start' });
   };
 
   const shareStory = async () => {

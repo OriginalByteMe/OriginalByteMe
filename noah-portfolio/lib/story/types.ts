@@ -51,7 +51,6 @@ export const ELIGIBLE_PATTERNS_BY_ROLE = {
 export const SCENE_CUE_PHASES = ["intro", "develop", "resolve"] as const;
 export const SCENE_CUE_FOCUSES = ["center", "left", "right"] as const;
 export const SCENE_CUE_INTENSITIES = ["quiet", "medium", "strong"] as const;
-export const STORY_PHASES = ["planning", "composing", "validating", "publishing"] as const;
 export const NON_PUBLISHING_STORY_PHASES = ["planning", "composing", "validating"] as const;
 export const StoryPublicationTokenSchema = z
   .string()
@@ -67,11 +66,18 @@ export const StoryQuestionSchema = z
   .min(1, "Story question must not be empty")
   .max(MAX_STORY_QUESTION_LENGTH, `Story question must be at most ${MAX_STORY_QUESTION_LENGTH} characters`);
 
+/** Normalize user-equivalent Unicode, case, and whitespace without changing punctuation. */
+export function normalizeQuestion(question: string): string {
+  return question.normalize("NFKC").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 const nonEmptyText = (maximum: number) => z.string().trim().min(1).max(maximum);
+
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export const EvidenceRefSchema = z
   .object({
-    id: nonEmptyText(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    id: nonEmptyText(120).regex(SLUG_PATTERN),
     path: nonEmptyText(240).startsWith("/corpus/"),
     label: nonEmptyText(160),
     excerpt: nonEmptyText(1600),
@@ -87,7 +93,7 @@ export const SceneCueSchema = z
   .strict();
 
 const EvidenceRefIdsSchema = z
-  .array(nonEmptyText(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/))
+  .array(nonEmptyText(120).regex(SLUG_PATTERN))
   .min(1)
   .max(12);
 
@@ -128,7 +134,7 @@ const AssetIdSchema = z.custom<MotionAssetId>(isMotionAssetId, {
 
 export const ScenePlanSchema = z
   .object({
-    id: nonEmptyText(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    id: nonEmptyText(80).regex(SLUG_PATTERN),
     index: z.number().int().min(0).max(4),
     role: z.enum(SCENE_ROLES),
     pattern: z.enum(SCENE_PATTERNS),
@@ -168,7 +174,6 @@ export const StoryRecordSchema = z
   .object({
     id: PublicStoryIdSchema,
     displayQuestion: StoryQuestionSchema,
-    questionDigest: z.string().regex(/^[a-f0-9]{64}$/),
     corpusRevision: nonEmptyText(120),
     storyContractVersion: nonEmptyText(120),
     createdAt: z.string().datetime({ offset: true }),
@@ -179,7 +184,6 @@ export const StoryRecordSchema = z
   .strict();
 
 export const PublicStorySchema = StoryRecordSchema.omit({
-  questionDigest: true,
   corpusRevision: true,
   storyContractVersion: true,
 }).strict();
@@ -187,7 +191,6 @@ export const PublicStorySchema = StoryRecordSchema.omit({
 export const NewStoryRecordSchema = StoryRecordSchema
   .omit({
     id: true,
-    questionDigest: true,
     corpusRevision: true,
     storyContractVersion: true,
     createdAt: true,
@@ -213,7 +216,7 @@ export const PublishStoryResponseSchema = z
 export const StoryStreamEventSchema = z.union([
   z.object({ type: z.literal("phase"), phase: z.enum(NON_PUBLISHING_STORY_PHASES) }).strict(),
   StoryPublishingEventSchema,
-  z.object({ type: z.literal("plan"), plan: StoryPlanSchema, evidence: z.array(EvidenceRefSchema).min(1) }).strict(),
+  z.object({ type: z.literal("plan"), plan: StoryPlanSchema, evidence: z.array(EvidenceRefSchema).min(1).max(64) }).strict(),
   z.object({ type: z.literal("scene"), index: z.number().int().min(0).max(4), scene: StorySceneSchema }).strict(),
   PublishStoryResponseSchema,
   z.object({ type: z.literal("error"), message: nonEmptyText(500) }).strict(),
@@ -232,6 +235,7 @@ export type PublicStory = z.infer<typeof PublicStorySchema>;
 export type NewStoryRecord = z.infer<typeof NewStoryRecordSchema>;
 export type StoryQuestion = z.infer<typeof StoryQuestionSchema>;
 export type StoryStreamEvent = z.infer<typeof StoryStreamEventSchema>;
+export type StoryPhase = Extract<StoryStreamEvent, { type: "phase" }>["phase"];
 export type ScenePattern = (typeof SCENE_PATTERNS)[number];
 export type StoryRegister = (typeof STORY_REGISTERS)[number];
 export type StoryPublicationToken = z.infer<typeof StoryPublicationTokenSchema>;

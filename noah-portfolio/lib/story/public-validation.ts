@@ -1,8 +1,8 @@
 import { getMotionAsset } from "@/lib/motion-assets/catalog";
-import { normalizeQuestion } from "@/lib/story/normalize";
 import {
   ELIGIBLE_PATTERNS_BY_ROLE,
   EvidenceRefSchema,
+  normalizeQuestion,
   PublicStorySchema,
   ScenePlanSchema,
   StoryPlanSchema,
@@ -22,23 +22,26 @@ const EXPECTED_CUE_PHASE_BY_ROLE = {
   synthesis: "resolve",
 } as const;
 
-function validationError(label: string, error: z.ZodError): Error {
+export function validationError(label: string, error: z.ZodError): Error {
   const details = error.issues
     .map((issue) => `${issue.path.join(".") || "value"}: ${issue.message}`)
     .join("; ");
   return new Error(`Invalid ${label}: ${details}`);
 }
 
-function parseEvidence(value: unknown): EvidenceRef[] {
+export function parseEvidence(value: unknown): EvidenceRef[] {
   const result = z.array(EvidenceRefSchema).min(1).max(64).safeParse(value);
   if (!result.success) throw validationError("Evidence Refs", result.error);
+  return result.data;
+}
 
+export function evidenceIdsFor(evidence: readonly EvidenceRef[]): ReadonlySet<string> {
   const seen = new Set<string>();
-  for (const ref of result.data) {
+  for (const ref of evidence) {
     if (seen.has(ref.id)) throw new Error(`Invalid Evidence Refs: duplicate ID ${ref.id}`);
     seen.add(ref.id);
   }
-  return result.data;
+  return seen;
 }
 
 function assertReferencesExist(
@@ -103,23 +106,18 @@ function assertResolvedProjects(scene: StoryScene): void {
   }
 }
 
-/** Client-safe semantic validation for a streamed Plan and its Evidence vocabulary. */
-export function assertValidStreamPlan(
-  plan: unknown,
-  evidence: unknown,
+export function assertValidParsedStreamPlan(
+  plan: StoryPlan,
+  evidenceIds: ReadonlySet<string>,
   expectedQuestion: string,
-): asserts plan is StoryPlan {
-  const parsed = StoryPlanSchema.safeParse(plan);
-  if (!parsed.success) throw validationError("Story Plan", parsed.error);
+): void {
   const expected = StoryQuestionSchema.safeParse(expectedQuestion);
   if (!expected.success) throw validationError("expected Story question", expected.error);
-  if (normalizeQuestion(parsed.data.question) !== normalizeQuestion(expected.data)) {
+  if (normalizeQuestion(plan.question) !== normalizeQuestion(expected.data)) {
     throw new Error("Invalid Story Plan: question differs from the expected display question");
   }
 
-  const refs = parseEvidence(evidence);
-  const evidenceIds = new Set(refs.map((ref) => ref.id));
-  const scenes = parsed.data.scenes;
+  const scenes = plan.scenes;
   if (new Set(scenes.map((scene) => scene.id)).size !== scenes.length) {
     throw new Error("Invalid Story Plan: Scene IDs must be unique");
   }
@@ -158,10 +156,42 @@ export function assertValidStreamPlan(
   if (!scenes.slice(1, -1).some((scene) => scene.evidenceRefIds.length >= 2)) {
     throw new Error("Invalid Story Plan: an evidence-heavy middle Scene must cite at least two Evidence Refs");
   }
-  const related = parsed.data.relatedQuestions.map(normalizeQuestion);
+  const related = plan.relatedQuestions.map(normalizeQuestion);
   if (new Set(related).size !== related.length) {
     throw new Error("Invalid Story Plan: Related Questions must be unique");
   }
+}
+
+/** Client-safe semantic validation for a streamed Plan and its Evidence vocabulary. */
+export function assertValidStreamPlan(
+  plan: unknown,
+  evidence: unknown,
+  expectedQuestion: string,
+): asserts plan is StoryPlan {
+  const parsed = StoryPlanSchema.safeParse(plan);
+  if (!parsed.success) throw validationError("Story Plan", parsed.error);
+  assertValidParsedStreamPlan(
+    parsed.data,
+    evidenceIdsFor(parseEvidence(evidence)),
+    expectedQuestion,
+  );
+}
+
+const LOCKED_SCENE_FIELDS = Object.keys(ScenePlanSchema.shape) as (keyof ScenePlan)[];
+
+export function assertValidParsedStreamScene(
+  scene: StoryScene,
+  lockedPlan: ScenePlan,
+  evidenceIds: ReadonlySet<string>,
+): void {
+  for (const field of LOCKED_SCENE_FIELDS) {
+    if (JSON.stringify(scene[field]) !== JSON.stringify(lockedPlan[field])) {
+      throw new Error(`Invalid Story Scene: ${field} differs from the locked Story Plan`);
+    }
+  }
+  assertGeneratorEligibleAsset(scene.assetId, scene.pattern, "Story Scene");
+  assertReferencesExist(scene.evidenceRefIds, evidenceIds, `Story Scene ${scene.index}`);
+  assertResolvedProjects(scene);
 }
 
 /** Client-safe semantic validation for one composed Scene against its locked Plan entry. */
@@ -174,29 +204,11 @@ export function assertValidStreamScene(
   if (!parsed.success) throw validationError("Story Scene", parsed.error);
   const locked = ScenePlanSchema.safeParse(lockedPlan);
   if (!locked.success) throw validationError("locked Scene Plan", locked.error);
-  const evidenceIds = new Set(parseEvidence(evidence).map((ref) => ref.id));
-
-  const lockedFields: ReadonlyArray<keyof ScenePlan> = [
-    "id",
-    "index",
-    "role",
-    "pattern",
-    "register",
-    "title",
-    "claim",
-    "assetId",
-    "evidenceRefIds",
-    "projectSlugs",
-    "cue",
-  ];
-  for (const field of lockedFields) {
-    if (JSON.stringify(parsed.data[field]) !== JSON.stringify(locked.data[field])) {
-      throw new Error(`Invalid Story Scene: ${field} differs from the locked Story Plan`);
-    }
-  }
-  assertGeneratorEligibleAsset(parsed.data.assetId, parsed.data.pattern, "Story Scene");
-  assertReferencesExist(parsed.data.evidenceRefIds, evidenceIds, `Story Scene ${parsed.data.index}`);
-  assertResolvedProjects(parsed.data);
+  assertValidParsedStreamScene(
+    parsed.data,
+    locked.data,
+    evidenceIdsFor(parseEvidence(evidence)),
+  );
 }
 
 /** Client-safe complete Public Story validation beyond structural Zod parsing. */
@@ -204,11 +216,12 @@ export function assertValidPublicStory(story: unknown): asserts story is PublicS
   const parsed = PublicStorySchema.safeParse(story);
   if (!parsed.success) throw validationError("Public Story", parsed.error);
   const { plan, scenes, evidence, displayQuestion } = parsed.data;
-  assertValidStreamPlan(plan, evidence, displayQuestion);
+  const evidenceIds = evidenceIdsFor(evidence);
+  assertValidParsedStreamPlan(plan, evidenceIds, displayQuestion);
   if (scenes.length !== plan.scenes.length) {
     throw new Error("Invalid Public Story: Scene count differs from the locked Story Plan");
   }
   for (const [index, scene] of scenes.entries()) {
-    assertValidStreamScene(scene, plan.scenes[index], evidence);
+    assertValidParsedStreamScene(scene, plan.scenes[index], evidenceIds);
   }
 }

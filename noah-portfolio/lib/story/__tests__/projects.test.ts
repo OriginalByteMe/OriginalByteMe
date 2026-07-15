@@ -4,7 +4,7 @@ import {
   CORPUS_PROJECT_PROMPT_CATALOG,
   UnknownProjectSlugError,
   resolveStoryProjects,
-} from "@/lib/story/projects.server";
+} from "@/lib/story/evidence";
 import { PROJECT_SLUGS } from "@/lib/story/types";
 
 describe("trusted Story project resolution", () => {

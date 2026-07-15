@@ -9,6 +9,7 @@ beforeEach(() => {
   vi.stubEnv("STORY_CACHE_HMAC_KEY_ID", "");
   vi.stubEnv("CF_D1_DATABASE_ID", "");
   vi.stubEnv("CF_D1_TOKEN", "");
+  vi.stubEnv("PLAYWRIGHT_TEST_MODE", "");
 });
 
 afterEach(() => {
@@ -45,6 +46,26 @@ describe("Story environment", () => {
   it("fails closed without a production HMAC key", () => {
     vi.stubEnv("NODE_ENV", "production");
     expect(() => getStoryCacheHmacKey()).toThrow(/STORY_CACHE_HMAC_KEY/);
+  });
+
+  it.each(["staging", "preview"])(
+    "fails closed without Story credentials in %s",
+    (nodeEnv) => {
+      vi.stubEnv("NODE_ENV", nodeEnv);
+      expect(() => getStoryCacheHmacKey()).toThrow(/STORY_CACHE_HMAC_KEY/);
+      expect(() => getStoryCacheHmacKeyId()).toThrow(/STORY_CACHE_HMAC_KEY_ID/);
+    },
+  );
+
+  it("allows local Story credential fallbacks only in development, test, or Playwright", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    expect(getStoryCacheHmacKey()).toBe("local-only-story-cache-hmac-key");
+    expect(getStoryCacheHmacKeyId()).toBe("local-v1");
+
+    vi.stubEnv("NODE_ENV", "staging");
+    vi.stubEnv("PLAYWRIGHT_TEST_MODE", "1");
+    expect(getStoryCacheHmacKey()).toBe("local-only-story-cache-hmac-key");
+    expect(getStoryCacheHmacKeyId()).toBe("local-v1");
   });
 
   it("rejects weak production HMAC keys and requires an explicit safe key ID", () => {

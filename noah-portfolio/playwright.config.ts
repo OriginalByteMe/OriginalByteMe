@@ -1,9 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
-import { PLAYWRIGHT_STORY_RECORDS } from "./app/ask/[storyId]/__tests__/story-fixtures";
 
 const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3100);
 const BASE_URL = `http://localhost:${PORT}`;
-const STORY_FIXTURES = JSON.stringify(PLAYWRIGHT_STORY_RECORDS);
 
 /**
  * E2E config for the Ask-Me flows. Playwright builds once, then serves the
@@ -13,6 +11,7 @@ const STORY_FIXTURES = JSON.stringify(PLAYWRIGHT_STORY_RECORDS);
  * LLM is required.
  */
 export default defineConfig({
+  globalSetup: "./lib/story/__fixtures__/story-fixtures.ts",
   testDir: "./e2e",
   fullyParallel: true,
   // Each page owns a full-screen WebGL canvas; serialize for deterministic input.
@@ -36,7 +35,6 @@ export default defineConfig({
       STORY_CACHE_HMAC_KEY: "playwright-only-hmac-key-64-story-fixtures",
       STORY_CACHE_HMAC_KEY_ID: "playwright-v1",
       PLAYWRIGHT_TEST_MODE: "1",
-      PLAYWRIGHT_STORY_FIXTURES: STORY_FIXTURES,
     },
   },
 });

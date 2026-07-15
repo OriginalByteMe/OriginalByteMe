@@ -1,7 +1,9 @@
 import { BACKDROP_PRESETS } from "@/lib/backdrop/presets";
 import { motionAssetPromptCatalog } from "@/lib/motion-assets/catalog";
-import { evidenceRefPromptCatalog } from "@/lib/story/evidence";
-import { CORPUS_PROJECT_PROMPT_CATALOG } from "@/lib/story/projects.server";
+import {
+  CORPUS_PROJECT_PROMPT_CATALOG,
+  evidenceRefPromptCatalog,
+} from "@/lib/story/evidence";
 import {
   ELIGIBLE_PATTERNS_BY_ROLE,
   SCENE_PATTERNS,

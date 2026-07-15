@@ -1,9 +1,12 @@
-import { CORPUS_EVIDENCE_REFS } from "@/lib/story/evidence";
-import { questionDigest } from "@/lib/story/identity";
-import { resolveStoryProjects } from "@/lib/story/projects.server";
+import {
+  CORPUS_EVIDENCE_REFS,
+  resolveStoryProjects,
+} from "@/lib/story/evidence";
+import { seedStoryFixtures } from "@/lib/story/store";
 import {
   toPublicStory,
   type ProjectSlug,
+  type StoryProject,
   type StoryRecord,
 } from "@/lib/story/types";
 
@@ -16,6 +19,16 @@ export const CURRENT_QUESTION = "How does Noah turn complex systems into product
 export const RELATED_QUESTION = "Which projects best show Noah's technical range?";
 
 const evidence = [...CORPUS_EVIDENCE_REFS.slice(0, 3)];
+const [headlineEvidence, locationEvidence, summaryEvidence] = evidence;
+if (!headlineEvidence || !locationEvidence || !summaryEvidence) {
+  throw new Error("Story fixtures require at least three Corpus Evidence Refs");
+}
+
+function requiredProjects(slugs: ProjectSlug[]): StoryProject[] {
+  const projects = resolveStoryProjects(slugs);
+  if (!projects) throw new Error("Story fixture project slugs must be present");
+  return projects;
+}
 
 function makeScenes(titles: [string, string, string], bodies: [string, string, string]) {
   return [
@@ -28,7 +41,7 @@ function makeScenes(titles: [string, string, string], bodies: [string, string, s
       title: titles[0],
       claim: "Noah turns complex systems into products by pairing technical depth with a clear product narrative.",
       assetId: "circuit-mind" as const,
-      evidenceRefIds: [evidence[0].id],
+      evidenceRefIds: [headlineEvidence.id],
       cue: { phase: "intro" as const, focus: "center" as const, intensity: "quiet" as const },
       body: bodies[0],
     },
@@ -41,9 +54,9 @@ function makeScenes(titles: [string, string, string], bodies: [string, string, s
       title: titles[1],
       claim: "Shipped project evidence connects product decisions to concrete implementation work.",
       assetId: "print-layers" as const,
-      evidenceRefIds: [evidence[1].id, evidence[2].id],
+      evidenceRefIds: [locationEvidence.id, summaryEvidence.id],
       projectSlugs: ["ask-me-portfolio", "llm-comparison"] as ProjectSlug[],
-      projects: resolveStoryProjects(["ask-me-portfolio", "llm-comparison"])!,
+      projects: requiredProjects(["ask-me-portfolio", "llm-comparison"]),
       cue: { phase: "develop" as const, focus: "left" as const, intensity: "strong" as const },
       body: bodies[1],
     },
@@ -56,9 +69,9 @@ function makeScenes(titles: [string, string, string], bodies: [string, string, s
       title: titles[2],
       claim: "The result is practical systems work shaped around what people need to understand and use.",
       assetId: "morning-coffee" as const,
-      evidenceRefIds: [evidence[0].id, evidence[2].id],
+      evidenceRefIds: [headlineEvidence.id, summaryEvidence.id],
       projectSlugs: ["moodify"] as ProjectSlug[],
-      projects: resolveStoryProjects(["moodify"])!,
+      projects: requiredProjects(["moodify"]),
       cue: { phase: "resolve" as const, focus: "right" as const, intensity: "medium" as const },
       body: bodies[2],
     },
@@ -86,7 +99,6 @@ function makeRecord({
   return {
     id,
     displayQuestion,
-    questionDigest: questionDigest(displayQuestion),
     corpusRevision,
     storyContractVersion,
     createdAt: "2026-07-14T07:00:00.000Z",
@@ -158,3 +170,23 @@ export const PLAYWRIGHT_STORY_RECORDS = [
   RELATED_STORY_RECORD,
   OUTDATED_STORY_RECORD,
 ] satisfies StoryRecord[];
+
+export default async function seedPlaywrightStories(): Promise<void> {
+  process.env.PLAYWRIGHT_TEST_MODE = "1";
+  process.env.STORY_CACHE_HMAC_KEY = "playwright-only-hmac-key-64-story-fixtures";
+  process.env.STORY_CACHE_HMAC_KEY_ID = "playwright-v1";
+  seedStoryFixtures(PLAYWRIGHT_STORY_RECORDS);
+
+  const port = Number(process.env.PLAYWRIGHT_PORT ?? 3100);
+  const response = await fetch(
+    `http://127.0.0.1:${port}/api/playwright-seed`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(PLAYWRIGHT_STORY_RECORDS),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Could not seed Playwright Story fixtures (${response.status})`);
+  }
+}

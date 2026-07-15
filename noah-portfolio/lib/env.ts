@@ -38,6 +38,14 @@ export function getD1Env(): CloudflareD1Config | undefined {
 
 const MIN_STORY_CACHE_HMAC_KEY_BYTES = 32;
 
+function allowsLocalStoryCredentials(): boolean {
+  return (
+    process.env.NODE_ENV === "development" ||
+    process.env.NODE_ENV === "test" ||
+    process.env.PLAYWRIGHT_TEST_MODE === "1"
+  );
+}
+
 /**
  * Resolve the server-only Story HMAC key. Tests can inject a key directly.
  * Production rejects missing or short secrets rather than creating a
@@ -54,19 +62,19 @@ export function getStoryCacheHmacKey(injected?: string): string {
     }
     return key;
   }
-  if (process.env.NODE_ENV === "production") throw new Error("Missing STORY_CACHE_HMAC_KEY");
+  if (!allowsLocalStoryCredentials()) throw new Error("Missing STORY_CACHE_HMAC_KEY");
   return "local-only-story-cache-hmac-key";
 }
 
 /** Non-secret identifier that makes deliberate HMAC key rotation observable. */
-export function getStoryCacheHmacKeyId(injected?: string): string {
-  const keyId = injected?.trim() || process.env.STORY_CACHE_HMAC_KEY_ID?.trim();
+export function getStoryCacheHmacKeyId(): string {
+  const keyId = process.env.STORY_CACHE_HMAC_KEY_ID?.trim();
   if (keyId) {
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(keyId)) {
       throw new Error("STORY_CACHE_HMAC_KEY_ID must be a safe 1-64 character identifier");
     }
     return keyId;
   }
-  if (process.env.NODE_ENV === "production") throw new Error("Missing STORY_CACHE_HMAC_KEY_ID");
+  if (!allowsLocalStoryCredentials()) throw new Error("Missing STORY_CACHE_HMAC_KEY_ID");
   return "local-v1";
 }

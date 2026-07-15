@@ -8,7 +8,7 @@ import {
   RELATED_PUBLIC_STORY,
   RELATED_QUESTION,
   RELATED_STORY_ID,
-} from "@/app/ask/[storyId]/__tests__/story-fixtures";
+} from "@/lib/story/__fixtures__/story-fixtures";
 
 const ACTIVE_ASSET_IDS = ["circuit-mind", "print-layers", "morning-coffee"];
 

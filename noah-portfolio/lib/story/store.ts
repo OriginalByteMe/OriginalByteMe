@@ -6,11 +6,6 @@ import {
   type CloudflareD1Config,
 } from "@/lib/env";
 import {
-  normalizeQuestion,
-  questionDigest,
-  storyCacheIdentity,
-} from "@/lib/story/identity";
-import {
   CORPUS_REVISION,
   NewStoryRecordSchema,
   PublicStoryIdSchema,
@@ -18,14 +13,23 @@ import {
   StoryPublicationTokenSchema,
   StoryQuestionSchema,
   StoryRecordSchema,
+  normalizeQuestion,
   type NewStoryRecord,
   type StoryPublicationToken,
   type StoryRecord,
 } from "@/lib/story/types";
-import { assertValidStoryRecord } from "@/lib/story/validation";
+import {
+  assertValidParsedStoryRecord,
+  assertValidStoryRecord,
+} from "@/lib/story/validation";
 import { z } from "zod";
 
 export interface StoryStoreOptions { signal?: AbortSignal }
+export interface StoryCacheIdentityOptions {
+  corpusRevision?: string;
+  storyContractVersion?: string;
+  secret?: string;
+}
 export interface PreparedStory {
   story: StoryRecord;
   publicationToken: StoryPublicationToken;
@@ -74,19 +78,24 @@ const PREPARE_STORY_SQL = `INSERT INTO story_records (
 ) VALUES (?, ?, ?, ?, 0, unixepoch() + ?)
 ON CONFLICT(cache_identity) DO UPDATE SET
   public_id = CASE
-    WHEN story_records.published = 0 AND story_records.expires_at <= unixepoch()
+    WHEN story_records.hmac_key_id <> excluded.hmac_key_id
+      OR (story_records.published = 0 AND story_records.expires_at <= unixepoch())
     THEN excluded.public_id ELSE story_records.public_id END,
   hmac_key_id = CASE
-    WHEN story_records.published = 0 AND story_records.expires_at <= unixepoch()
+    WHEN story_records.hmac_key_id <> excluded.hmac_key_id
+      OR (story_records.published = 0 AND story_records.expires_at <= unixepoch())
     THEN excluded.hmac_key_id ELSE story_records.hmac_key_id END,
   record_json = CASE
-    WHEN story_records.published = 0 AND story_records.expires_at <= unixepoch()
+    WHEN story_records.hmac_key_id <> excluded.hmac_key_id
+      OR (story_records.published = 0 AND story_records.expires_at <= unixepoch())
     THEN excluded.record_json ELSE story_records.record_json END,
   published = CASE
-    WHEN story_records.published = 0 AND story_records.expires_at <= unixepoch()
+    WHEN story_records.hmac_key_id <> excluded.hmac_key_id
+      OR (story_records.published = 0 AND story_records.expires_at <= unixepoch())
     THEN 0 ELSE story_records.published END,
   expires_at = CASE
-    WHEN story_records.published = 0 AND story_records.expires_at <= unixepoch()
+    WHEN story_records.hmac_key_id <> excluded.hmac_key_id
+      OR (story_records.published = 0 AND story_records.expires_at <= unixepoch())
     THEN excluded.expires_at ELSE story_records.expires_at END
 RETURNING public_id, cache_identity, hmac_key_id, record_json, published, expires_at`;
 
@@ -103,8 +112,28 @@ const memory = globalMemory.__storyD1Memory ??= {
   publicIdByIdentity: new Map<string, string>(),
 };
 const initializedDatabases = new Set<string>();
-let loadedPlaywrightFixtureSource: string | undefined;
 
+
+/**
+ * Private deterministic lookup identity. JSON array encoding is unambiguous and
+ * the secret is never included in the returned value or any public payload.
+ */
+export function storyCacheIdentity(
+  question: string,
+  options: StoryCacheIdentityOptions = {},
+): string {
+  const normalized = normalizeQuestion(question);
+  if (!normalized) throw new Error("Cannot identify an empty question");
+
+  const payload = JSON.stringify([
+    normalized,
+    options.corpusRevision ?? CORPUS_REVISION,
+    options.storyContractVersion ?? STORY_CONTRACT_VERSION,
+  ]);
+  return createHmac("sha256", getStoryCacheHmacKey(options.secret))
+    .update(payload, "utf8")
+    .digest("hex");
+}
 function parseJson(value: string): unknown {
   try {
     return JSON.parse(value);
@@ -211,10 +240,10 @@ function rowForFixture(record: StoryRecord): StoryRow {
 function seedMemoryRow(row: StoryRow): void {
   const existingId = memory.publicIdByIdentity.get(row.cache_identity);
   if (existingId && existingId !== row.public_id) {
-    throw new Error("Invalid PLAYWRIGHT_STORY_FIXTURES: duplicate cache identity");
+    throw new Error("Invalid Story fixtures: duplicate cache identity");
   }
   if (memory.rowsByPublicId.has(row.public_id)) {
-    throw new Error("Invalid PLAYWRIGHT_STORY_FIXTURES: duplicate public ID");
+    throw new Error("Invalid Story fixtures: duplicate public ID");
   }
   memory.rowsByPublicId.set(row.public_id, row);
   memory.publicIdByIdentity.set(row.cache_identity, row.public_id);
@@ -223,10 +252,17 @@ function seedMemoryRow(row: StoryRow): void {
 function claimMemoryRow(candidate: StoryRow): StoryRow {
   const existingId = memory.publicIdByIdentity.get(candidate.cache_identity);
   if (existingId) {
-    const existing = memory.rowsByPublicId.get(existingId)!;
-    const now = Math.floor(Date.now() / 1000);
-    if (existing.published === 1 || existing.expires_at > now) return existing;
-    memory.rowsByPublicId.delete(existing.public_id);
+    const existing = memory.rowsByPublicId.get(existingId);
+    if (!existing) {
+      memory.publicIdByIdentity.delete(candidate.cache_identity);
+    } else {
+      const now = Math.floor(Date.now() / 1000);
+      const currentClaim =
+        existing.hmac_key_id === candidate.hmac_key_id &&
+        (existing.published === 1 || existing.expires_at > now);
+      if (currentClaim) return existing;
+      memory.rowsByPublicId.delete(existing.public_id);
+    }
   }
   if (memory.rowsByPublicId.has(candidate.public_id)) {
     throw new Error("Story public ID collision");
@@ -236,20 +272,16 @@ function claimMemoryRow(candidate: StoryRow): StoryRow {
   return candidate;
 }
 
-async function loadPlaywrightFixtures(): Promise<void> {
-  if (process.env.PLAYWRIGHT_TEST_MODE !== "1") return;
-  const source = process.env.PLAYWRIGHT_STORY_FIXTURES;
-  if (!source || source === loadedPlaywrightFixtureSource) return;
-
-  const fixtures = z.array(StoryRecordSchema).safeParse(parseJson(source));
-  if (!fixtures.success) {
-    throw new Error("Invalid PLAYWRIGHT_STORY_FIXTURES: expected a JSON array of complete StoryRecord objects");
+/** Seed validated records explicitly from test setup; production request paths never call this. */
+export function seedStoryFixtures(fixtures: unknown): void {
+  const parsed = z.array(StoryRecordSchema).safeParse(fixtures);
+  if (!parsed.success) {
+    throw new Error("Invalid Story fixtures: expected an array of complete StoryRecord objects");
   }
-  for (const record of fixtures.data) {
-    assertValidStoryRecord(record);
+  for (const record of parsed.data) {
+    assertValidParsedStoryRecord(record);
     seedMemoryRow(rowForFixture(record));
   }
-  loadedPlaywrightFixtureSource = source;
 }
 
 function validateCompleteInput(input: NewStoryRecord): NewStoryRecord {
@@ -257,26 +289,25 @@ function validateCompleteInput(input: NewStoryRecord): NewStoryRecord {
   if (!parsed.success) {
     throw new Error(`Invalid complete Story input: ${parsed.error.issues.map((issue) => issue.message).join("; ")}`);
   }
-  const validationEnvelope: StoryRecord = {
+  assertValidParsedStoryRecord({
     ...parsed.data,
     id: "AAAAAAAAAAAAAAAAAAAAAAAA",
-    questionDigest: questionDigest(parsed.data.displayQuestion),
     corpusRevision: CORPUS_REVISION,
     storyContractVersion: STORY_CONTRACT_VERSION,
     createdAt: new Date(0).toISOString(),
-  };
-  assertValidStoryRecord(validationEnvelope);
+  });
   return parsed.data;
 }
 
 function parseValidatedRow(row: StoryRow): StoryRecord | null {
-  const value = parseJson(row.record_json);
+  const parsed = StoryRecordSchema.safeParse(parseJson(row.record_json));
+  if (!parsed.success) return null;
   try {
-    assertValidStoryRecord(value);
+    assertValidParsedStoryRecord(parsed.data);
   } catch {
     return null;
   }
-  return row.public_id === value.id ? value : null;
+  return row.public_id === parsed.data.id ? parsed.data : null;
 }
 
 function parseCompatibleRow(row: StoryRow, question: string): StoryRecord | null {
@@ -286,7 +317,6 @@ function parseCompatibleRow(row: StoryRow, question: string): StoryRecord | null
     row.hmac_key_id !== getStoryCacheHmacKeyId() ||
     value.corpusRevision !== CORPUS_REVISION ||
     value.storyContractVersion !== STORY_CONTRACT_VERSION ||
-    value.questionDigest !== questionDigest(question) ||
     normalizeQuestion(value.displayQuestion) !== normalizeQuestion(question)
   ) {
     return null;
@@ -365,7 +395,6 @@ async function selectAnyByPublicId(publicId: string, signal?: AbortSignal): Prom
 /** Return only a published, complete current Story for an equivalent question. */
 export async function findCurrentStory(question: string): Promise<StoryRecord | null> {
   const parsedQuestion = StoryQuestionSchema.parse(question);
-  await loadPlaywrightFixtures();
   const row = await selectPublishedByIdentity(storyCacheIdentity(parsedQuestion));
   return row ? parseCurrentRow(row, parsedQuestion) : null;
 }
@@ -382,16 +411,13 @@ export async function findPreparedStory(question: string): Promise<PreparedStory
 }
 
 function makeCandidate(complete: NewStoryRecord): StoryRecord {
-  const record: StoryRecord = {
+  return {
     ...complete,
     id: randomBytes(18).toString("base64url"),
-    questionDigest: questionDigest(complete.displayQuestion),
     corpusRevision: CORPUS_REVISION,
     storyContractVersion: STORY_CONTRACT_VERSION,
     createdAt: new Date().toISOString(),
   };
-  assertValidStoryRecord(record);
-  return record;
 }
 
 /** Fully validate and atomically claim an unpublished Story identity. */
@@ -439,7 +465,13 @@ export async function prepareCompleteStory(
       }
     }
 
-    const story = parseValidatedRow(claimed);
+    const claimedCandidate =
+      claimed.public_id === candidateRow.public_id &&
+      claimed.cache_identity === candidateRow.cache_identity &&
+      claimed.hmac_key_id === candidateRow.hmac_key_id &&
+      claimed.record_json === candidateRow.record_json &&
+      claimed.published === candidateRow.published;
+    const story = claimedCandidate ? candidate : parseValidatedRow(claimed);
     if (!story || claimed.cache_identity !== identity || claimed.hmac_key_id !== hmacKeyId) {
       throw new Error("Prepared Story failed complete-record revalidation");
     }
@@ -501,7 +533,6 @@ export async function publishPreparedStory(
 /** Resolve an opaque ID; pending rows are missing and outdated rows never expose Scenes. */
 export async function resolveStory(id: string): Promise<StoryResolution> {
   if (!PublicStoryIdSchema.safeParse(id).success) return { status: "missing" };
-  await loadPlaywrightFixtures();
   const row = await selectPublishedByPublicId(id);
   if (!row || row.public_id !== id) return { status: "missing" };
 
@@ -535,5 +566,4 @@ export function __resetStoryStoreForTests(): void {
   memory.rowsByPublicId.clear();
   memory.publicIdByIdentity.clear();
   initializedDatabases.clear();
-  loadedPlaywrightFixtureSource = undefined;
 }

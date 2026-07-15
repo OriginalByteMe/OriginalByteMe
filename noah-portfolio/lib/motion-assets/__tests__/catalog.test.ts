@@ -1,4 +1,11 @@
-import { existsSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -121,7 +128,7 @@ describe("Motion Asset Catalog", () => {
       if (!asset || asset.renderer.kind !== "dotlottie") continue;
 
       expect(asset.renderer.src).toBe(`/motion/${assetId}.lottie`);
-      expect(asset.renderer.localSource).toBe(asset.renderer.src);
+      expect(asset.renderer).not.toHaveProperty("localSource");
       expect(asset.renderer.animationId).toBe(assetId);
       expect(JSON.stringify(asset.renderer)).not.toMatch(/https?:|\/\//i);
       expect(asset.provenance.notices).toContain(
@@ -164,6 +171,82 @@ describe("Motion Asset Catalog", () => {
     }
   });
 
+  it("emits a schema-valid catalog stub backed by generated provenance", () => {
+    const outputDirectory = mkdtempSync(join(tmpdir(), "motion-intake-"));
+    const assetId = "intake-proof";
+
+    try {
+      const output = execFileSync(
+        process.execPath,
+        [
+          join(process.cwd(), "scripts/motion-intake.mjs"),
+          join(process.cwd(), "public/motion/morning-coffee.lottie"),
+          "--id",
+          assetId,
+          "--title",
+          "Intake proof",
+          "--creator",
+          "Catalog test",
+          "--source-url",
+          "https://example.com/intake-proof",
+          "--license",
+          "MIT",
+          "--notes",
+          "Schema validation proof",
+          "--out-dir",
+          outputDirectory,
+        ],
+        { encoding: "utf8" },
+      );
+      const provenance = JSON.parse(
+        readFileSync(
+          join(outputDirectory, `${assetId}.provenance.json`),
+          "utf8",
+        ),
+      );
+      const stubStart = output.indexOf(`{\n  id: "${assetId}",`);
+
+      expect(stubStart).toBeGreaterThan(-1);
+      expect(output).toContain(`Add "${assetId}" to MOTION_ASSET_IDS.`);
+      expect(output).toContain(
+        `import motionIntakeProofProvenance from "@/public/motion/${assetId}.provenance.json";`,
+      );
+      expect(output).toContain(
+        `"${assetId}": motionIntakeProofProvenance,`,
+      );
+      expect(existsSync(join(outputDirectory, `${assetId}.lottie`))).toBe(true);
+
+      const record = Function(
+        "intakeMetadata",
+        `"use strict"; return (${output.slice(stubStart)});`,
+      )((requestedId: string) => {
+        expect(requestedId).toBe(assetId);
+        return {
+          provenance: {
+            sourceKind: provenance.sourceKind,
+            creator: provenance.creator,
+            source: provenance.source,
+            revision: provenance.revision,
+            notices: [provenance.choreographyLicense.notice],
+            reviewedOn: provenance.reviewedOn,
+          },
+          licenses: {
+            runtime: provenance.runtimeLicense,
+            choreography: provenance.choreographyLicense,
+          },
+        };
+      });
+
+      expect(motionAssetRecordSchema.safeParse(record).success).toBe(true);
+      expect(record.renderer).not.toHaveProperty("localSource");
+      expect(RETIRED_ASSET_IDS).not.toContain(
+        record.reducedMotion.staticRenderer,
+      );
+    } finally {
+      rmSync(outputDirectory, { recursive: true, force: true });
+    }
+  });
+
   it("records the container raster resource without permitting remote runtime sources", () => {
     expect(getMotionAsset("container-stack")?.renderer).toMatchObject({
       kind: "dotlottie",
@@ -191,7 +274,7 @@ describe("Motion Asset Catalog", () => {
         ...localAsset,
         renderer: {
           ...localAsset.renderer,
-          localSource: "//animations.example/circuit-mind.lottie",
+          localSource: localAsset.renderer.src,
         },
       }).success,
     ).toBe(false);

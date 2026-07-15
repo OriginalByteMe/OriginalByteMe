@@ -607,75 +607,6 @@ body {
 .backdrop-fleck-f { right: 8%; bottom: 34%; animation-delay: -9s; }
 .backdrop-fleck-g { bottom: 12%; left: 48%; animation-delay: -18s; }
 
-.backdrop-nocturne-scene[data-chapter="intro"] .backdrop-wave-contours,
-.backdrop-nocturne-scene[data-chapter="contact"] .backdrop-wave-contours {
-  opacity: 0.92;
-  transform: perspective(34rem) rotateX(54deg) translateY(-3%);
-}
-
-.backdrop-nocturne-scene[data-chapter="intro"] .backdrop-ark-mark,
-.backdrop-nocturne-scene[data-chapter="contact"] .backdrop-ark-mark {
-  top: 24%;
-  right: 10%;
-  opacity: 0.2;
-  transform: translate3d(0, 3%, 0) rotate(-2deg) scale(0.94);
-}
-
-.backdrop-nocturne-scene[data-chapter="stack"] .backdrop-perspective-rings {
-  opacity: 0.9;
-  transform: translate3d(8%, 12%, 0) rotate(-2deg) scale(1.08);
-}
-
-.backdrop-nocturne-scene[data-chapter="stack"] .backdrop-wave-contours {
-  opacity: 0.34;
-}
-
-.backdrop-nocturne-scene[data-chapter="career"] .backdrop-perspective-grid {
-  opacity: 0.72;
-  transform: perspective(42rem) rotateX(61deg) translateY(-4%) scaleX(1.12);
-}
-
-.backdrop-nocturne-scene[data-chapter="career"] .backdrop-ark-mark {
-  opacity: 0.1;
-  transform: translate3d(-6%, 6%, 0) rotate(1deg) scale(0.9);
-}
-
-.backdrop-nocturne-scene[data-chapter="builds"] .backdrop-perspective-grid {
-  opacity: 0.92;
-  transform: perspective(34rem) rotateX(68deg) translateY(-8%) scaleX(1.18);
-}
-
-.backdrop-nocturne-scene[data-chapter="builds"] .backdrop-wave-contours {
-  opacity: 0.24;
-}
-
-.backdrop-nocturne-scene[data-chapter="builds"] .backdrop-ark-mark {
-  top: 14%;
-  right: 12%;
-  width: clamp(15rem, 28vw, 32rem);
-  opacity: 0.25;
-  transform: rotate(2deg) scale(1.04);
-}
-
-.backdrop-nocturne-scene[data-chapter="builds"] .backdrop-ark-layer-far {
-  opacity: 0.46;
-  transform: translate3d(1.65rem, 1.42rem, 0);
-}
-
-.backdrop-nocturne-scene[data-chapter="builds"] .backdrop-ark-layer-mid {
-  opacity: 0.64;
-  transform: translate3d(0.82rem, 0.7rem, 0);
-}
-
-.backdrop-nocturne-scene[data-chapter="setup"] .backdrop-perspective-rings {
-  opacity: 0.7;
-  transform: translate3d(34%, 38%, 0) rotate(6deg) scale(1.2);
-}
-
-.backdrop-nocturne-scene[data-chapter="setup"] .backdrop-perspective-grid {
-  opacity: 0.68;
-  transform: perspective(44rem) rotateX(62deg) skewX(-3deg);
-}
 
 @keyframes backdropArkDrift {
   from { margin-top: -0.3rem; }
@@ -716,25 +647,8 @@ body {
     height: 24%;
   }
 
-  .backdrop-nocturne-scene[data-chapter="builds"] .backdrop-ark-mark {
-    top: 18%;
-    right: -7%;
-    width: min(64vw, 19rem);
-  }
 }
 
-@utility hero-panel {
-  border: 1px solid rgb(55 48 74 / 0.1);
-  border-radius: 1.5rem;
-  background: #fffdf8;
-  box-shadow: 0 16px 40px -24px rgba(58, 51, 69, 0.35);
-  color: hsl(var(--card-foreground));
-}
-
-.dark .hero-panel {
-  border-color: rgb(255 255 255 / 0.1);
-  background: #2b2830;
-}
 
 .profile-hero-grid {
   display: grid;
@@ -1268,22 +1182,6 @@ body {
   text-transform: uppercase;
 }
 
-.ask-editorial__route {
-  display: grid;
-  grid-template-columns: auto minmax(1.5rem, 1fr) auto;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 5rem;
-  color: var(--console-muted);
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.5625rem;
-  letter-spacing: 0.12em;
-}
-
-.ask-editorial__route i {
-  height: 1px;
-  background: var(--console-border-strong);
-}
 
 .ask-composer {
   width: 100%;
@@ -1435,10 +1333,6 @@ body {
 @media (max-width: 30rem) {
   .ask-editorial__heading {
     gap: 0.75rem;
-  }
-
-  .ask-editorial__route {
-    min-width: 4rem;
   }
 }
 
@@ -1642,12 +1536,6 @@ body {
   transform: translateY(-3px) scale(1.01);
 }
 
-.hero-panel:focus-within {
-  border-color: hsl(var(--ring) / 0.5);
-  box-shadow:
-    0 0 0 3px hsl(var(--ring) / 0.12),
-    0 22px 54px -36px rgba(50, 41, 67, 0.42);
-}
 
 @media (prefers-reduced-motion: reduce) {
   .backdrop-paper-drift,

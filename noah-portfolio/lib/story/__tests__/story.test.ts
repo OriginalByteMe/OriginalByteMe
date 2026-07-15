@@ -1,15 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CORPUS_EVIDENCE_REFS } from "@/lib/story/evidence";
-import { questionDigest, storyCacheIdentity } from "@/lib/story/identity";
+import {
+  CORPUS_EVIDENCE_REFS,
+  UnknownProjectSlugError,
+  resolveStoryProjects,
+} from "@/lib/story/evidence";
 import {
   assertValidPublicStory,
   assertValidStreamPlan,
   assertValidStreamScene,
 } from "@/lib/story/public-validation";
-import {
-  UnknownProjectSlugError,
-  resolveStoryProjects,
-} from "@/lib/story/projects.server";
 import {
   __resetStoryStoreForTests,
   findCurrentStory,
@@ -17,6 +16,8 @@ import {
   prepareCompleteStory,
   publishPreparedStory,
   resolveStory,
+  seedStoryFixtures,
+  storyCacheIdentity,
 } from "@/lib/story/store";
 import {
   CORPUS_REVISION,
@@ -25,11 +26,19 @@ import {
   PublicStorySchema,
   StoryStreamEventSchema,
   StoryQuestionSchema,
+  normalizeQuestion,
   toPublicStory,
   type NewStoryRecord,
   type StoryPlan,
   type StoryRecord,
 } from "@/lib/story/types";
+import {
+  CURRENT_PUBLIC_STORY,
+  CURRENT_STORY_RECORD,
+  OUTDATED_STORY_RECORD,
+  PLAYWRIGHT_STORY_RECORDS,
+  RELATED_PUBLIC_STORY,
+} from "@/lib/story/__fixtures__/story-fixtures";
 import {
   assertValidStoryPlan,
   assertValidStoryRecord,
@@ -122,7 +131,6 @@ beforeEach(() => {
   vi.stubEnv("CF_D1_DATABASE_ID", "");
   vi.stubEnv("CF_D1_TOKEN", "");
   vi.stubEnv("PLAYWRIGHT_TEST_MODE", "");
-  vi.stubEnv("PLAYWRIGHT_STORY_FIXTURES", "");
   __resetStoryStoreForTests();
 });
 
@@ -286,6 +294,20 @@ describe("Story validation", () => {
   });
 });
 
+describe("public Story browser fixtures", () => {
+  it("keeps seeded records valid and public projections free of compatibility metadata", () => {
+    for (const record of PLAYWRIGHT_STORY_RECORDS) {
+      expect(() => assertValidStoryRecord(record)).not.toThrow();
+    }
+    expect(CURRENT_PUBLIC_STORY).not.toHaveProperty("questionDigest");
+    expect(CURRENT_PUBLIC_STORY).not.toHaveProperty("corpusRevision");
+    expect(CURRENT_PUBLIC_STORY).not.toHaveProperty("storyContractVersion");
+    expect(RELATED_PUBLIC_STORY).not.toHaveProperty("questionDigest");
+    expect(CURRENT_PUBLIC_STORY.id).toBe(CURRENT_STORY_RECORD.id);
+    expect(OUTDATED_STORY_RECORD.scenes.some((scene) => scene.body.includes("STALE"))).toBe(true);
+  });
+});
+
 describe("Story persistence and resolution", () => {
   it("rejects partial input, hides prepared rows, and publishes idempotently", async () => {
     const partial = makeInput() as NewStoryRecord & { scenes: NewStoryRecord["scenes"] };
@@ -326,6 +348,30 @@ describe("Story persistence and resolution", () => {
     expect(second.id).not.toBe(first.id);
     expect(first.id).not.toBe(storyCacheIdentity(first.displayQuestion, { secret: "focused-test-story-secret" }));
     expect(first.id).not.toContain("what");
+  });
+
+  it("normalizes equivalent questions and versions private cache identities", () => {
+    const secret = "identity-test-secret-one";
+    const question = "What Projects Has Noah Built?";
+    const identity = storyCacheIdentity(question, { secret });
+
+    expect(normalizeQuestion("  What  Does Noah DO? ")).toBe("what does noah do?");
+    expect(normalizeQuestion("ＡＳＫ\tNOAH")).toBe("ask noah");
+    expect(identity).toBe(
+      storyCacheIdentity("  what   projects has noah built?  ", { secret }),
+    );
+    expect(identity).toMatch(/^[a-f0-9]{64}$/);
+    expect(identity).not.toContain(question);
+    expect(identity).not.toContain(normalizeQuestion(question));
+    expect(storyCacheIdentity(question, { secret: "identity-test-secret-two" })).not.toBe(identity);
+    expect(storyCacheIdentity(question, {
+      secret,
+      corpusRevision: `${CORPUS_REVISION}-next`,
+    })).not.toBe(identity);
+    expect(storyCacheIdentity(question, {
+      secret,
+      storyContractVersion: `${STORY_CONTRACT_VERSION}-next`,
+    })).not.toBe(identity);
   });
 
   it.each([
@@ -372,9 +418,7 @@ describe("Story persistence and resolution", () => {
       corpusRevision: variant.corpusRevision,
       storyContractVersion: variant.storyContractVersion,
     };
-    vi.stubEnv("PLAYWRIGHT_TEST_MODE", "1");
-    vi.stubEnv("PLAYWRIGHT_STORY_FIXTURES", JSON.stringify([fixture]));
-    await findCurrentStory(DEFAULT_QUESTION);
+    seedStoryFixtures([fixture]);
     if (variant.rotateKeyId) vi.stubEnv("STORY_CACHE_HMAC_KEY_ID", "focused-v2");
 
     const result = await resolveStory(fixture.id);
@@ -397,36 +441,21 @@ describe("Story persistence and resolution", () => {
     await expect(resolveStory("Z9wE3rT7_yU1iO5pS8dF2gH4")).resolves.toEqual({ status: "missing" });
   });
 
-  it("ignores fixture JSON unless the explicit Playwright test-mode gate is enabled", async () => {
-    const fixture = await storePublishedStory(makeInput());
-    __resetStoryStoreForTests();
-    vi.stubEnv("PLAYWRIGHT_STORY_FIXTURES", JSON.stringify([fixture]));
-    vi.stubEnv("PLAYWRIGHT_TEST_MODE", "");
-
-    await expect(resolveStory(fixture.id)).resolves.toEqual({ status: "missing" });
-  });
 
   it("rejects malformed fixture records and duplicate fixture cache identities", async () => {
-    vi.stubEnv("PLAYWRIGHT_TEST_MODE", "1");
-    vi.stubEnv("PLAYWRIGHT_STORY_FIXTURES", JSON.stringify([{
+    expect(() => seedStoryFixtures([{
       id: "A9wE3rT7_yU1iO5pS8dF2gH4",
       displayQuestion: DEFAULT_QUESTION,
-    }]));
-    await expect(resolveStory("A9wE3rT7_yU1iO5pS8dF2gH4")).rejects.toThrow(
-      /Invalid PLAYWRIGHT_STORY_FIXTURES/,
-    );
+    }])).toThrow(/Invalid Story fixtures/);
 
-    __resetStoryStoreForTests();
     const base = await storePublishedStory(makeInput());
     __resetStoryStoreForTests();
     const duplicate = { ...base, id: "A9wE3rT7_yU1iO5pS8dF2gH4" };
-    vi.stubEnv("PLAYWRIGHT_STORY_FIXTURES", JSON.stringify([base, duplicate]));
-    await expect(resolveStory(base.id)).rejects.toThrow(/duplicate cache identity/);
+    expect(() => seedStoryFixtures([base, duplicate])).toThrow(/duplicate cache identity/);
   });
 
-  it("treats HMAC key and key-ID rotation as outdated and assigns a new current ID", async () => {
+  it("lets a key-ID rotation replace a published identity with a new current Story", async () => {
     const old = await storePublishedStory(makeInput());
-    vi.stubEnv("STORY_CACHE_HMAC_KEY", "rotated-focused-test-secret");
     vi.stubEnv("STORY_CACHE_HMAC_KEY_ID", "focused-v2");
 
     const oldResolution = await resolveStory(old.id);
@@ -438,6 +467,7 @@ describe("Story persistence and resolution", () => {
     await expect(findCurrentStory(old.displayQuestion)).resolves.toBeNull();
     const regenerated = await storePublishedStory(makeInput());
     expect(regenerated.id).not.toBe(old.id);
+    await expect(findCurrentStory(old.displayQuestion)).resolves.toEqual(regenerated);
   });
 
   it("fails closed when production Story storage has no D1 configuration", async () => {
@@ -503,6 +533,7 @@ describe("Story persistence and resolution", () => {
     expect(String(upsertUrl)).toContain("/accounts/account-id/d1/database/database-id/query");
     expect(upsert.sql).toContain("ON CONFLICT(cache_identity)");
     expect(upsert.sql).toContain("RETURNING public_id");
+    expect(upsert.sql).toContain("hmac_key_id <> excluded.hmac_key_id");
     expect(String(upsert.params[1])).toMatch(/^[a-f0-9]{64}$/);
     expect(String(upsert.params[1])).not.toContain("how does noah");
   });
@@ -533,7 +564,7 @@ describe("Story persistence and resolution", () => {
     await expect(resolveStory(prepared.story.id)).resolves.toEqual({ status: "missing" });
   });
 
-  it("strips private digest and compatibility versions from every public event", async () => {
+  it("strips compatibility metadata from every public event", async () => {
     const record = await storePublishedStory(makeInput());
     const publicStory = toPublicStory(record);
 
@@ -547,7 +578,6 @@ describe("Story persistence and resolution", () => {
     expect(StoryStreamEventSchema.safeParse({ type: "complete", story: record }).success).toBe(false);
     expect(record.corpusRevision).toBe(CORPUS_REVISION);
     expect(record.storyContractVersion).toBe(STORY_CONTRACT_VERSION);
-    expect(record.questionDigest).toBe(questionDigest(record.displayQuestion));
   });
 
   it("rejects schema-valid Public Stories that violate shared semantic invariants", async () => {
