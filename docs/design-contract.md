@@ -7,8 +7,6 @@
 > **Scope:** Generated Stories, Story planning and progressive delivery, Scene Patterns, Motion and Media Assets, Nocturne visual language, Backdrop behavior, navigation, sharing, versioning, accessibility, performance, recovery, and migration from the current implementation.
 >
 > **Domain language:** [`CONTEXT.md`](../CONTEXT.md) is the glossary. This contract owns behavior and implementation policy; the glossary must remain free of those mechanics.
->
-> **Library research:** [`research/2026-07-14-animated-svg-libraries.md`](research/2026-07-14-animated-svg-libraries.md) records the source-verified animation-library evaluation behind §9.
 
 ## 1. Product invariant
 
