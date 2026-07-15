@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getD1Env, getServerEnv, getStoryCacheHmacKey, getStoryCacheHmacKeyId } from "@/lib/env";
+import {
+  getD1Env,
+  getLangfuseEnv,
+  getServerEnv,
+  getStoryCacheHmacKey,
+  getStoryCacheHmacKeyId,
+} from "@/lib/env";
 
 beforeEach(() => {
   vi.stubEnv("OPENROUTER_API_KEY", "test-key");
@@ -10,6 +16,10 @@ beforeEach(() => {
   vi.stubEnv("CF_D1_DATABASE_ID", "");
   vi.stubEnv("CF_D1_TOKEN", "");
   vi.stubEnv("PLAYWRIGHT_TEST_MODE", "");
+  vi.stubEnv("LANGFUSE_PUBLIC_KEY", "");
+  vi.stubEnv("LANGFUSE_SECRET_KEY", "");
+  vi.stubEnv("LANGFUSE_BASE_URL", "");
+  vi.stubEnv("LANGFUSE_BASEURL", "");
 });
 
 afterEach(() => {
@@ -24,6 +34,59 @@ describe("LLM environment", () => {
   it("throws when the API key is missing", () => {
     vi.stubEnv("OPENROUTER_API_KEY", "");
     expect(() => getServerEnv()).toThrow(/OPENROUTER_API_KEY/);
+  });
+});
+
+describe("Langfuse environment", () => {
+  it("returns undefined when neither key is set", () => {
+    expect(getLangfuseEnv()).toBeUndefined();
+  });
+
+  it.each([
+    ["LANGFUSE_PUBLIC_KEY", "public-key"],
+    ["LANGFUSE_SECRET_KEY", "secret-key"],
+  ])("rejects partial configuration with only %s set", (name, value) => {
+    vi.stubEnv(name, value);
+
+    expect(() => getLangfuseEnv()).toThrow(
+      /LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY together/,
+    );
+  });
+
+  it("returns both keys and the default cloud base URL", () => {
+    vi.stubEnv("LANGFUSE_PUBLIC_KEY", "public-key");
+    vi.stubEnv("LANGFUSE_SECRET_KEY", "secret-key");
+
+    expect(getLangfuseEnv()).toEqual({
+      publicKey: "public-key",
+      secretKey: "secret-key",
+      baseUrl: "https://cloud.langfuse.com",
+    });
+  });
+
+  it("prefers LANGFUSE_BASE_URL over LANGFUSE_BASEURL", () => {
+    vi.stubEnv("LANGFUSE_PUBLIC_KEY", "public-key");
+    vi.stubEnv("LANGFUSE_SECRET_KEY", "secret-key");
+    vi.stubEnv("LANGFUSE_BASE_URL", "https://preferred.example.com");
+    vi.stubEnv("LANGFUSE_BASEURL", "https://legacy.example.com");
+
+    expect(getLangfuseEnv()).toEqual({
+      publicKey: "public-key",
+      secretKey: "secret-key",
+      baseUrl: "https://preferred.example.com",
+    });
+  });
+
+  it("uses LANGFUSE_BASEURL when LANGFUSE_BASE_URL is unset", () => {
+    vi.stubEnv("LANGFUSE_PUBLIC_KEY", "public-key");
+    vi.stubEnv("LANGFUSE_SECRET_KEY", "secret-key");
+    vi.stubEnv("LANGFUSE_BASEURL", "https://legacy.example.com");
+
+    expect(getLangfuseEnv()).toEqual({
+      publicKey: "public-key",
+      secretKey: "secret-key",
+      baseUrl: "https://legacy.example.com",
+    });
   });
 });
 

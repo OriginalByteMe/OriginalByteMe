@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { streamText, type ModelMessage } from "ai";
+import { streamText, type ModelMessage, type TelemetrySettings } from "ai";
 import { getModel } from "@/lib/llm/openrouter";
+import { storyTelemetry, withStoryTrace } from "@/lib/observability/langfuse";
 import {
   buildSceneRepairMessage,
   buildSceneSystemPrompt,
@@ -63,6 +64,7 @@ async function collectModelText(
   system: string,
   messages: ModelMessage[],
   signal: AbortSignal,
+  telemetry: TelemetrySettings,
 ): Promise<string> {
   abortIfNeeded(signal);
   const result = streamText({
@@ -70,6 +72,7 @@ async function collectModelText(
     system,
     messages,
     abortSignal: signal,
+    experimental_telemetry: telemetry,
   });
   let text = "";
   for await (const delta of result.textStream) {
@@ -87,7 +90,12 @@ async function generatePlan(question: string, signal: AbortSignal): Promise<Stor
   for (let attempt = 0; attempt < MAX_PLAN_ATTEMPTS; attempt += 1) {
     let output = "";
     try {
-      output = await collectModelText(buildSystemPrompt(), messages, signal);
+      output = await collectModelText(
+        buildSystemPrompt(),
+        messages,
+        signal,
+        storyTelemetry("story-plan", { attempt }),
+      );
       const parsed: unknown = JSON.parse(stripFences(output));
       assertValidStoryPlan(parsed, CORPUS_EVIDENCE_REFS, question);
       return parsed;
@@ -152,6 +160,7 @@ async function composeScene(
         buildSceneSystemPrompt(lockedPlan, lockedEvidence),
         messages,
         signal,
+        storyTelemetry("story-scene", { sceneIndex: lockedPlan.index, attempt }),
       );
       const scene: unknown = {
         ...lockedPlan,
@@ -248,46 +257,71 @@ function generationStream(
 
       void (async () => {
         try {
-          emit({ type: "phase", phase: "planning" });
-          const plan = await generatePlan(question, signal);
-          const evidence = evidenceForPlan(plan, question);
-          emit({ type: "plan", plan, evidence: evidence.refs });
+          await withStoryTrace(question, async (trace) => {
+            try {
+              emit({ type: "phase", phase: "planning" });
+              const plan = await generatePlan(question, signal);
+              const evidence = evidenceForPlan(plan, question);
+              emit({ type: "plan", plan, evidence: evidence.refs });
 
-          emit({ type: "phase", phase: "composing" });
-          const scenes: StoryScene[] = [];
-          for (const lockedScene of plan.scenes) {
-            const scene = await composeScene(lockedScene, evidence, signal);
-            scenes.push(scene);
-            emit({ type: "scene", index: scene.index, scene });
-          }
+              emit({ type: "phase", phase: "composing" });
+              const scenes: StoryScene[] = [];
+              for (const lockedScene of plan.scenes) {
+                const scene = await composeScene(lockedScene, evidence, signal);
+                scenes.push(scene);
+                emit({ type: "scene", index: scene.index, scene });
+              }
 
-          emit({ type: "phase", phase: "validating" });
-          abortIfNeeded(signal);
+              emit({ type: "phase", phase: "validating" });
+              abortIfNeeded(signal);
 
-          const prepared = await prepareCompleteStory(
-            {
-              displayQuestion: question,
-              plan,
-              scenes,
-              evidence: evidence.refs,
-            },
-            { signal },
-          );
-          abortIfNeeded(signal);
-          assertValidStoryRecord(prepared.story);
+              const prepared = await prepareCompleteStory(
+                {
+                  displayQuestion: question,
+                  plan,
+                  scenes,
+                  evidence: evidence.refs,
+                },
+                { signal },
+              );
+              abortIfNeeded(signal);
+              assertValidStoryRecord(prepared.story);
 
-          const concurrentlyPublished = await findCurrentStory(question);
-          abortIfNeeded(signal);
-          if (concurrentlyPublished?.id === prepared.story.id) {
-            assertValidStoryRecord(concurrentlyPublished);
-            emit({ type: "complete", story: toPublicStory(concurrentlyPublished) });
-          } else {
-            emit({
-              type: "phase",
-              phase: "publishing",
-              publicationToken: prepared.publicationToken,
-            });
-          }
+              const concurrentlyPublished = await findCurrentStory(question);
+              abortIfNeeded(signal);
+              if (concurrentlyPublished?.id === prepared.story.id) {
+                assertValidStoryRecord(concurrentlyPublished);
+                emit({ type: "complete", story: toPublicStory(concurrentlyPublished) });
+              } else {
+                emit({
+                  type: "phase",
+                  phase: "publishing",
+                  publicationToken: prepared.publicationToken,
+                });
+              }
+              trace.setOutput({
+                storyId: prepared.story.id,
+                scenes: scenes.length,
+                cache:
+                  concurrentlyPublished?.id === prepared.story.id
+                    ? "published-concurrently"
+                    : "prepared",
+              });
+              // Stream stays open until withStoryTrace's span flush completes
+              // below; closing here would let the serverless function freeze
+              // mid-flush and drop the spans. Close after the await returns.
+            } catch (error) {
+              if (!signal.aborted) {
+                const detail =
+                  error instanceof Error && error.message
+                    ? error.message
+                    : "Unable to create a grounded Story.";
+                const message = detail.slice(0, 500);
+                trace.setOutput({ error: message });
+              }
+              throw error;
+            }
+          });
           controller.close();
         } catch (error) {
           if (signal.aborted) {
