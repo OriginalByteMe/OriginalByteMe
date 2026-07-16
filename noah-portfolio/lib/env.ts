@@ -12,7 +12,6 @@ export interface OpenRouterEnv {
 export interface LangfuseEnv {
   publicKey: string;
   secretKey: string;
-  baseUrl: string;
 }
 
 /** LLM-only environment access. Story identity and storage must not call this. */
@@ -46,11 +45,8 @@ export function getD1Env(): CloudflareD1Config | undefined {
  * Langfuse observability credentials. Returns `undefined` when Langfuse is not
  * configured (local dev, CI) so tracing degrades to a no-op; throws on partial
  * configuration to make a misconfigured deployment loud rather than silent.
- *
- * `baseUrl` prefers `LANGFUSE_BASE_URL` (the name the SDK reads first) and falls
- * back to the legacy `LANGFUSE_BASEURL`, defaulting to EU cloud. It is passed
- * explicitly to the span processor so region routing never depends on which
- * variant is set in the environment.
+ * Base URL resolution (`LANGFUSE_BASE_URL`, legacy `LANGFUSE_BASEURL`, EU cloud
+ * default) is left to the Langfuse SDK, which reads those variables itself.
  */
 export function getLangfuseEnv(): LangfuseEnv | undefined {
   const publicKey = process.env.LANGFUSE_PUBLIC_KEY?.trim();
@@ -59,12 +55,7 @@ export function getLangfuseEnv(): LangfuseEnv | undefined {
   if (!publicKey || !secretKey) {
     throw new Error("Langfuse requires LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY together");
   }
-
-  const baseUrl =
-    process.env.LANGFUSE_BASE_URL?.trim() ||
-    process.env.LANGFUSE_BASEURL?.trim() ||
-    "https://cloud.langfuse.com";
-  return { publicKey, secretKey, baseUrl };
+  return { publicKey, secretKey };
 }
 
 const MIN_STORY_CACHE_HMAC_KEY_BYTES = 32;

@@ -18,8 +18,6 @@ beforeEach(() => {
   vi.stubEnv("PLAYWRIGHT_TEST_MODE", "");
   vi.stubEnv("LANGFUSE_PUBLIC_KEY", "");
   vi.stubEnv("LANGFUSE_SECRET_KEY", "");
-  vi.stubEnv("LANGFUSE_BASE_URL", "");
-  vi.stubEnv("LANGFUSE_BASEURL", "");
 });
 
 afterEach(() => {
@@ -53,39 +51,13 @@ describe("Langfuse environment", () => {
     );
   });
 
-  it("returns both keys and the default cloud base URL", () => {
+  it("returns both keys when configured", () => {
     vi.stubEnv("LANGFUSE_PUBLIC_KEY", "public-key");
     vi.stubEnv("LANGFUSE_SECRET_KEY", "secret-key");
 
     expect(getLangfuseEnv()).toEqual({
       publicKey: "public-key",
       secretKey: "secret-key",
-      baseUrl: "https://cloud.langfuse.com",
-    });
-  });
-
-  it("prefers LANGFUSE_BASE_URL over LANGFUSE_BASEURL", () => {
-    vi.stubEnv("LANGFUSE_PUBLIC_KEY", "public-key");
-    vi.stubEnv("LANGFUSE_SECRET_KEY", "secret-key");
-    vi.stubEnv("LANGFUSE_BASE_URL", "https://preferred.example.com");
-    vi.stubEnv("LANGFUSE_BASEURL", "https://legacy.example.com");
-
-    expect(getLangfuseEnv()).toEqual({
-      publicKey: "public-key",
-      secretKey: "secret-key",
-      baseUrl: "https://preferred.example.com",
-    });
-  });
-
-  it("uses LANGFUSE_BASEURL when LANGFUSE_BASE_URL is unset", () => {
-    vi.stubEnv("LANGFUSE_PUBLIC_KEY", "public-key");
-    vi.stubEnv("LANGFUSE_SECRET_KEY", "secret-key");
-    vi.stubEnv("LANGFUSE_BASEURL", "https://legacy.example.com");
-
-    expect(getLangfuseEnv()).toEqual({
-      publicKey: "public-key",
-      secretKey: "secret-key",
-      baseUrl: "https://legacy.example.com",
     });
   });
 });

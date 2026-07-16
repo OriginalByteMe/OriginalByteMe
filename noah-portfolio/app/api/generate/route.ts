@@ -258,69 +258,59 @@ function generationStream(
       void (async () => {
         try {
           await withStoryTrace(question, async (trace) => {
-            try {
-              emit({ type: "phase", phase: "planning" });
-              const plan = await generatePlan(question, signal);
-              const evidence = evidenceForPlan(plan, question);
-              emit({ type: "plan", plan, evidence: evidence.refs });
+            emit({ type: "phase", phase: "planning" });
+            const plan = await generatePlan(question, signal);
+            const evidence = evidenceForPlan(plan, question);
+            emit({ type: "plan", plan, evidence: evidence.refs });
 
-              emit({ type: "phase", phase: "composing" });
-              const scenes: StoryScene[] = [];
-              for (const lockedScene of plan.scenes) {
-                const scene = await composeScene(lockedScene, evidence, signal);
-                scenes.push(scene);
-                emit({ type: "scene", index: scene.index, scene });
-              }
-
-              emit({ type: "phase", phase: "validating" });
-              abortIfNeeded(signal);
-
-              const prepared = await prepareCompleteStory(
-                {
-                  displayQuestion: question,
-                  plan,
-                  scenes,
-                  evidence: evidence.refs,
-                },
-                { signal },
-              );
-              abortIfNeeded(signal);
-              assertValidStoryRecord(prepared.story);
-
-              const concurrentlyPublished = await findCurrentStory(question);
-              abortIfNeeded(signal);
-              if (concurrentlyPublished?.id === prepared.story.id) {
-                assertValidStoryRecord(concurrentlyPublished);
-                emit({ type: "complete", story: toPublicStory(concurrentlyPublished) });
-              } else {
-                emit({
-                  type: "phase",
-                  phase: "publishing",
-                  publicationToken: prepared.publicationToken,
-                });
-              }
-              trace.setOutput({
-                storyId: prepared.story.id,
-                scenes: scenes.length,
-                cache:
-                  concurrentlyPublished?.id === prepared.story.id
-                    ? "published-concurrently"
-                    : "prepared",
-              });
-              // Stream stays open until withStoryTrace's span flush completes
-              // below; closing here would let the serverless function freeze
-              // mid-flush and drop the spans. Close after the await returns.
-            } catch (error) {
-              if (!signal.aborted) {
-                const detail =
-                  error instanceof Error && error.message
-                    ? error.message
-                    : "Unable to create a grounded Story.";
-                const message = detail.slice(0, 500);
-                trace.setOutput({ error: message });
-              }
-              throw error;
+            emit({ type: "phase", phase: "composing" });
+            const scenes: StoryScene[] = [];
+            for (const lockedScene of plan.scenes) {
+              const scene = await composeScene(lockedScene, evidence, signal);
+              scenes.push(scene);
+              emit({ type: "scene", index: scene.index, scene });
             }
+
+            emit({ type: "phase", phase: "validating" });
+            abortIfNeeded(signal);
+
+            const prepared = await prepareCompleteStory(
+              {
+                displayQuestion: question,
+                plan,
+                scenes,
+                evidence: evidence.refs,
+              },
+              { signal },
+            );
+            abortIfNeeded(signal);
+            assertValidStoryRecord(prepared.story);
+
+            const concurrentlyPublished = await findCurrentStory(question);
+            abortIfNeeded(signal);
+            if (concurrentlyPublished?.id === prepared.story.id) {
+              assertValidStoryRecord(concurrentlyPublished);
+              emit({ type: "complete", story: toPublicStory(concurrentlyPublished) });
+            } else {
+              emit({
+                type: "phase",
+                phase: "publishing",
+                publicationToken: prepared.publicationToken,
+              });
+            }
+            trace.setOutput({
+              storyId: prepared.story.id,
+              scenes: scenes.length,
+              cache:
+                concurrentlyPublished?.id === prepared.story.id
+                  ? "published-concurrently"
+                  : "prepared",
+            });
+            // No error handling here: when this callback rejects, the Langfuse
+            // SDK marks the trace span ERROR with the message. Stream stays
+            // open until withStoryTrace's span flush completes below; closing
+            // here would let the serverless function freeze mid-flush and drop
+            // the spans. Close after the await returns.
           });
           controller.close();
         } catch (error) {

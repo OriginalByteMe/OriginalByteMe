@@ -41,7 +41,7 @@ const globalRegistry = globalThis as typeof globalThis & {
 
 const registry: LangfuseRegistry = (globalRegistry[REGISTRY_KEY] ??= {});
 
-export function isLangfuseEnabled(): boolean {
+function isLangfuseEnabled(): boolean {
   return getLangfuseEnv() !== undefined;
 }
 
@@ -58,7 +58,6 @@ export function registerLangfuseTracing(): void {
   registry.processor = new LangfuseSpanProcessor({
     publicKey: env.publicKey,
     secretKey: env.secretKey,
-    baseUrl: env.baseUrl,
   });
   new NodeTracerProvider({ spanProcessors: [registry.processor] }).register();
 }
