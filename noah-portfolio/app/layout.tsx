@@ -2,6 +2,7 @@ import './globals.css'
 import { Inter } from 'next/font/google'
 import { ThemeProvider } from '../components/ThemeProvider'
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
 import StoreProvider from '@/app/StoreProvider'
 
 
@@ -62,6 +63,7 @@ export default function RootLayout({
             <div className="min-h-screen bg-white text-black dark:bg-black dark:text-white">
               {children}
               <SpeedInsights />
+              <Analytics />
             </div>
           </StoreProvider>
         </ThemeProvider>
