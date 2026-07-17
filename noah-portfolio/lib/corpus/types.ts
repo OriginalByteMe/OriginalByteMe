@@ -1,4 +1,10 @@
-export interface IconRef { name: string; lightImage: string; darkImage: string }
+export interface IconRef {
+  name: string;
+  lightImage: string;
+  darkImage: string;
+  /** Invert monochrome black SVGs so they remain legible on dark surfaces. */
+  invertInDark?: boolean;
+}
 export interface SkillCategory { category: string; skills: IconRef[] }
 export interface OperatingSystem { name: string; systems: IconRef[] }
 export interface Job { company: string; role: string; period: string; logo: string; url: string; highlights?: string[] }

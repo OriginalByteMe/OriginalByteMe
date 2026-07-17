@@ -1,0 +1,26 @@
+{
+  "assetId": "server-sweep",
+  "format": "dotLottie v2",
+  "creator": "LottieFiles community creator (page attribution to confirm)",
+  "sourceKind": "project-authored",
+  "source": "https://lottiefiles.com",
+  "revision": "sha256:8a3ad7566a0999bcbfd7c13336d50bccb9169d1235d186d1b3bf5ab111b6c056",
+  "reviewedOn": "2026-07-14",
+  "embeddedResources": {
+    "images": false,
+    "fonts": false,
+    "audio": false,
+    "themes": false,
+    "stateMachines": false
+  },
+  "runtimeLicense": {
+    "name": "dotLottie React",
+    "identifier": "MIT",
+    "notice": "@lottiefiles/dotlottie-react is distributed under the MIT License."
+  },
+  "choreographyLicense": {
+    "name": "Server maintenance sweep",
+    "identifier": "Lottie Simple License (FL 9.13.21)",
+    "notice": "Downloaded from lottiefiles.com by Noah Rijkaard on 2026-07-14 (file: ServerDeleting.lottie); per-asset page URL and creator attribution to confirm."
+  }
+}

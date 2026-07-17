@@ -26,4 +26,12 @@ describe("homeSpec", () => {
       expect(componentNames.has(element.type)).toBe(true);
     }
   });
+
+  it("cannot request a remote dotLottie package", () => {
+    expect(catalog.componentNames).not.toContain("LottieFigure");
+    expect(catalog.prompt()).not.toMatch(/dotlottie|\.lottie/i);
+    expect(JSON.stringify(homeSpec)).not.toMatch(
+      /https?:\/\/[^"]+\.lottie/i,
+    );
+  });
 });

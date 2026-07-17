@@ -1,0 +1,26 @@
+{
+  "assetId": "container-stack",
+  "format": "dotLottie v2",
+  "creator": "LottieFiles community creator (page attribution to confirm)",
+  "sourceKind": "project-authored",
+  "source": "https://lottiefiles.com",
+  "revision": "sha256:377f07f1912fe7ce20b7aa1f9597cbb426d294d86355ac2f9d34a671d58d41b9",
+  "reviewedOn": "2026-07-14",
+  "embeddedResources": {
+    "images": true,
+    "fonts": false,
+    "audio": false,
+    "themes": false,
+    "stateMachines": false
+  },
+  "runtimeLicense": {
+    "name": "dotLottie React",
+    "identifier": "MIT",
+    "notice": "@lottiefiles/dotlottie-react is distributed under the MIT License."
+  },
+  "choreographyLicense": {
+    "name": "Docker container stack",
+    "identifier": "Lottie Simple License (FL 9.13.21)",
+    "notice": "Downloaded from lottiefiles.com by Noah Rijkaard on 2026-07-14 (file: docker.lottie); per-asset page URL and creator attribution to confirm."
+  }
+}

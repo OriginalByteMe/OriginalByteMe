@@ -7,7 +7,7 @@ import { schema } from "./schema";
  *
  * Visual contract: see docs/design-contract.md.
  * Any new component added here must follow the spacing, surface, typography,
- * and motion rules documented there so generated layouts stay consistent.
+ * and motion rules documented there so the curated homeSpec stays consistent.
  */
 export const catalog = defineCatalog(schema, {
   components: {
@@ -72,7 +72,7 @@ export const catalog = defineCatalog(schema, {
     StatCallout: {
       props: z.object({ value: z.string(), label: z.string() }),
       description:
-        "Big number + label. Use for a single impactful metric inside a StaticComposition or dense scene; for scroll-triggered count-up moments prefer StatReveal instead.",
+        "Big number + label. Use for a single impactful metric inside a dense home scene; for scroll-triggered count-up moments prefer StatReveal instead.",
     },
     ContactCard: {
       props: z.object({ statePath: z.string() }),
@@ -87,10 +87,6 @@ export const catalog = defineCatalog(schema, {
       props: z.object({ title: z.string().nullable().optional() }),
       description:
         "Noah's side-projects cards (3D printing + blog). Static home-view block; optional title renders a code-icon sub-heading.",
-    },
-    LottieFigure: {
-      props: z.object({ src: z.string(), caption: z.string().nullable().optional() }),
-      description: "Decorative Lottie animation.",
     },
     SpotifyNowPlaying: {
       props: z.object({}),
@@ -111,7 +107,7 @@ export const catalog = defineCatalog(schema, {
         accent: z.enum(["violet", "mint"]).nullable().optional(),
       }),
       description:
-        "One full-height story chapter: children reveal on scroll entry with an in-scene stagger. Cap at 2-3 child blocks — one ChapterHeading anchor plus one payload (NarrativeBeat / StatReveal / SequencedTimeline); child order IS scene order. align 'center' (default) or 'start'; optional accent rule 'violet' or 'mint' from the fixed palette only. Emit a sequence of Scene elements for mode:'scenes' answers.",
+        "One full-height curated home chapter: children reveal on scroll entry with an in-scene stagger. Cap at 2-3 child blocks — one ChapterHeading anchor plus one payload (NarrativeBeat / StatReveal / SequencedTimeline); child order is scene order. align 'center' (default) or 'start'; optional accent rule 'violet' or 'mint' from the fixed palette only.",
     },
     ChapterHeading: {
       props: z.object({ text: z.string(), kicker: z.string().nullable().optional() }),
@@ -137,7 +133,12 @@ export const catalog = defineCatalog(schema, {
         .object({
           rows: z
             .array(
-              z.object({ period: z.string(), role: z.string(), company: z.string() }),
+              z.object({
+                period: z.string(),
+                role: z.string(),
+                company: z.string(),
+                url: z.string().url().optional(),
+              }),
             )
             .optional(),
           statePath: z.string().nullable().optional(),
@@ -146,12 +147,7 @@ export const catalog = defineCatalog(schema, {
           message: "SequencedTimeline requires exactly one of rows or statePath",
         }),
       description:
-        "A vertical timeline whose rows reveal sequentially (nested stagger). Provide exactly one source: inline rows of {period, role, company}, or statePath to bind rows from Corpus state. Promote a heavy timeline to its own Scene.",
-    },
-    StaticComposition: {
-      props: z.object({}),
-      description:
-        "Rich static fallback for short answers instead of Scenes: a centered max-w-3xl reading column that mount-staggers its child blocks with no scroll dependency. Use for mode:'static' answers; hold the same block set (ChapterHeading / NarrativeBeat / StatReveal / SequencedTimeline).",
+        "A vertical timeline whose rows reveal sequentially. Provide exactly one source: inline rows of {period, role, company, optional official url}, or statePath to bind rows from Corpus state. Promote a heavy timeline to its own Scene.",
     },
   },
   actions: {},

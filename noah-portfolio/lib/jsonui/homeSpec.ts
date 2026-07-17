@@ -5,11 +5,12 @@ import type { Spec } from "@json-render/react";
  *
  * Rebuilt for #41: the corpus (bio, skills, career, projects, OS setup, side
  * projects, Spotify, fun facts, contact) is arranged as a sequence of
- * full-height **Scene** chapters over the signature `softField` Backdrop
- * preset (the Backdrop lives in app/page.tsx and defaults to softField per
- * #38). Each scene pairs a `ChapterHeading` anchor with one or two payload
- * blocks — story primitives (`NarrativeBeat` / `StatReveal` /
- * `SequencedTimeline`) for the narrative beats, and the detailed fact
+ * full-height **Scene** chapters over the signature `ambientLava` Backdrop
+ * preset (a continuous dithered nocturne field with subtle 2.5D geometry; the
+ * Backdrop lives in app/page.tsx and uses ambientLava by default). Each scene pairs a
+ * `ChapterHeading` anchor with one or two payload blocks — story primitives
+ * (`NarrativeBeat` / `StatReveal` / `SequencedTimeline`) for the narrative
+ * beats, and the detailed fact
  * components (`SkillGrid` / `ProjectShowcase` / `OperatingSystemsGrid` /
  * `SideProjects` / `SpotifyNowPlaying` / `ContactCard`) for the rich content
  * the visitor should see outright. Design-contract v2 §9 caps each scene at
@@ -31,7 +32,6 @@ export const homeSpec: Spec = {
         "career",
         "builds",
         "setup",
-        "vibe",
         "contact",
       ],
     },
@@ -133,40 +133,22 @@ export const homeSpec: Spec = {
       children: [],
     },
 
-    /* ---- Scene 06 — off the clock -------------------------------------- */
-    vibe: {
-      type: "Scene",
-      props: { id: "vibe", align: "center", accent: "mint" },
-      children: ["vibeHeading", "spotify", "funFacts"],
-    },
-    vibeHeading: {
-      type: "ChapterHeading",
-      props: { kicker: "Chapter 06", text: "Off the clock" },
-      children: [],
-    },
-    spotify: {
-      type: "SpotifyNowPlaying",
-      props: {},
-      children: [],
-    },
-    funFacts: {
-      type: "Callout",
-      props: {
-        text: "3D printing and CAD are the hands-on side of the same workflow: FDM, high-end materials, Proxmox, and Unraid keep the lab close to the work.",
-        tone: "info",
-      },
-      children: [],
-    },
-
-    /* ---- Scene 07 — contact -------------------------------------------- */
+    /* ---- Scene 06 — contact -------------------------------------------- */
     contact: {
       type: "Scene",
       props: { id: "contact", align: "center", accent: "violet" },
-      children: ["contactHeading", "contactCard"],
+      children: ["contactHeading", "contactBeat", "contactCard"],
     },
     contactHeading: {
       type: "ChapterHeading",
-      props: { kicker: "Chapter 07", text: "Say hi" },
+      props: { kicker: "Chapter 06", text: "Say hi" },
+      children: [],
+    },
+    contactBeat: {
+      type: "NarrativeBeat",
+      props: {
+        text: "Got a project, a role, or just a question about anything on this page? My inbox is open and I actually reply — pick whichever door you like.",
+      },
       children: [],
     },
     contactCard: {

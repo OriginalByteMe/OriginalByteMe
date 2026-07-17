@@ -11,6 +11,7 @@ const BASE_URL = `http://localhost:${PORT}`;
  * LLM is required.
  */
 export default defineConfig({
+  globalSetup: "./lib/story/__fixtures__/story-fixtures.ts",
   testDir: "./e2e",
   fullyParallel: true,
   // Each page owns a full-screen WebGL canvas; serialize for deterministic input.
@@ -29,6 +30,11 @@ export default defineConfig({
     url: BASE_URL,
     reuseExistingServer: false,
     timeout: 300_000,
-    env: { OPENROUTER_API_KEY: "test-key-not-used" },
+    env: {
+      OPENROUTER_API_KEY: "test-key-not-used",
+      STORY_CACHE_HMAC_KEY: "playwright-only-hmac-key-64-story-fixtures",
+      STORY_CACHE_HMAC_KEY_ID: "playwright-v1",
+      PLAYWRIGHT_TEST_MODE: "1",
+    },
   },
 });

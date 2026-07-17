@@ -98,7 +98,6 @@ describe("homeSpec end-to-end render", () => {
       "Where I've been",
       "Things I've built",
       "The rig",
-      "Off the clock",
       "Say hi",
     ]) {
       expect(screen.getByRole("heading", { name })).toBeInTheDocument();
@@ -140,8 +139,7 @@ describe("homeSpec end-to-end render", () => {
       { name: "Where I've been", blocks: 2 },
       { name: "Things I've built", blocks: 2 },
       { name: "The rig", blocks: 3 },
-      { name: "Off the clock", blocks: 3 },
-      { name: "Say hi", blocks: 2 },
+      { name: "Say hi", blocks: 3 },
     ]) {
       const heading = screen.getByRole("heading", { name });
       const section = heading.closest("section");
@@ -180,16 +178,20 @@ describe("homeSpec end-to-end render", () => {
     const buildsQueries = within(builds as HTMLElement);
     const operatingSystemQueries = within(operatingSystems);
     const contactQueries = within(contact as HTMLElement);
+    const career = screen.getByRole("heading", { name: "Where I've been" }).closest("section");
+    expect(career).not.toBeNull();
+    const careerQueries = within(career as HTMLElement);
 
     for (const category of [
       "Programming Languages",
+      "AI & LLM Tooling",
       "Frontend Frameworks",
       "Infrastructure & DevOps",
       "Databases",
     ]) {
       expect(toolboxQueries.getByRole("heading", { name: category })).toBeInTheDocument();
     }
-    expect(toolboxQueries.getAllByRole("heading", { level: 4 })).toHaveLength(4);
+    expect(toolboxQueries.getAllByRole("heading", { level: 4 })).toHaveLength(5);
 
     for (const skill of [
       "Ruby",
@@ -198,6 +200,12 @@ describe("homeSpec end-to-end render", () => {
       "TypeScript",
       "React",
       "Bash",
+      "Node.js",
+      "LangChain",
+      "Langfuse",
+      "Ollama",
+      "Hugging Face",
+      "OpenRouter",
       "Next.js",
       "Ruby on Rails",
       "Tailwind CSS",
@@ -215,20 +223,51 @@ describe("homeSpec end-to-end render", () => {
     ]) {
       expect(toolboxQueries.getByText(skill)).toBeInTheDocument();
     }
-    expect(toolboxQueries.getAllByRole("img")).toHaveLength(20);
+    expect(toolboxQueries.getAllByRole("img")).toHaveLength(26);
 
     expect(screen.getByText("Bowiq")).toBeInTheDocument();
     expect(screen.queryByText("Bowiac")).not.toBeInTheDocument();
+    expect(careerQueries.getByText("Senior AI Engineer")).toBeInTheDocument();
+    for (const { company, url } of [
+      { company: "MerchantSpring", url: "https://merchantspring.io" },
+      { company: "Supa (formerly Supahands)", url: "https://supa.so" },
+      { company: "Bowiq", url: "https://bowiq.com/" },
+    ]) {
+      const companyLink = careerQueries.getByRole("link", {
+        name: `Visit ${company} website`,
+      });
+      expect(companyLink).toHaveAttribute("href", url);
+      expect(companyLink).toHaveAttribute("target", "_blank");
+      expect(companyLink).toHaveAttribute("rel", "noreferrer noopener");
+      expect(companyLink).toHaveClass("focus-visible:ring-2");
+    }
+    expect(careerQueries.getAllByRole("link")).toHaveLength(3);
 
-    for (const project of ["AI Image Cutout Tool", "LLM Comparison app"]) {
+    for (const project of [
+      "AI Image Cutout Tool",
+      "LLM Comparison app",
+      "Moodify",
+      "Ask-Me Portfolio",
+    ]) {
       expect(screen.getByRole("heading", { name: project })).toBeInTheDocument();
     }
-    expect(buildsQueries.getAllByRole("link")).toHaveLength(2);
+    expect(buildsQueries.getAllByRole("link")).toHaveLength(4);
 
-    for (const operatingSystem of ["Linux", "Debian", "Ubuntu", "Windows", "WSL2"]) {
+    for (const operatingSystem of ["Debian", "Ubuntu", "Windows", "WSL2", "macOS"]) {
       expect(operatingSystemQueries.getByAltText(operatingSystem)).toBeInTheDocument();
     }
-    expect(operatingSystemQueries.getAllByRole("img")).toHaveLength(5);
+    expect(operatingSystemQueries.getAllByAltText("Linux")).toHaveLength(2);
+    expect(
+      operatingSystemQueries.getByRole("heading", { level: 4, name: "macOS Workstation" }),
+    ).toBeInTheDocument();
+    expect(
+      operatingSystemQueries.getByRole("heading", { level: 4, name: "Homelab / Server" }),
+    ).toBeInTheDocument();
+    expect(operatingSystemQueries.getByText("Unraid")).toBeInTheDocument();
+    expect(operatingSystemQueries.getByAltText("Unraid")).toBeInTheDocument();
+    expect(operatingSystemQueries.getByAltText("macOS")).toHaveClass("dark:invert");
+    expect(operatingSystemQueries.getByAltText("Unraid")).toHaveClass("dark:invert");
+    expect(operatingSystemQueries.getAllByRole("img")).toHaveLength(8);
     expect(screen.getByRole("link", { name: /noahrijkaard@gmail\.com/i })).toHaveAttribute(
       "href",
       "mailto:noahrijkaard@gmail.com",
@@ -241,7 +280,11 @@ describe("homeSpec end-to-end render", () => {
       "href",
       "https://www.linkedin.com/in/noah-rijkaard/",
     );
-    expect(contactQueries.getAllByRole("link")).toHaveLength(3);
+    expect(screen.getByRole("link", { name: /blog\.noahrijkaard\.com/i })).toHaveAttribute(
+      "href",
+      "https://blog.noahrijkaard.com",
+    );
+    expect(contactQueries.getAllByRole("link")).toHaveLength(4);
   });
 
   it("binds the career chapter to the production Corpus state path", () => {

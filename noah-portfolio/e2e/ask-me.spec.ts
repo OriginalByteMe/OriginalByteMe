@@ -1,68 +1,55 @@
-import { test, expect, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import type { PublicStory, StoryStreamEvent } from "@/lib/story/types";
+import {
+  CURRENT_PUBLIC_STORY,
+  CURRENT_QUESTION,
+  CURRENT_STORY_ID,
+  OUTDATED_STORY_ID,
+  RELATED_PUBLIC_STORY,
+  RELATED_QUESTION,
+  RELATED_STORY_ID,
+} from "@/lib/story/__fixtures__/story-fixtures";
 
-/**
- * A minimal, valid answer spec the stubbed /api/generate returns. Uses only
- * catalog components + a literal /corpus/* statePath, mirroring what the model
- * is prompted to emit.
- */
-const ANSWER_SPEC = {
-  root: "root",
-  state: { "/backdrop/preset": "nightMatte" },
-  elements: {
-    root: { type: "Section", props: { title: "Answer" }, children: ["prose", "projects"] },
-    prose: {
-      type: "Prose",
-      props: { text: "Here is a tailored answer composed from Noah's corpus." },
-      children: [],
-    },
-    projects: { type: "ProjectShowcase", props: { statePath: "/corpus/projects" }, children: [] },
-  },
-};
-
-/** Stub the generation route with a fixture spec (no live LLM). */
-async function stubGenerate(page: Page) {
-  await page.route("**/api/generate", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ spec: ANSWER_SPEC }),
-    });
-  });
+function publicationTokenFor(story: PublicStory): string {
+  return `${story.id}.${"a".repeat(43)}`;
 }
 
-type StreamingWindow = typeof window & {
-  __pushGeneratePatch?: () => boolean;
+type StoryTestWindow = Window & {
+  __storyStreamPush?: (streamIndex: number) => boolean;
+  __storyStreamAborted?: (streamIndex: number) => boolean;
 };
 
-/**
- * Replace only the generation fetch with a browser-native ReadableStream.
- * The test advances one patch at a time, so partial renders are deterministic.
- */
-async function stubGenerateStream(page: Page) {
-  const patches = [
-    { op: "add", path: "/root", value: "root" },
-    { op: "add", path: "/state", value: ANSWER_SPEC.state },
+function storyEvents(story: PublicStory): StoryStreamEvent[] {
+  return [
+    { type: "phase", phase: "planning" },
+    { type: "plan", plan: story.plan, evidence: story.evidence },
+    { type: "phase", phase: "composing" },
+    ...story.scenes.map((scene, index) => ({ type: "scene" as const, index, scene })),
+    { type: "phase", phase: "validating" },
     {
-      op: "add",
-      path: "/elements/root",
-      value: ANSWER_SPEC.elements.root,
-    },
-    {
-      op: "add",
-      path: "/elements/prose",
-      value: ANSWER_SPEC.elements.prose,
-    },
-    {
-      op: "add",
-      path: "/elements/projects",
-      value: ANSWER_SPEC.elements.projects,
+      type: "phase",
+      phase: "publishing",
+      publicationToken: publicationTokenFor(story),
     },
   ];
+}
 
+async function installControlledStoryStreams(
+  page: Page,
+  streams: StoryStreamEvent[][],
+  publishedStories: PublicStory[],
+) {
   await page.addInitScript(
-    ({ lines }) => {
+    ({ streamLines, publications }) => {
+
       const nativeFetch = window.fetch.bind(window);
-      const controls = window as StreamingWindow;
+      const controls = window as StoryTestWindow;
+      const states = new Map<
+        number,
+        { controller: ReadableStreamDefaultController<Uint8Array>; lines: string[]; next: number }
+      >();
+      const aborted = new Set<number>();
+      let nextStream = 0;
 
       window.fetch = async (input, init) => {
         const url =
@@ -71,164 +58,517 @@ async function stubGenerateStream(page: Page) {
             : input instanceof URL
               ? input
               : new URL(input.url);
+        if (url.pathname === "/api/generate/publish") {
+          const request = JSON.parse(String(init?.body)) as { publicationToken?: string };
+          const publication = publications.find(
+            (candidate) => candidate.publicationToken === request.publicationToken,
+          );
+          if (!publication) {
+            return new Response(JSON.stringify({ error: "Unknown publication token" }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          return new Response(
+            JSON.stringify({ type: "complete", story: publication.story }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
         if (url.pathname !== "/api/generate") return nativeFetch(input, init);
 
+        const streamIndex = nextStream++;
+        const lines = streamLines[streamIndex];
+        if (!lines) {
+          return new Response(JSON.stringify({ error: "Unexpected generation request" }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
         const encoder = new TextEncoder();
-        let index = 0;
+        const signal = init?.signal ?? (input instanceof Request ? input.signal : null);
         return new Response(
           new ReadableStream<Uint8Array>({
             start(controller) {
-              controls.__pushGeneratePatch = () => {
-                const line = lines[index];
-                if (line === undefined) return false;
-                controller.enqueue(encoder.encode(`${line}\n`));
-                index += 1;
-                if (index === lines.length) controller.close();
-                return true;
-              };
+              states.set(streamIndex, { controller, lines, next: 0 });
+              signal?.addEventListener(
+                "abort",
+                () => {
+                  aborted.add(streamIndex);
+                  states.delete(streamIndex);
+                  controller.error(new DOMException("Aborted", "AbortError"));
+                },
+                { once: true },
+              );
+            },
+            cancel() {
+              aborted.add(streamIndex);
+              states.delete(streamIndex);
             },
           }),
           { status: 200, headers: { "Content-Type": "application/x-ndjson" } },
         );
       };
+
+      controls.__storyStreamPush = (streamIndex) => {
+        const state = states.get(streamIndex);
+        if (!state) return false;
+        const line = state.lines[state.next];
+        if (line === undefined) return false;
+        state.controller.enqueue(new TextEncoder().encode(`${line}\n`));
+        state.next += 1;
+        if (state.next === state.lines.length) {
+          state.controller.close();
+          states.delete(streamIndex);
+        }
+        return true;
+      };
+      controls.__storyStreamAborted = (streamIndex) => aborted.has(streamIndex);
     },
-    { lines: patches.map((patch) => JSON.stringify(patch)) },
+    {
+      streamLines: streams.map((events) => events.map((event) => JSON.stringify(event))),
+      publications: publishedStories.map((story) => ({
+        publicationToken: publicationTokenFor(story),
+        story,
+      })),
+    },
   );
 }
 
-async function pushNextStreamPatch(page: Page) {
+async function pushStoryEvent(page: Page, streamIndex = 0) {
   await expect
-    .poll(() => page.evaluate(() => typeof (window as StreamingWindow).__pushGeneratePatch === "function"))
+    .poll(() =>
+      page.evaluate(
+        (index) => typeof (window as StoryTestWindow).__storyStreamPush === "function" &&
+          Boolean((window as StoryTestWindow).__storyStreamPush?.(index)),
+        streamIndex,
+      ),
+    )
     .toBe(true);
-  const pushed = await page.evaluate(() => (window as StreamingWindow).__pushGeneratePatch?.());
-  expect(pushed).toBe(true);
+}
+
+async function pushRemainingStoryEvents(
+  page: Page,
+  eventCount: number,
+  alreadyPushed = 0,
+  streamIndex = 0,
+) {
+  for (let index = alreadyPushed; index < eventCount; index += 1) {
+    await pushStoryEvent(page, streamIndex);
+  }
+}
+
+async function stubPublishedStory(page: Page, story: PublicStory, expectedQuestion: string) {
+  await page.route("**/api/generate", async (route) => {
+    const request = route.request();
+    expect(request.method()).toBe("POST");
+    expect(request.postDataJSON()).toEqual({ question: expectedQuestion });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/x-ndjson",
+      body: `${storyEvents(story).map((event) => JSON.stringify(event)).join("\n")}\n`,
+    });
+  });
+  await page.route("**/api/generate/publish", async (route) => {
+    expect(route.request().method()).toBe("POST");
+    expect(route.request().postDataJSON()).toEqual({
+      publicationToken: publicationTokenFor(story),
+    });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ type: "complete", story }),
+    });
+  });
 }
 
 async function openAskMe(page: Page) {
-  await page.getByRole("button", { name: "Open Ask-Me" }).click();
+  const heroLauncher = page.getByRole("button", { name: "Open Ask-Me" });
+  if (await heroLauncher.isVisible()) {
+    await heroLauncher.click();
+    return;
+  }
+  await page.getByRole("button", { name: /ask this portfolio a question/i }).click();
 }
 
-/** Stub malformed NDJSON to exercise the client-side stream fallback. */
-async function stubGenerateMalformedStream(page: Page) {
+async function submitQuestion(page: Page, question: string) {
+  await page.getByRole("textbox", { name: /ask a question/i }).fill(question);
+  await page.getByRole("button", { name: /send question/i }).click();
+}
+
+async function expectSceneOrder(page: Page, titles: string[]) {
+  await expect(page.locator("[data-story-scene] h2")).toHaveText(titles);
+}
+
+test("progressively reveals ordered Scenes, stable reading position, Rail, share, and opaque URL", async ({
+  page,
+}) => {
+  const events = storyEvents(CURRENT_PUBLIC_STORY);
+  await installControlledStoryStreams(page, [events], [CURRENT_PUBLIC_STORY]);
+  await page.goto("/");
+  await openAskMe(page);
+  await submitQuestion(page, CURRENT_QUESTION);
+
+  await expect(page.getByRole("heading", { name: "Preparing your Story" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Story preparation" })).toContainText(
+    "Let me think about Noah",
+  );
+  await expect(page.locator(".story-phrase__typed")).toContainText("Let");
+  await expect(page.getByRole("button", { name: "Share this Story" })).toHaveCount(0);
+
+  await pushStoryEvent(page); // planning
+  await expect(page.getByText("Planning the Story")).toBeVisible();
+  await pushStoryEvent(page); // plan
+  const phasePills = page.locator(".story-phase-pills");
+  const phasePill = phasePills.locator(".story-phase-pill--phase").last();
+  const sceneProgressPill = phasePills.locator(".story-phase-pill--scene").last();
+  await expect(phasePills).toBeVisible();
+  await expect(phasePill).toContainText("Planning the Story");
+  await expect(sceneProgressPill).toHaveCount(0);
+  await pushStoryEvent(page); // composing
+  await expect(phasePills).toContainText("Composing Scenes");
+  await expect(sceneProgressPill).toContainText(
+    "Composing 1 of 3 — Systems become usable products",
+  );
+  await expect(sceneProgressPill).toHaveAttribute("data-state", "composing");
+
+  await pushStoryEvent(page); // Scene 1
+  await expect(page.getByRole("heading", { name: "Systems become usable products" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Preparing your Story" })).toHaveCount(0);
+  await expect(sceneProgressPill).toContainText(/(Composed 1 of 3|Composing 2 of 3)/);
+  await expect(page.locator(".story-transition")).toHaveCount(0);
+  const desktopRail = page.getByRole("navigation", { name: "Story scenes" });
+  await expect(desktopRail).toBeVisible();
+  await expect(desktopRail.getByRole("button", { name: /Evidence from shipped work/ })).toBeDisabled();
+  await expect(page.getByRole("status").filter({ hasText: "Composing Scene 2 of 3" })).toBeVisible();
+
+  const firstScene = page.locator("[data-story-scene]").first();
+  const firstStage = firstScene.locator(".story-scene__stage");
+  await expect(firstStage.locator(".story-scene__composition")).toHaveAttribute(
+    "aria-hidden",
+    "true",
+  );
+  const firstSource = CURRENT_PUBLIC_STORY.evidence.find(
+    ({ id }) => id === CURRENT_PUBLIC_STORY.scenes[0].evidenceRefIds[0],
+  )!;
+  const sourceTrigger = firstStage.getByRole("button", { name: "Sources for this claim" });
+  await sourceTrigger.focus();
+  const sourcePopover = firstScene.getByRole("dialog", { name: "Sources for this claim" });
+  await expect(sourcePopover).toBeVisible();
+  await expect(sourcePopover).toContainText(firstSource.label);
+  await expect(sourcePopover).toContainText(firstSource.excerpt);
+  await page.keyboard.press("Escape");
+  await expect(sourcePopover).toHaveCount(0);
+  await expect(sourceTrigger).toBeFocused();
+
+  await sourceTrigger.hover();
+  await expect(sourcePopover).toBeVisible();
+  await page.getByRole("heading", { name: CURRENT_QUESTION }).hover();
+  await expect(sourcePopover).toHaveCount(0);
+  await sourceTrigger.click();
+  await expect(sourcePopover).toBeVisible();
+  await page.getByRole("heading", { name: CURRENT_QUESTION }).click();
+  await expect(sourcePopover).toHaveCount(0);
+
+  const firstRailTarget = desktopRail.getByRole("button", { name: /Systems become usable products/ });
+  await firstRailTarget.focus();
+  await expect(firstRailTarget).toBeFocused();
+  const scrollBeforeAppend = await page.evaluate(() => window.scrollY);
+
+  await pushStoryEvent(page); // Scene 2
+  await expect(page.getByRole("heading", { name: "Evidence from shipped work" })).toBeVisible();
+  await expect(firstRailTarget).toBeFocused();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(scrollBeforeAppend);
+  await expect(sceneProgressPill).toContainText(/(Composed 2 of 3|Composing 3 of 3)/);
+  await expect(page.locator(".story-transition")).toHaveCount(1);
+  await expect(page.getByRole("status").filter({ hasText: "Composing Scene 3 of 3" })).toBeVisible();
+
+  await pushStoryEvent(page); // Scene 3
+  await expectSceneOrder(page, [
+    "Systems become usable products",
+    "Evidence from shipped work",
+    "Craft meets delivery",
+  ]);
+  await expect(sceneProgressPill).toContainText("Composed 3 of 3 — Craft meets delivery");
+  await expect(page.locator(".story-transition")).toHaveCount(2);
+  const projectShowcases = page.getByLabel("Referenced projects");
+  await expect(projectShowcases).toHaveCount(2);
+  await expect(projectShowcases.first().getByRole("link")).toHaveCount(2);
+  await expect(projectShowcases.last().getByRole("link")).toHaveCount(1);
+  await expect(page.locator(".story-sentinel")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Share this Story" })).toHaveCount(0);
+
+  const scenes = page.locator("[data-story-scene]");
+  await expect(scenes).toHaveCount(3);
+  for (let index = 0; index < 3; index += 1) {
+    const scene = scenes.nth(index);
+    const stage = scene.locator(".story-scene__stage");
+    await expect(stage).toHaveCount(1);
+    await expect(stage.locator(".story-scene__composition")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    await expect(
+      stage.getByRole("button", { name: "Sources for this claim" }),
+    ).toHaveCount(1);
+    await expect(scene.locator(".story-scene__detail")).toBeVisible();
+    expect(
+      await scene.evaluate((element) => {
+        const stageElement = element.querySelector(".story-scene__stage");
+        const detailElement = element.querySelector(".story-scene__detail");
+        if (!stageElement || !detailElement) return false;
+        return detailElement.getBoundingClientRect().top >=
+          stageElement.getBoundingClientRect().bottom;
+      }),
+    ).toBe(true);
+  }
+
+  await pushRemainingStoryEvents(page, events.length, 6);
+  await expect(page).toHaveURL(`/ask/${CURRENT_STORY_ID}`);
+  await expect(page).toHaveURL(/\/ask\/[A-Za-z0-9_-]{24}$/);
+  expect(page.url()).not.toContain(encodeURIComponent(CURRENT_QUESTION));
+  expect(page.url()).not.toContain("?q=");
+  await expect(page.getByRole("button", { name: "Share this Story" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Related Questions" })).toBeVisible();
+});
+
+test("a current public Story survives reload without generation", async ({ page }) => {
+  let generateRequests = 0;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/generate") generateRequests += 1;
+  });
+
+  await page.goto(`/ask/${CURRENT_STORY_ID}`);
+  await expect(page.getByRole("heading", { name: CURRENT_QUESTION })).toBeVisible();
+  await expectSceneOrder(page, [
+    "Systems become usable products",
+    "Evidence from shipped work",
+    "Craft meets delivery",
+  ]);
+  await expect(page.getByRole("button", { name: "Share this Story" })).toBeVisible();
+  const { sceneHeights, viewportHeight } = await page.locator("[data-story-scene]").evaluateAll(
+    (scenes) => ({
+      sceneHeights: scenes.map((scene) => scene.getBoundingClientRect().height),
+      viewportHeight: window.innerHeight,
+    }),
+  );
+  const compactHeaderHeight = await page.getByRole("banner").evaluate(
+    (header) => header.getBoundingClientRect().height,
+  );
+  expect(sceneHeights).toHaveLength(3);
+  for (const height of sceneHeights) {
+    expect(height).toBeGreaterThanOrEqual(viewportHeight - compactHeaderHeight - 1);
+  }
+
+  await page.reload();
+  await expect(page.getByRole("heading", { name: CURRENT_QUESTION })).toBeVisible();
+  await expect(page.locator("[data-story-scene]")).toHaveCount(3);
+  expect(generateRequests).toBe(0);
+});
+
+test("a direct Story load starts Remotion playback without a user gesture", async ({ page }) => {
+  await page.goto(`/ask/${CURRENT_STORY_ID}`);
+
+  const firstComposition = page.locator(".story-scene__composition").first();
+  await expect(firstComposition).toHaveAttribute("aria-hidden", "true");
+  const driftingDot = firstComposition.locator("span").first();
+  await expect(driftingDot).toBeAttached();
+  const initialTransform = await driftingDot.evaluate(
+    (element) => getComputedStyle(element).transform,
+  );
+
+  await expect.poll(
+    () => driftingDot.evaluate((element) => getComputedStyle(element).transform),
+    { timeout: 3_000, intervals: [100, 250, 500] },
+  ).not.toBe(initialTransform);
+});
+
+test("an outdated URL exposes no stale Scene and regenerates into a current opaque ID", async ({ page }) => {
+  await stubPublishedStory(page, CURRENT_PUBLIC_STORY, CURRENT_QUESTION);
+  await page.goto(`/ask/${OUTDATED_STORY_ID}`);
+
+  await expect(page.getByRole("heading", { name: "This Story is outdated" })).toBeVisible();
+  await expect(page.getByText(CURRENT_QUESTION)).toBeVisible();
+  await expect(page.locator("[data-story-scene]")).toHaveCount(0);
+  await expect(page.getByText(/STALE SCENE BODY/)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Share this Story" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Regenerate with current facts" }).click();
+  await expect(page).toHaveURL(`/ask/${CURRENT_STORY_ID}`);
+  await expect(page.getByRole("heading", { name: CURRENT_QUESTION })).toBeVisible();
+  expect(CURRENT_STORY_ID).not.toBe(OUTDATED_STORY_ID);
+});
+
+test("an outdated URL never redirects when publication fails", async ({ page }) => {
   await page.route("**/api/generate", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/x-ndjson",
-      body: '{"op":"add","path":',
+      body: `${storyEvents(CURRENT_PUBLIC_STORY).map((event) => JSON.stringify(event)).join("\n")}\n`,
     });
   });
-}
-
-/** Stub the generation route with a 500 to exercise the fallback path. */
-async function stubGenerateError(page: Page) {
-  await page.route("**/api/generate", async (route) => {
+  await page.route("**/api/generate/publish", async (route) => {
     await route.fulfill({
-      status: 500,
+      status: 503,
       contentType: "application/json",
-      body: JSON.stringify({ error: "boom" }),
+      body: JSON.stringify({ error: "publication unavailable" }),
     });
   });
-}
+  await page.goto(`/ask/${OUTDATED_STORY_ID}`);
 
-test("home canvas shows default content by default", async ({ page }) => {
-  await stubGenerate(page);
-  await page.goto("/");
-  // homeSpec flagship story: chapter headings from Scene/ChapterHeading anchors
-  await expect(page.getByRole("heading", { name: "Noah, in brief" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Things I've built" })).toBeVisible();
+  await page.getByRole("button", { name: "Regenerate with current facts" }).click();
+
+  await expect(
+    page.getByRole("alert").filter({ hasText: /could not be published/i }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(`/ask/${OUTDATED_STORY_ID}`);
+  await expect(page.getByRole("heading", { name: "This Story is outdated" })).toBeVisible();
+  await expect(page.locator("[data-story-scene]")).toHaveCount(0);
 });
 
-test("asking a question renders an answer and syncs ?q=", async ({ page }) => {
-  await stubGenerate(page);
-  await page.goto("/");
-  await openAskMe(page);
-
-  await page.getByRole("textbox", { name: /ask a question/i }).fill("What are Noah's projects?");
-  await page.getByRole("button", { name: /send question/i }).click();
-
-  await expect(page.getByText("Here is a tailored answer composed from Noah's corpus.")).toBeVisible();
-  await expect(page).toHaveURL(/\?q=/);
-  await expect(page.getByTestId("backdrop")).toHaveClass(/from-\[#dfe3ee\]/);
-});
-
-test("reload with ?q= reproduces the answer", async ({ page }) => {
-  await stubGenerate(page);
-  await page.goto("/?q=What%20are%20Noah%27s%20projects%3F");
-
-  await expect(page.getByText("Here is a tailored answer composed from Noah's corpus.")).toBeVisible();
-});
-
-test("↺ home restores the default canvas", async ({ page }) => {
-  test.setTimeout(45_000);
-  await stubGenerate(page);
-  await page.goto("/");
-  await openAskMe(page);
-
-  await page.getByRole("textbox", { name: /ask a question/i }).fill("Tell me about Noah");
-  await page.getByRole("button", { name: /send question/i }).click();
-  await expect(page.getByText("Here is a tailored answer composed from Noah's corpus.")).toBeVisible();
-  await expect(page.getByTestId("backdrop")).toHaveClass(/from-\[#dfe3ee\]/);
-
-  await page.getByRole("button", { name: /home/i }).click();
-  await expect(page.getByRole("heading", { name: "Noah, in brief" })).toBeVisible();
-  await expect(page.getByTestId("backdrop")).toHaveClass(/from-\[#f2e7d9\]/);
-  expect(new URL(page.url()).searchParams.has("q")).toBe(false);
-});
-
-test("asking a question progressively assembles an NDJSON answer and steers the backdrop", async ({
+test("a Related Question pushes history and Back restores the prior Story and reading position", async ({
   page,
 }) => {
-  await stubGenerateStream(page);
-  await page.goto("/");
-  await openAskMe(page);
+  await stubPublishedStory(page, RELATED_PUBLIC_STORY, RELATED_QUESTION);
+  await page.goto(`/ask/${CURRENT_STORY_ID}`);
+  await page.getByRole("heading", { name: "Craft meets delivery" }).scrollIntoViewIfNeeded();
+  const priorScroll = await page.evaluate(() => window.scrollY);
+  expect(priorScroll).toBeGreaterThan(0);
 
-  await page.getByRole("textbox", { name: /ask a question/i }).fill("What are Noah's projects?");
-  await page.getByRole("button", { name: /send question/i }).click();
+  await page.getByRole("button", { name: RELATED_QUESTION }).click();
+  await expect(page).toHaveURL(`/ask/${RELATED_STORY_ID}`);
+  await expect(page.getByRole("heading", { name: RELATED_QUESTION })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Technical range in practice" })).toBeVisible();
 
-  await expect(page.getByText(/Composing an answer/)).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Noah, in brief" })).toBeHidden();
-  await pushNextStreamPatch(page);
-  await pushNextStreamPatch(page);
-  await pushNextStreamPatch(page);
-
-  await expect(page.getByRole("heading", { name: "Answer", exact: true })).toBeVisible();
-  await expect(page.getByText("Here is a tailored answer composed from Noah's corpus.")).toBeHidden();
-  await expect(page.getByTestId("backdrop")).toHaveClass(/from-\[#f2e7d9\]/);
-
-  await pushNextStreamPatch(page);
-  await expect(page.getByText("Here is a tailored answer composed from Noah's corpus.")).toBeVisible();
-  await expect(page.getByText(/Composing an answer/)).toBeVisible();
-
-  await pushNextStreamPatch(page);
-  await expect(page.getByText(/Composing an answer/)).toBeHidden();
-  await expect(page.getByTestId("backdrop")).toHaveClass(/from-\[#dfe3ee\]/);
-  await expect(page).toHaveURL(/\?q=/);
+  await page.goBack();
+  await expect(page).toHaveURL(`/ask/${CURRENT_STORY_ID}`);
+  await expect(page.getByRole("heading", { name: "Systems become usable products" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(priorScroll - 100);
 });
 
-test("a 500 from /api/generate falls back to home + shows an error", async ({ page }) => {
-  await stubGenerateError(page);
+test("a newer question cancels an unfinished Story and prevents stale updates", async ({ page }) => {
+  const firstEvents = storyEvents(CURRENT_PUBLIC_STORY);
+  const secondEvents = storyEvents(RELATED_PUBLIC_STORY);
+  await installControlledStoryStreams(
+    page,
+    [firstEvents, secondEvents],
+    [CURRENT_PUBLIC_STORY, RELATED_PUBLIC_STORY],
+  );
   await page.goto("/");
   await openAskMe(page);
+  await submitQuestion(page, CURRENT_QUESTION);
+  await expect(page.getByRole("heading", { name: "Preparing your Story" })).toBeVisible();
 
-  await page.getByRole("textbox", { name: /ask a question/i }).fill("break it");
-  await page.getByRole("button", { name: /send question/i }).click();
+  await openAskMe(page);
+  await submitQuestion(page, RELATED_QUESTION);
+  await expect
+    .poll(() => page.evaluate(() => Boolean((window as StoryTestWindow).__storyStreamAborted?.(0))))
+    .toBe(true);
 
-  // Never blank: home content stays, and an error alert appears. Scope to our
-  // toast text — Next's route announcer is also role="alert".
-  await expect(page.getByRole("alert").filter({ hasText: /Couldn.t generate/ })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Noah, in brief" })).toBeVisible();
+  await pushRemainingStoryEvents(page, secondEvents.length, 0, 1);
+  await expect(page).toHaveURL(`/ask/${RELATED_STORY_ID}`);
+  await expect(page.getByRole("heading", { name: RELATED_QUESTION })).toBeVisible();
+  await expect(page.getByText(CURRENT_PUBLIC_STORY.scenes[0].body)).toHaveCount(0);
 });
 
-test("malformed NDJSON falls back to home and clears the shared query", async ({ page }) => {
-  await stubGenerateMalformedStream(page);
-  await page.goto("/");
-  await openAskMe(page);
+test("desktop scroll, theme, keyboard navigation, and offscreen motion preserve Story semantics", async ({ page }) => {
+  await page.goto(`/ask/${CURRENT_STORY_ID}`);
+  const desktopRail = page.getByRole("navigation", { name: "Story scenes" });
+  const mobileRail = page.getByRole("navigation", { name: "Story navigation" });
+  await expect(desktopRail).toBeVisible();
+  await expect(mobileRail).toBeHidden();
+  const railBox = await desktopRail.boundingBox();
+  const firstSceneContentBox = await page.locator("[data-story-scene]").first()
+    .locator(".story-scene__frame").boundingBox();
+  expect(railBox).not.toBeNull();
+  expect(firstSceneContentBox).not.toBeNull();
+  expect(firstSceneContentBox!.x - (railBox!.x + railBox!.width)).toBeGreaterThan(0);
 
-  await page.getByRole("textbox", { name: /ask a question/i }).fill("break the stream");
-  await page.getByRole("button", { name: /send question/i }).click();
+  const viewportHeight = await page.evaluate(() => window.innerHeight);
+  await page.mouse.wheel(0, viewportHeight * 1.25);
+  const secondStage = page.locator("[data-story-scene]").nth(1).locator(".story-scene__stage");
+  await expect(secondStage).toBeInViewport();
 
-  await expect(page.getByRole("alert").filter({ hasText: /Couldn.t generate/ })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Noah, in brief" })).toBeVisible();
-  await expect(page.getByTestId("backdrop")).toHaveClass(/from-\[#f2e7d9\]/);
-  await expect(page).not.toHaveURL(/\?q=/);
+  const thirdTarget = desktopRail.getByRole("button", { name: /Craft meets delivery/ });
+  await thirdTarget.focus();
+  await page.keyboard.press("Enter");
+  await expect(thirdTarget).toBeFocused();
+  const thirdStage = page.locator("[data-story-scene]").nth(2).locator(".story-scene__stage");
+  const thirdComposition = thirdStage.locator(".story-scene__composition");
+  await expect(thirdStage).toBeInViewport();
+  await expect(thirdComposition).toHaveAttribute("aria-hidden", "true");
+
+  const themeToggle = page.getByRole("button", { name: "Toggle color theme" });
+  const previousTheme = await themeToggle.getAttribute("aria-pressed");
+  await themeToggle.click();
+  await expect(themeToggle).toHaveAttribute("aria-pressed", previousTheme === "true" ? "false" : "true");
+  await expect(page.getByRole("heading", { name: CURRENT_QUESTION })).toBeVisible();
+  await expectSceneOrder(page, [
+    "Systems become usable products",
+    "Evidence from shipped work",
+    "Craft meets delivery",
+  ]);
+
+  await page.keyboard.press("Home");
+  const firstStage = page.locator("[data-story-scene]").first().locator(".story-scene__stage");
+  await expect(firstStage).toBeInViewport();
+  await expect(thirdStage).not.toBeInViewport();
+  await expect(page.locator(".story-scene__composition")).toHaveCount(3);
+});
+
+test("the reduced-motion fallback remains a semantic static poster", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(`/ask/${CURRENT_STORY_ID}`);
+
+  const morningCoffee = page.locator('[data-motion-asset="morning-coffee"]');
+  await expect(morningCoffee).toHaveCount(1);
+  await morningCoffee.scrollIntoViewIfNeeded();
+
+  await expect(morningCoffee).toHaveAttribute("data-motion-state", "static");
+  await expect(morningCoffee.locator('[data-motion-poster-state="static"]')).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: "A steaming cup completes a morning coffee ritual" }),
+  ).toBeVisible();
+  await expect(page.getByText(CURRENT_PUBLIC_STORY.scenes[2].body)).toBeVisible();
+});
+
+test.describe("mobile and touch", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test("offers compact Scene navigation and touch-equivalent Related Questions", async ({ page }) => {
+    await stubPublishedStory(page, RELATED_PUBLIC_STORY, RELATED_QUESTION);
+    await page.goto(`/ask/${CURRENT_STORY_ID}`);
+
+    await expect(page.getByRole("navigation", { name: "Story scenes" })).toBeHidden();
+    const mobileRail = page.getByRole("navigation", { name: "Story navigation" });
+    await expect(mobileRail).toBeVisible();
+    const sceneSelect = page.getByRole("combobox", { name: "Choose a Story scene" });
+    await expect(sceneSelect).toHaveValue("0");
+    await sceneSelect.selectOption("1");
+    await expect(
+      page.locator("[data-story-scene]").nth(1).locator(".story-scene__stage"),
+    ).toBeInViewport();
+
+    const relatedQuestion = page.getByRole("button", { name: RELATED_QUESTION });
+    await relatedQuestion.scrollIntoViewIfNeeded();
+    await relatedQuestion.tap();
+    await expect(page).toHaveURL(`/ask/${RELATED_STORY_ID}`, { timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: RELATED_QUESTION })).toBeVisible();
+  });
+});
+
+test("reduced motion uses curated static assets without hiding any claim", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(`/ask/${CURRENT_STORY_ID}`);
+
+  const assets = page.locator("[data-motion-asset]");
+  await expect(assets).toHaveCount(3);
+  for (let index = 0; index < 3; index += 1) {
+    await expect(assets.nth(index)).toHaveAttribute("data-motion-state", "static");
+  }
+  await expect(page.getByRole("img", { name: "Circuit paths animate through an isometric robot brain" })).toBeVisible();
+  await expect(page.getByText(CURRENT_PUBLIC_STORY.scenes[0].claim)).toBeVisible();
+  await expect(page.getByText(CURRENT_PUBLIC_STORY.scenes[1].claim)).toBeVisible();
+  await expect(page.getByText(CURRENT_PUBLIC_STORY.scenes[2].claim)).toBeVisible();
 });

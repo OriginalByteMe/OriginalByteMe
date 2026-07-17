@@ -8,9 +8,6 @@ const stubHandlers = {
   emit: vi.fn(),
   on: vi.fn(),
 };
-vi.mock("@lottiefiles/dotlottie-react", () => ({
-  DotLottieReact: () => null,
-}));
 
 describe("extraComponents", () => {
   it("StepFlow renders each step title", () => {
@@ -44,17 +41,6 @@ describe("extraComponents", () => {
     expect(screen.getByText("Noah, 2024")).toBeInTheDocument();
   });
 
-  it("LottieFigure renders its caption", () => {
-    const LottieFigure = extraComponents.LottieFigure;
-    render(
-      <LottieFigure
-        {...stubHandlers}
-        props={{ src: "https://lottie.host/example.lottie", caption: "A little wave" }}
-        children={null}
-      />,
-    );
-    expect(screen.getByText("A little wave")).toBeInTheDocument();
-  });
 
   it("SpotifyNowPlaying renders the closed-state CTA button", () => {
     const SpotifyNowPlaying = extraComponents.SpotifyNowPlaying;
@@ -68,10 +54,13 @@ describe("extraComponents", () => {
 
   it("SideProjects renders both the 3D printing and blog cards", () => {
     const SideProjects = extraComponents.SideProjects;
-    render(<SideProjects {...stubHandlers} props={{}} children={null} />);
+    const { container } = render(
+      <SideProjects {...stubHandlers} props={{}} children={null} />,
+    );
     expect(screen.getByRole("heading", { level: 4, name: "3D Printing" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 4, name: "My blog!" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
+    expect(container.querySelector("canvas")).not.toBeInTheDocument();
   });
 
   it("SideProjects renders an optional title heading when a title is given", () => {

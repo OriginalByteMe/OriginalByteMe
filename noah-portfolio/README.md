@@ -20,6 +20,14 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Observability (Langfuse)
+
+Story-generation tracing is opt-in through the `LANGFUSE_*` environment variables below; production credentials live in the Vercel environment. The `/api/generate` pipeline uses the Vercel AI SDK's OpenTelemetry telemetry, registered in `instrumentation.ts`, so each question generation produces one `story-generation` trace that groups the plan and scene LLM calls. Without credentials, tracing is a no-op.
+
+- `LANGFUSE_PUBLIC_KEY`
+- `LANGFUSE_SECRET_KEY`
+- `LANGFUSE_BASE_URL`
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

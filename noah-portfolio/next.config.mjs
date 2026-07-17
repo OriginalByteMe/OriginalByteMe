@@ -1,5 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // The corpus is read from disk at runtime (lib/corpus/loader.ts) by the
+  // root layout. Output file tracing doesn't pick the markdown up for the
+  // page functions (only the API routes trace it), so on Vercel the home
+  // page rendered with an EMPTY corpus — every statePath-bound section
+  // (skills, career, projects, contact) came out blank. Force-include it.
+  outputFileTracingIncludes: {
+    "/**": ["./content/about-me/**/*"],
+  },
   images: {
     remotePatterns: [
       {

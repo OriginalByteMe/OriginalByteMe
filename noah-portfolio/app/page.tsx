@@ -1,25 +1,22 @@
-import Hero from "@/components/Hero";
 import Backdrop from "@/components/Backdrop";
-import PortfolioCanvas from "@/components/PortfolioCanvas";
+import { JsonUiProvider } from "@/components/JsonUiProvider";
+import BackdropSceneSync from "@/components/BackdropSceneSync";
+import SiteShell from "@/components/SiteShell";
 import { AskMeProvider } from "@/components/AskMeProvider";
-import { normalizePortfolioQuery } from "@/lib/portfolio-query";
+import { corpusState } from "@/lib/corpus";
 
-interface HomeProps {
-  searchParams: Promise<{ q?: string | string[] }>;
-}
-
-export default async function Home({ searchParams }: HomeProps) {
-  const { q } = await searchParams;
-  const initialQuery = normalizePortfolioQuery(q);
+export default function Home() {
   return (
-    <main className="relative min-h-screen overflow-hidden">
-      <Backdrop />
-      <div className="relative z-10">
-        <AskMeProvider initialQuery={initialQuery}>
-          <Hero />
-          <div id="story"><PortfolioCanvas /></div>
-        </AskMeProvider>
-      </div>
-    </main>
+    <JsonUiProvider initialState={corpusState()}>
+      <main className="relative min-h-screen overflow-x-clip">
+        <Backdrop />
+        <div className="relative z-10">
+          <AskMeProvider>
+            <BackdropSceneSync />
+            <SiteShell />
+          </AskMeProvider>
+        </div>
+      </main>
+    </JsonUiProvider>
   );
 }

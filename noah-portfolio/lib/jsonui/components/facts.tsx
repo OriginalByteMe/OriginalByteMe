@@ -13,13 +13,14 @@ import {
   Code2,
   Briefcase,
   ArrowUpRight,
+  BookOpen,
+  Sparkles,
 } from "lucide-react";
 import type { BaseComponentProps } from "@json-render/react";
 import { useStateValue } from "@json-render/react";
-import { enter } from "../motion";
 import { useIsDark } from "../use-is-dark";
 import type { Project, SkillCategory, Job, Contact, IconRef, OperatingSystem } from "@/lib/corpus/types";
-import { isSvgSrc } from "@/lib/utils";
+import { cn, isSvgSrc } from "@/lib/utils";
 
 // Single lucide treatment everywhere: 1.5 stroke (design-contract §5).
 const ICON = { strokeWidth: 1.5 } as const;
@@ -43,25 +44,45 @@ const categoryIcons: Record<string, typeof Terminal> = {
   "Programming Languages": Terminal,
   "Frontend Frameworks": Layout,
   "Infrastructure & DevOps": Server,
+  "AI & LLM Tooling": Sparkles,
   Databases: Database,
 };
 
+// Pills lift on hover — a small "alive" treatment for the toolbox (§9.1 spring family).
+// The "hover" label propagates to the icon so the logo does a happy wiggle.
+const pillMotion = {
+  hover: { scale: 1.08, y: -2 },
+};
+
+const pillIconMotion = {
+  hover: {
+    rotate: [0, -16, 12, -6, 0],
+    scale: [1, 1.25, 1.1, 1.18, 1],
+    transition: { duration: 0.55, ease: "easeInOut" as const },
+  },
+};
 
 function SkillPill({ skill, isDark }: { skill: IconRef; isDark: boolean }) {
   const src = isDark ? skill.darkImage : skill.lightImage;
 
   return (
-    <span className={CHIP}>
-      <Image
-        src={src}
-        alt={skill.name}
-        width={20}
-        height={20}
-        className="h-5 w-5"
-        unoptimized={isSvgSrc(src)}
-      />
+    <motion.span
+      variants={pillMotion}
+      whileHover="hover"
+      className={CHIP}
+    >
+      <motion.span variants={pillIconMotion} className="flex shrink-0">
+        <Image
+          src={src}
+          alt={skill.name}
+          width={20}
+          height={20}
+          className={cn("h-5 w-5", skill.invertInDark && "dark:invert")}
+          unoptimized={isSvgSrc(src)}
+        />
+      </motion.span>
       {skill.name}
-    </span>
+    </motion.span>
   );
 }
 
@@ -72,13 +93,9 @@ export const factComponents = {
     const projects = props.slug ? all.filter((p) => p.slug === props.slug) : all;
     return (
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {projects.map((project, i) => (
+        {projects.map((project) => (
           <motion.a
             key={project.slug}
-            custom={i}
-            variants={enter}
-            initial="hidden"
-            animate="show"
             href={project.url}
             target="_blank"
             rel="noopener noreferrer"
@@ -149,7 +166,10 @@ export const factComponents = {
           {categories.map(({ category, skills }) => {
             const Icon = categoryIcons[category] ?? Code2;
             return (
-              <div key={category} className={`${SURFACE} p-6`}>
+              <motion.div
+                key={category}
+                className={`${SURFACE} p-6`}
+              >
                 <span aria-hidden className={CARD_RULE} />
                 <div className="flex items-start justify-between gap-4">
                   <h4 className="flex items-center gap-2 font-serif text-xl tracking-tight text-[#37304a] dark:text-[#eae6f2]">
@@ -163,7 +183,7 @@ export const factComponents = {
                     <SkillPill key={skill.name} skill={skill} isDark={isDark} />
                   ))}
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>
@@ -194,13 +214,9 @@ export const factComponents = {
           </h3>
         ) : null}
         <ul className="space-y-4">
-          {jobs.map((job, i) => (
+          {jobs.map((job) => (
             <motion.li
               key={job.company}
-              custom={i}
-              variants={enter}
-              initial="hidden"
-              animate="show"
               className="flex items-start gap-4 border-l-2 border-[#37304a]/10 pl-4 dark:border-white/10"
             >
               <Image
@@ -208,7 +224,7 @@ export const factComponents = {
                 alt={`${job.company} logo`}
                 width={40}
                 height={40}
-                className="h-10 w-10 rounded-lg"
+                className="h-10 w-10 rounded-lg object-contain"
                 unoptimized={isSvgSrc(job.logo)}
               />
               <div>
@@ -216,9 +232,9 @@ export const factComponents = {
                   <a
                     href={job.url}
                     target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Visit ${job.company}`}
-                    className="inline-flex items-center gap-2 text-[#5646a8] transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a5fa0]/30 dark:text-[#9d8ff2]"
+                    rel="noreferrer noopener"
+                    aria-label={`Visit ${job.company} website`}
+                    className="inline-flex items-center gap-2 rounded-sm text-[#5646a8] transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a5fa0]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffdf8] dark:text-[#9d8ff2] dark:focus-visible:ring-offset-[#2b2830]"
                   >
                     {job.company}
                     <ArrowUpRight {...ICON} aria-hidden="true" className="size-4 shrink-0" />
@@ -249,15 +265,11 @@ export const factComponents = {
           </h3>
         ) : null}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {environments.map((environment, i) => {
+          {environments.map((environment) => {
             const [primary, ...rest] = environment.systems;
             return (
               <motion.div
                 key={environment.name}
-                custom={i}
-                variants={enter}
-                initial="hidden"
-                animate="show"
                 className={`${SURFACE} p-6`}
               >
                 <span aria-hidden className={CARD_RULE} />
@@ -270,7 +282,7 @@ export const factComponents = {
                           alt={primary.name}
                           width={20}
                           height={20}
-                          className="size-4 shrink-0"
+                          className={cn("size-4 shrink-0", primary.invertInDark && "dark:invert")}
                           unoptimized={isSvgSrc(isDark ? primary.darkImage : primary.lightImage)}
                         />
                       </span>
@@ -279,7 +291,9 @@ export const factComponents = {
                       {environment.name}
                     </h4>
                   </div>
-                  <span className={BADGE}>{environment.systems.length} systems</span>
+                  <span className={BADGE}>
+                    {environment.systems.length} {environment.systems.length === 1 ? "system" : "systems"}
+                  </span>
                 </div>
                 <div className="mt-5 flex flex-wrap gap-2">
                   {rest.map((system) => (
@@ -299,10 +313,33 @@ export const factComponents = {
     const email = contact?.email?.trim() ?? "";
     const github = contact?.github?.trim() ?? "";
     const linkedin = contact?.linkedin?.trim() ?? "";
+    const blog = contact?.blog?.trim() ?? "";
     const cards = [
-      ...(email ? [{ key: "email", Icon: Mail, title: "Email", href: `mailto:${email}`, label: email, external: false }] : []),
+      ...(email
+        ? [
+            {
+              key: "email",
+              Icon: Mail,
+              title: "Email",
+              href: `mailto:${email}`,
+              label: email,
+              blurb: "The fastest way to reach me — say hi, pitch an idea, ask anything.",
+              external: false,
+            },
+          ]
+        : []),
       ...(github
-        ? [{ key: "github", Icon: Github, title: "GitHub", href: github, label: github.replace(/^https?:\/\//, ""), external: true }]
+        ? [
+            {
+              key: "github",
+              Icon: Github,
+              title: "GitHub",
+              href: github,
+              label: github.replace(/^https?:\/\//, ""),
+              blurb: "Side projects, experiments, and the code behind this very site.",
+              external: true,
+            },
+          ]
         : []),
       ...(linkedin
         ? [
@@ -312,20 +349,30 @@ export const factComponents = {
               title: "LinkedIn",
               href: linkedin,
               label: linkedin.replace(/^https?:\/\//, ""),
+              blurb: "The professional trail — roles, history, and a DM inbox I check.",
+              external: true,
+            },
+          ]
+        : []),
+      ...(blog
+        ? [
+            {
+              key: "blog",
+              Icon: BookOpen,
+              title: "Blog",
+              href: blog,
+              label: blog.replace(/^https?:\/\//, ""),
+              blurb: "Tutorials, tinkering notes, and the occasional existential crisis.",
               external: true,
             },
           ]
         : []),
     ];
     return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map(({ key, Icon, title, href, label, external }, i) => (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {cards.map(({ key, Icon, title, href, label, blurb, external }) => (
           <motion.a
             key={key}
-            custom={i}
-            variants={enter}
-            initial="hidden"
-            animate="show"
             href={href}
             {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
             className={`${INTERACTIVE_SURFACE} group flex h-full min-h-52 flex-col justify-between p-7 text-left`}
@@ -339,7 +386,8 @@ export const factComponents = {
             </div>
             <div className="mt-7">
               <h3 className="font-serif text-3xl tracking-tight text-[#37304a] dark:text-[#eae6f2]">{title}</h3>
-              <span className="mt-3 block break-words text-base leading-relaxed text-[#5646a8] dark:text-[#c9b3ec]">{label}</span>
+              <p className="mt-2 text-pretty text-sm leading-relaxed text-[#5d5673] dark:text-[#bdb6d0]">{blurb}</p>
+              <span className="mt-3 block break-words text-sm leading-relaxed text-[#5646a8] dark:text-[#c9b3ec]">{label}</span>
             </div>
             <span className="mt-6 inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.25em] text-[#6f6885] transition-colors group-hover:text-[#5646a8] group-focus-visible:text-[#5646a8] dark:text-[#a9a2bd] dark:group-hover:text-[#c9b3ec] dark:group-focus-visible:text-[#c9b3ec]">
               {external ? "Open link" : "Send email"}
@@ -353,9 +401,6 @@ export const factComponents = {
 
   StatCallout: ({ props }: BaseComponentProps<{ value: string; label: string }>) => (
     <motion.div
-      variants={enter}
-      initial="hidden"
-      animate="show"
       className="relative flex flex-col items-center overflow-hidden rounded-2xl border border-[#2e2b38]/10 bg-[#f6f4f9] p-6 text-center shadow-[0_10px_30px_-18px_rgba(20,19,25,0.5)] dark:border-white/10 dark:bg-[#211f29]"
     >
       <span aria-hidden className={CARD_RULE} />

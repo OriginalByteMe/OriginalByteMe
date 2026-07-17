@@ -1,501 +1,529 @@
-# Ask-Me Component Library Design Contract — v2
+# Ask-Me Story Experience Design Contract — v3
 
-> **Version:** v2 (pastel / matte / dither). Supersedes v1 (frosted-glass-over-lava-lamp), which is retired — see §14.
+> **Status:** Accepted on 2026-07-14.
 >
-> **Scope:** The shared visual language for every component in the json-render **Catalog**, and the motion language for **Story**/**Scene** compositions. Source of truth for component adaptation ([#29](https://github.com/OriginalByteMe/OriginalByteMe/issues/29)) and catalog expansion ([#30](https://github.com/OriginalByteMe/OriginalByteMe/issues/30)).
+> **Authority:** This document is the product and interaction source of truth for generated answers in the Ask-Me portfolio. It supersedes v2 in full. Git history preserves the retired Soft Field/static-answer contract; there is no second active contract or compatibility mode.
 >
-> **Branch:** `feat/ask-me-dynamic-portfolio`
+> **Scope:** Generated Stories, Story planning and progressive delivery, Scene Patterns, Motion and Media Assets, Nocturne visual language, Backdrop behavior, navigation, sharing, versioning, accessibility, performance, recovery, and migration from the current implementation.
 >
-> **Written against:** Tailwind CSS v4 (`tailwindcss@^4.3.2`), `framer-motion@^12`, `lucide-react@^0.469`, `@paper-design/shaders-react@0.0.77` (exact pin). The v1 Tailwind-v4 migration ([#25](https://github.com/OriginalByteMe/OriginalByteMe/issues/25)) has landed; all classes below are v4-safe arbitrary/utility values.
->
-> **Prototypes (ground truth for this contract):**
-> - Aesthetic: `noah-portfolio/app/aesthetic-prototype/_aesthetic-prototype.tsx` at `/aesthetic-prototype` — the winning candidates from [#35](https://github.com/OriginalByteMe/OriginalByteMe/issues/35). Every hex/class in §2–§8 is lifted from this file.
-> - Scene/motion: `app/scene-prototype/page.tsx` + `lib/jsonui/components/_scene-prototype.tsx` at `/scene-prototype` — the resolved motion findings from [#37](https://github.com/OriginalByteMe/OriginalByteMe/issues/37), codified in §9.
->
-> **Reference tickets:** #36 (this contract), #37 (scene findings → §9), #42 (Night Matte Bento as a future Backdrop **Preset**/**Theme** → §8.3, §10), #34 (Paper Shaders backdrop research → §10), #29/#30 (component adaptation to these tokens), #25 (Tailwind v4 — landed).
->
-> **Prototype-only scaffolding — do NOT copy:** the aesthetic prototype's `CandidateChip` debug label and the intro `<header>` strip (`bg-[#f2f0eb] dark:bg-[#141317]`) are throwaway route chrome, not part of the language.
+> **Domain language:** [`CONTEXT.md`](../CONTEXT.md) is the glossary. This contract owns behavior and implementation policy; the glossary must remain free of those mechanics.
 
-## 1. Overview — one base language, two registers
+## 1. Product invariant
 
-The design language is **Candidate A "Soft Field"**: an airy editorial pastel look with a `GrainGradient`-family **Backdrop**, serif display moments, dithered/halftone image treatment, matte (no-blur) surfaces, and lucide 1.5-stroke icons. It is the base everywhere, in **both** light and dark.
+Every valid visitor question produces a scrolling **Story** about Noah. A successful answer is never a single card, a flat component dump, or a short-answer exception.
 
-**Candidate C "Night Matte Bento"** is a **layout register**, not a dark mode. Its bento-grid composition, sphere-gradient accent, hex-halftone tiles, and violet/mint accents are sanctioned for **dense, stat-heavy moments** — the `StaticComposition` short-answer fallback, stat scenes, dashboard-ish chapters — in **both** color schemes (§8.3). Candidate C's *full* look (its exact backdrop + palette) is additionally preserved as a future Backdrop **Preset** / **Theme** (#42, §10).
+A Story:
 
-| Register | When | Backdrop shape | Display type | Surface | Grid |
-|----------|------|----------------|--------------|---------|------|
-| **Base — Soft Field** | Everything by default; prose, hero, story scenes | `GrainGradient shape="wave"` | `font-serif` | matte card `rounded-3xl` (§3.1) | asymmetric cluster (§8.2) |
-| **Density — Night Matte Bento** | Dense/stat/dashboard moments; short-answer `mode:"static"` fallback | `GrainGradient shape="sphere"` | sans `font-bold` | matte tile `rounded-2xl` (§3.2) | bento (§8.3) |
+- contains **3–5 ordered, full-height Scenes**;
+- gives the direct answer in Scene 1;
+- uses only the direct answer and relevant supporting facts from the **Corpus**;
+- uses distinct, semantically eligible **Scene Patterns**;
+- contains one focal **Motion Asset** per Scene;
+- carries an **Evidence Ref** for every factual claim;
+- ends with a tailored takeaway and 2–3 grounded **Related Questions**;
+- is navigable by normal scrolling and the persistent **Story Rail**;
+- uses one **Backdrop Preset** with bounded **Scene Cues** rather than switching shader families per Scene.
 
-Both registers are matte in both schemes; neither uses `backdrop-blur`.
+The generated-answer schema has no `static` mode. `StaticComposition` is retired. Technical failures render an explicit retry state; they never silently reintroduce a compact answer.
 
-## 2. Color tokens
+## 2. Answer scope and grounding
 
-All values are arbitrary hex utilities (`text-[#...]`, `bg-[#...]`) lifted verbatim from the prototype. Never introduce a bright saturated accent (the v1 `blue-500` link color is retired, §14).
+### 2.1 Noah-focused scope
 
-### 2.1 Base palette — Soft Field (light + dark)
+Ask-Me is a portfolio, not a general-purpose assistant. It answers from Noah's Corpus and relevant Media Assets.
 
-| Token | Light | Dark | Usage |
-|-------|-------|------|-------|
-| Ink / primary | `text-[#37304a]` | `dark:text-[#eae6f2]` | Root text color on the base section, headings, strong body. |
-| Body / muted | `text-[#5d5673]` | `dark:text-[#bdb6d0]` | Prose, lead paragraph, card list body. |
-| Label / eyebrow | `text-[#6f6885]` | `dark:text-[#a9a2bd]` | Mono kickers, figcaptions, metadata. |
-| Card surface | `bg-[#fffdf8]` | `dark:bg-[#2b2830]` | Matte cards (§3.1). |
-| Tinted surface | `bg-[#f4ecdf]` | `dark:bg-[#26232c]` | Figure/image cards behind a dithered image. |
-| Halftone track | `bg-[#efe6da]` | `dark:bg-[#2a2630]` | Container behind a `HalftoneDots` rule accent (§4.2). |
-| Hairline border | `border-[#37304a]/10` | `dark:border-white/10` | Card borders, internal dividers. |
-| Card shadow | `shadow-[0_16px_40px_-24px_rgba(58,51,69,0.35)]` | (same) | Soft matte lift; never a hard drop shadow. |
-| Backdrop CSS fallback | `bg-gradient-to-br from-[#f2e7d9] via-[#e7dcf1] to-[#dcead9]` | `dark:from-[#252129] dark:via-[#2a2430] dark:to-[#232820]` | Painted under the shader for pre-hydration / WebGL-unavailable (§10). |
+- A question about Noah receives a grounded Story.
+- A general question may be reframed only through known facts about Noah. For example, “What is Rust?” may show Noah's verified Rust work, but must not become an unsourced encyclopedia answer.
+- The model must not invent biography, preferences, motivations, anecdotes, dates, metrics, quotes, project outcomes, or relationships.
+- Relevant Corpus context may broaden a narrow answer, but it must remain visibly connected to the visitor's question.
 
-**Base Backdrop shader palette** (`GrainGradient`, §10):
+### 2.2 Boundary Stories
 
-| Field | Light | Dark |
-|-------|-------|------|
-| `colorBack` | `#f7f2e7` | `#222026` |
-| `colors` | `['#dcc8f0','#f8d7c4','#cfe7d6','#f4e3c2']` | `['#5e5175','#75564e','#4d6154','#6e6550']` |
+When the Corpus cannot ground the requested answer, generate an honest **Boundary Story** with exactly three Scenes:
 
-### 2.2 Accent handling
+1. **Boundary answer:** state immediately that the available portfolio material does not establish the requested fact.
+2. **Known context:** show only genuinely related Corpus facts through `KnowledgeMap` or another eligible evidence pattern.
+3. **Next paths:** offer grounded Related Questions or a relevant contact path.
 
-The accent is a **violet ink**, not a bright link color. Two grounded steps plus one register-only secondary:
+A Boundary Story is not a refusal card, an inferred answer, or a technical-error fallback. It must never turn absence of evidence into a guess.
 
-| Accent token | Light | Dark | Source / usage |
-|--------------|-------|------|----------------|
-| Violet ink (texture) | `#7a5fa0` | `#c9b3ec` | `colorFront` of the Soft Field dither/halftone (§4). The base register's ambient accent. |
-| Violet emphasis | `text-[#5646a8]` | `dark:text-[#9d8ff2]` | Emphasis spans, links, interactive accents; C's display accent span. |
-| Mint secondary | `text-[#5646a8]` | `dark:text-[#7fe0bd]` | **Density register only** — dark-scheme "newly/live" highlight (light collapses to violet emphasis). |
+### 2.3 Evidence Refs
 
-Rules:
-- Links / interactive text use **violet emphasis**; hover deepens via `underline`/opacity, never a new hue.
-- Specs never choose free-form accent hex. A **Scene**'s optional `accent` (§9.4) selects from this allowlist; anything richer is a **Preset**/**Theme** concern (#42).
-- `italic`/`<em>` (no color) is the base register's lightest emphasis (§6.1).
+Every factual content unit in the Story Plan and composed Story carries one or more Evidence Refs.
 
-### 2.3 Density register palette — Night Matte Bento (light + dark)
+- An Evidence Ref points to a stable Corpus section identifier or relevant Media Asset identifier—not a raw repository path in visitor-facing UI.
+- Generation and validation use the refs internally.
+- The default Story presentation remains cinematic and uncluttered.
+- An optional “About this answer” disclosure exposes human-readable source titles or sections.
+- Claims without valid refs fail validation and must be repaired or removed.
 
-| Token | Light | Dark | Usage |
-|-------|-------|------|-------|
-| Ink / primary | `text-[#2e2b38]` | `dark:text-[#e9e6f2]` | Root text on a bento section. |
-| Tile secondary | `text-[#5a5470]` | `dark:text-[#b3acce]` | Tile body / captions. |
-| Tile label | `text-[#6b6580]` | `dark:text-[#a29bbd]` | Mono `[10px]` tile labels. |
-| Tile surface | `bg-[#f6f4f9]` | `dark:bg-[#211f29]` | Matte tile (§3.2). |
-| Tile border | `border-[#2e2b38]/10` | `dark:border-white/10` | Tile hairline. |
-| Tile shadow | `shadow-[0_10px_30px_-18px_rgba(20,19,25,0.5)]` | (same) | Tighter, denser lift than base. |
-| Display accent | `text-[#5646a8]` | `dark:text-[#9d8ff2]` | The accent span inside the dense display heading. |
-| Backdrop CSS fallback | `bg-gradient-to-b from-[#dfe3ee] via-[#e6dcea] to-[#dce7e2]` | `dark:from-[#17161d] dark:via-[#1b1723] dark:to-[#141a18]` | Under the sphere shader. |
+## 3. Story lifecycle
 
-**Density Backdrop shader palette** (`GrainGradient shape="sphere"`):
+> Status: **Shipped.** The plan-first, progressive Story lifecycle is implemented by the current v5 Story contract.
 
-| Field | Light | Dark |
-|-------|-------|------|
-| `colorBack` | `#e9e7ef` | `#141319` |
-| `colors` | `['#bcc9e6','#cdb7e0','#eec6d5','#bfe2d8']` | `['#9d8ff2','#6ea3e8','#ef9cc2','#7fe0bd']` |
+### 3.1 Question submission
 
-## 3. Matte surfaces & framing
+Submitting a question enters a dedicated full-page Story mode. Home content does not remain in the Story document.
 
-Matte = solid opaque fills, hairline borders, soft long-throw shadows. **No `backdrop-blur`, no translucency, no `FrostedGlassBox`** (§14).
+- The home **Tableau** transitions out without becoming a Story Scene.
+- Story mode owns its own Backdrop, Prelude, Rail, scrolling container, and history entry.
+- Back navigation restores the prior home state and scroll position.
+- Submitting another question while generation is active cancels the active request. The latest explicit question wins; incomplete work is neither cached nor published.
 
-### 3.1 Matte card — base register
+### 3.2 Plan first
 
-The canonical raised surface (Soft Field cards):
+Before composing Scene content, generate and validate a lightweight **Story Plan**. The Plan locks:
 
-```tsx
-<div className="rounded-3xl border border-[#37304a]/10 bg-[#fffdf8] p-8 shadow-[0_16px_40px_-24px_rgba(58,51,69,0.35)] dark:border-white/10 dark:bg-[#2b2830]">
-```
+- grounded versus Boundary Story classification;
+- the 3–5 ordered Scene roles and labels;
+- the direct-answer claim;
+- Evidence Refs for every planned factual beat;
+- Scene Pattern and Register for each Scene;
+- Motion Asset and optional relevant Media Asset;
+- the Story-level Backdrop Preset;
+- each Scene's bounded Backdrop Cue;
+- the tailored ending and Related Questions.
 
-- A **figure** card that hosts a dithered image swaps the fill to the tinted surface: `bg-[#f4ecdf] dark:bg-[#26232c]` and clips with `overflow-hidden` (§4.1).
-- Cards may take small vertical offsets for editorial asymmetry (`md:translate-y-10`, `md:-translate-y-6`) — see §8.2.
+The Plan is an internal orchestration artifact. Do not expose model reasoning or chain-of-thought. The Prelude may communicate real phases and Scene count, but not hidden reasoning.
 
-### 3.2 Matte tile — density register
+### 3.3 Animated Story Prelude
 
-The bento tile (single shared class string in the prototype, reuse it):
+Before Scene 1 is ready, show a full-height **Story Prelude** in the same Nocturne language.
 
-```tsx
-<div className="rounded-2xl border border-[#2e2b38]/10 bg-[#f6f4f9] p-6 shadow-[0_10px_30px_-18px_rgba(20,19,25,0.5)] dark:border-white/10 dark:bg-[#211f29]">
-```
+It may report only real lifecycle states:
 
-Tiles are tighter (`p-6`, `rounded-2xl`) than base cards (`p-8`, `rounded-3xl`).
+1. grounding the question;
+2. planning the Story;
+3. composing the opening Scene.
 
-### 3.3 Dividers & internal borders
+Do not show fake percentages, invented progress, raw prompts, or the internal Story Plan. The product target is a validated Scene 1 within **6 seconds** under normal operating conditions.
 
-Internal separators reuse the hairline border: base `border-b border-[#37304a]/10 dark:border-white/10`; density uses the `#2e2b38/10` border. No `<hr>`, no shadow dividers.
+### 3.4 Progressive Scene delivery
 
-### 3.4 Frosted glass is retired
+After Plan validation:
 
-`FrostedGlassBox` is **not** a surface in this contract. It appears only in the migration note (§14). Any component still rendering it is a #29 adaptation target.
+1. compose and validate Scene 1 first;
+2. replace the Prelude with Scene 1;
+3. compose remaining Scenes and append them in Plan order as each becomes ready;
+4. show a compact, themed composing sentinel at the document end while another Scene is pending;
+5. remove the sentinel when the final Scene arrives.
+
+Do not reserve full-height empty Scene slots. Document height grows as Scenes append. The Story Rail lists ready Scenes and one pending state; it must not expose jump targets that do not yet exist.
 
-## 4. Texture — dither & halftone
+The complete Story target is **20 seconds** under normal operating conditions.
+
+### 3.5 Cancellation and ordering
+
+- A new question aborts all pending generation for the previous Story.
+- Aborted or disconnected requests must stop downstream model work where the provider supports cancellation.
+- A Scene may finish internally out of order, but the client appends only in Story Plan order.
+- Appending content must not move focus, reset the visitor's current Scene, or force-scroll the document.
 
-Texture is decorative, always `aria-hidden`, always static (`speed={0}`) except the animated Backdrop, and always `minPixelRatio={1}`. Two paper-shaders primitives carry it. The full-screen surface fills use:
+## 4. Story structure and richness contract
+
+A structurally valid JSON tree is not necessarily an acceptable Story. The server must enforce a deterministic richness contract before publication.
 
-```tsx
-const SHADER_FILL = { position: 'absolute', inset: 0, width: '100%', height: '100%' } as const;
-```
+Every grounded Story must satisfy all of these rules:
 
-### 4.1 Dithered images — `ImageDithering`
+1. **3–5 Scenes.** No short-answer exception.
+2. **Direct answer first.** Scene 1 states the answer rather than delaying it for suspense.
+3. **Distinct patterns.** No Scene Pattern repeats within a Story.
+4. **Semantic eligibility.** A pattern may be selected only when its required evidence shape exists.
+5. **Visual diversity.** At least two of the Editorial, Dense, and Diagrammatic Registers appear.
+6. **Evidence showcase.** At least one Scene uses an evidence-heavy Pattern rather than prose alone.
+7. **Focal motion.** Every Scene has exactly one primary Motion Asset or animated showcase.
+8. **Grounded claims.** Every factual unit resolves to valid Evidence Refs.
+9. **Visual-first copy.** Each Scene communicates one primary claim in approximately 40–90 words of main narrative. Supporting detail belongs in labels, timelines, cards, diagrams, or optional disclosures.
+10. **Tailored ending.** The last Scene synthesizes the answer and offers 2–3 grounded Related Questions. Contact or project links appear only when relevant.
+11. **No arbitrary code.** Specs never contain raw SVG markup, generated paths, JavaScript, CSS, shader uniforms, or animation timelines.
 
-An 8×8 ordered dither is the sanctioned photo/portrait treatment (replaces raw `object-cover` photos). Inside a tinted figure card (§3.1) sized e.g. `h-56 w-full`:
+Anything that fails this contract is repaired before reveal. Prompt guidance alone is insufficient.
 
-```tsx
-<ImageDithering
-  image="/hero.png"
-  colorFront={portrait.colorFront}   // #7a5fa0 light · #c9b3ec dark
-  colorBack={portrait.colorBack}     // #f4ecdf light · #26232c dark
-  colorHighlight={portrait.colorHighlight} // #f3d9c8 light · #8d7bb0 dark
-  type="8x8" size={2} colorSteps={3} speed={0} minPixelRatio={1}
-  style={{ width: '100%', height: '100%' }}
-/>
-```
+## 5. Scene Pattern Catalog
 
-| `SOFT_FIELD_PORTRAIT` | Light | Dark |
-|-----------------------|-------|------|
-| `colorFront` | `#7a5fa0` | `#c9b3ec` |
-| `colorBack` | `#f4ecdf` | `#26232c` |
-| `colorHighlight` | `#f3d9c8` | `#8d7bb0` |
+> Status: **Roadmap.** The shipped v5 allowlist contains seven patterns: `hero-statement`, `project-spotlight`, `evidence-ledger`, `timeline`, `capability-map`, `system-diagram`, and `closing-synthesis`. The 17-pattern catalog below is not the current generated Spec enum.
 
-Pair with a `font-mono text-[10px] uppercase tracking-widest` figcaption naming the treatment (e.g. `hero.png · 8×8 ordered dither`).
+The initial Catalog contains the following 17 Patterns. Pattern names are stable schema identifiers. Each Pattern owns responsive hierarchy, choreography, accessibility behavior, and its typed content shape.
 
-### 4.2 Halftone shapes — `HalftoneDots`
+| Pattern | Register | Eligible evidence | Purpose |
+|---|---|---|---|
+| `answerHero` | Editorial | Direct grounded answer or explicit boundary | Required opening form; answer, short support, focal identity asset. |
+| `kineticStatement` | Editorial | One strong grounded proposition with supporting context | Large animated type and illustration for a defining idea. |
+| `evidenceBento` | Dense | 3–7 related facts with refs | Hierarchical fact tiles; never a miscellaneous card dump. |
+| `metricStage` | Dense | At least one verified numeric value | Animated metric with context and units; prohibited when the Corpus has no number. |
+| `timelineJourney` | Dense | At least two ordered dated/period events | Career, project, or learning progression. |
+| `projectSpotlight` | Editorial | One project with outcome, role, or artifact evidence | Deep focus on one relevant project. |
+| `projectGallery` | Dense | At least two relevant projects | Comparative project showcase with clear relevance to the question. |
+| `skillConstellation` | Dense | Categorized skills or capabilities | Relationship-oriented skill display; avoids unweighted tag clouds. |
+| `stackOrbit` | Diagrammatic | Technologies with a verified workflow or relationship | Animated ecosystem/stack relationships; never implies unsupported dependencies. |
+| `comparisonSplit` | Diagrammatic | Two grounded subjects with comparable attributes | Side-by-side comparison without manufactured winners. |
+| `processFlow` | Diagrammatic | At least three ordered steps | Workflow, method, or build process. |
+| `architectureMap` | Diagrammatic | Verified entities and relationships | System/component explanation; no invented infrastructure. |
+| `codeTerminalTheater` | Dense | Verified command, code, configuration, or terminal-oriented workflow | Code/terminal showcase with readable text and a non-essential animation layer. |
+| `mediaFeature` | Editorial | A relevant Media Asset with contextual metadata | Photo/video-led evidence; never inserts a generic portrait merely for decoration. |
+| `quotePrincipleStage` | Editorial | A verified quote or explicitly authored principle | Personal voice or working principle; model-authored prose is not presented as Noah's quote. |
+| `knowledgeMap` | Diagrammatic | Multiple related Corpus facts or an honest evidence boundary | Maps what is known and related; required as the preferred middle pattern for Boundary Stories. |
+| `tailoredTakeaway` | Editorial | Synthesis of prior grounded Scenes | Closing synthesis, Related Questions, and only relevant links. |
 
-Two sanctioned uses:
+### 5.1 Selection rules
 
-**(a) Rule accent (base).** A short horizontal band separating hero blocks, in a track surface (§2.1):
+- `answerHero` is the default opening Pattern.
+- `tailoredTakeaway` is the default closing Pattern.
+- Boundary Stories use `answerHero`, `knowledgeMap`, and `tailoredTakeaway`.
+- `metricStage`, `timelineJourney`, `comparisonSplit`, `architectureMap`, `codeTerminalTheater`, and `mediaFeature` are ineligible without their stated evidence shape.
+- Adjacent Scenes must differ in visual silhouette as well as Pattern name.
+- Pattern selection is semantic and deterministic under a fixed Story Plan. Do not add weighted visual randomness.
+- The broad Catalog does not waive quality: every Pattern must pass responsive, light/dark, reduced-motion, keyboard, and streaming-state QA before it enters the generated Spec enum.
 
-```tsx
-<div aria-hidden className="relative mt-14 h-12 w-full max-w-3xl overflow-hidden rounded-full bg-[#efe6da] dark:bg-[#2a2630]">
-  <HalftoneDots image="/hero.png" colorFront={rule.colorFront} colorBack={rule.colorBack}
-    type="classic" grid="square" size={1} radius={1.3} contrast={0.5} speed={0} minPixelRatio={1} style={SHADER_FILL} />
-</div>
-```
+## 6. Nocturne visual language
 
-`SOFT_FIELD_RULE`: `colorFront` `#7a5fa0`/`#c9b3ec`, `colorBack` `#f7f2e7`/`#222026`.
+### 6.1 Identity
 
-**(b) Bento accent tile (density).** A `col-span-1 row-span-2` figure tile with a **hex** grid:
+**Nocturne** is the core visual language for generated Stories in both light and dark modes. It combines:
 
-```tsx
-<HalftoneDots image="/hero.png" colorFront={tile.colorFront} colorBack={tile.colorBack}
-  type="classic" grid="hex" size={0.8} radius={1.35} contrast={0.55} speed={0} minPixelRatio={1} style={SHADER_FILL} />
-```
+- dithered and halftone texture;
+- deep matte hierarchy rather than glass or blur;
+- restrained violet and mint/cool-green ink;
+- editorial display moments;
+- crisp mono labels and evidence metadata;
+- one visually dominant animated element per Scene.
 
-`NIGHT_TILE`: `colorFront` `#5646a8`/`#7fe0bd`, `colorBack` `#f6f4f9`/`#211f29`.
+Nocturne is not synonymous with dark mode. The same composition and semantic hierarchy must have coordinated light and dark counterparts selected by the visitor's existing preference. The model never selects color mode.
 
-### 4.3 Texture rules
+### 6.2 Seed palette
 
-- Decorative only — texture never carries semantic content; wrap in `aria-hidden`.
-- `speed={0}` and `minPixelRatio={1}` on every non-Backdrop shader.
-- Palettes are **module-level constants** (stable array identities) so a theme swap changes one reference — no per-render uniform churn.
-- `grid="hex"` and blob/sphere shapes are the mobile-costly variants (§10); keep them small (accent tiles), never full-screen.
+The v3 seed palette carries forward the proven Night Matte values while replacing Soft Field as the generated-Story default.
 
-## 5. Icon language
+| Role | Light | Dark |
+|---|---|---|
+| Canvas | `#e9e7ef` | `#141319` |
+| Primary ink | `#2e2b38` | `#e9e6f2` |
+| Secondary ink | `#5a5470` | `#b3acce` |
+| Matte surface | `#f6f4f9` | `#211f29` |
+| Hairline | `rgba(46,43,56,0.10)` | `rgba(255,255,255,0.10)` |
+| Violet emphasis | `#5646a8` | `#9d8ff2` |
+| Dither field | `#bcc9e6`, `#cdb7e0`, `#eec6d5`, `#bfe2d8` | `#9d8ff2`, `#6ea3e8`, `#ef9cc2`, `#7fe0bd` |
 
-One treatment everywhere: **lucide-react at 1.5 stroke width.**
+Bright saturated one-off accents are prohibited. Themes may modulate approved tokens but cannot replace the visual language.
 
-```tsx
-const ICON = { strokeWidth: 1.5 } as const;
-// <Code2 {...ICON} className="size-4" />
-```
+### 6.3 Surfaces and texture
 
-| Context | Class | Notes |
-|---------|-------|-------|
-| Inline / label / trailing icon | `size-4` | Default. Mono labels, tile headers. |
-| List-leading icon | `mt-0.5 size-4 shrink-0` | Aligns to first text line; never shrinks. |
-| Trailing affordance | `size-4 shrink-0` | e.g. `ArrowUpRight` on link rows. |
+- Surfaces are opaque matte fills with hairline borders and soft shadows.
+- `backdrop-blur`, frosted glass, translucent card stacks, and the retired lava-lamp treatment are not part of v3.
+- Dither/halftone texture is decorative and `aria-hidden`; meaningful content must remain in semantic HTML.
+- Texture may frame Media Assets or Pattern accents but must not reduce text contrast.
+- A CSS fallback matching the selected palette is always painted beneath a shader.
 
-- Always spread `{...ICON}` — never a bare lucide icon (default stroke is 2).
-- Prefer minimal outline glyphs already in the prototype set: `ArrowUpRight, Code2, GitBranch, Sparkles, Mail, Terminal, Layers, Globe`. Add new lucide glyphs at 1.5 stroke only.
-- No filled icons, no icon fonts (`react-icons` is legacy — migrate under #29).
+### 6.4 Typography
 
-## 6. Typography
+- Editorial display: serif, tight tracking, short line lengths.
+- Dense register: strong sans hierarchy and compact evidence labels.
+- Diagrammatic register: sans body with mono labels for nodes, periods, commands, and metadata.
+- Main narrative remains readable body text; animated type never carries the only copy of a claim.
 
-The app loads **Inter** (sans) via `next/font`. `font-serif` / `font-mono` currently resolve to Tailwind's default system stacks; wiring a dedicated display serif + mono via `next/font` is **deferred** (§15).
+## 7. Registers
 
-### 6.1 Serif display scale (base register story moments)
+> Status: **Roadmap.** The shipped v5 contract currently exposes four registers: `editorial`, `technical`, `diagrammatic`, and `reflective`. The three-register taxonomy below is not the current generated allowlist.
 
-Serif is reserved for display moments — hero, `ChapterHeading`, card titles. Use `tracking-tight`.
+Nocturne has exactly three controlled **Registers**:
 
-| Role | Classes |
-|------|---------|
-| Hero display | `font-serif text-[clamp(3.5rem,9vw,8rem)] leading-[0.92] tracking-tight` (emphasis via `<em className="italic">`) |
-| Chapter display (`ChapterHeading`) | `font-serif text-4xl md:text-6xl tracking-tight` (spring stiffness 220 / damping 24, §9.2) |
-| Card / section heading | `font-serif text-2xl tracking-tight` |
+### Editorial
 
-### 6.2 Dense display (density register)
+Use for answer heroes, kinetic statements, project spotlights, media, principles, and takeaways. Favor asymmetry, generous space, serif display, and one expressive focal asset.
 
-Candidate C's display is **sans `font-bold`**, not serif, and overlaps the grid edge with negative margin. The accent word takes violet emphasis (§2.3):
+### Dense
 
-```tsx
-<h2 className="relative z-20 -mb-7 text-[clamp(3.5rem,8.5vw,8rem)] font-bold leading-[0.9] tracking-tight md:-mb-12">
-  After hours,<br /><span className="text-[#5646a8] dark:text-[#9d8ff2]">still shipping.</span>
-</h2>
-```
+Use for evidence bento, metrics, timelines, galleries, skill systems, and terminal showcases. Favor explicit hierarchy, compact matte tiles, labels, and scanability. Dense does not mean smaller text or more simultaneous animation.
 
-### 6.3 Text scale (both registers)
+### Diagrammatic
 
-| Role | Classes |
-|------|---------|
-| Eyebrow / kicker | `font-mono text-xs uppercase tracking-[0.3em]` |
-| Tile label (density) | `font-mono text-[10px] uppercase tracking-[0.25em]` |
-| Lead paragraph | `text-lg leading-relaxed` (`max-w-md` hero / `max-w-2xl` narrative) |
-| Narrative beat (`NarrativeBeat`) | `text-lg` in `max-w-2xl` |
-| Tile heading | `text-xl font-semibold tracking-tight` (or `text-base` for 1×1 tiles) |
-| Body / card list | `text-sm leading-relaxed` |
-| Secondary tile body | `text-sm` in tile-secondary ink (§2.3) |
-| Metadata footer | `text-xs uppercase tracking-widest` |
-| Caption / figcaption | `font-mono text-[10px] uppercase tracking-widest` |
+Use for comparisons, processes, architecture, stack relationships, and knowledge maps. Favor labeled relationships, directional flow, and semantic SVG. Every relationship must be grounded; decorative connecting lines cannot imply unsupported facts.
 
-## 7. Spacing & radius tokens
+A Story uses at least two Registers. A Pattern's Register is fixed by the Catalog; the model does not invent per-Pattern art direction.
 
-Updated from v1 where the prototype differs.
+## 8. Backdrop and Tableau
 
-### 7.1 Spacing
+### 8.1 Separate responsibilities
 
-| Name | Value | Usage |
-|------|-------|-------|
-| `space-xs` | `gap-2` / `gap-3` | Icon + text pairs (`gap-3` for list-leading icons). |
-| `space-sm` | `space-y-4` | Card internals, list rhythm. |
-| `space-bento` | `gap-3` | Bento tile gaps (density §8.3). |
-| `space-cluster` | `gap-6` | Base card cluster gaps (§8.2). |
-| `card-pad-base` | `p-8` | Matte card padding (base). |
-| `card-pad-tile` | `p-6` | Matte tile padding (density). |
-| `container-x` | `px-6 md:px-10` | Page horizontal padding (was `px-4`). |
-| `container-y` | `pb-24 pt-32` | Page vertical rhythm (hero); scenes use `min-h-screen`, §9.2. |
+- **Backdrop:** ambient shader field behind content.
+- **Tableau:** fixed home-only 2.5D/dithered illustration containing motifs such as the ark, waves, and logo.
+- **Scene:** narrative chapter inside a generated Story.
 
-### 7.2 Border radius
+Do not use “Scene” for the home illustration or “Background” for the composite system.
 
-| Name | Class | Usage |
-|------|-------|-------|
-| `radius-pill` | `rounded-full` | Halftone rule track, pills, tags. |
-| `radius-card` | `rounded-3xl` | Base matte cards & figures (§3.1). |
-| `radius-tile` | `rounded-2xl` | Density tiles & C figures (§3.2). |
+The Tableau does not react to home Story Scene entry because home content is not a generated Story. It may have subtle ambient motion but does not perform chapter-by-chapter state changes.
 
-## 8. Layout & grids
+### 8.2 Story Presets
 
-### 8.1 Page container & backdrop
+> Status: **Roadmap.** The shipped planner and validator currently expose every name in `BACKDROP_PRESETS`; they do not yet enforce this dither-only generated subset.
 
-```tsx
-<section className="relative min-h-screen overflow-hidden text-[#37304a] dark:text-[#eae6f2]">
-  <div aria-hidden className="absolute inset-0 z-0 bg-gradient-to-br from-[#f2e7d9] ... dark:...">
-    <GrainGradient style={SHADER_FILL} ... />   {/* §10 */}
-  </div>
-  <div className="relative z-10 mx-auto max-w-6xl px-6 pb-24 pt-32 md:px-10">
-    {/* content */}
-  </div>
-</section>
-```
+Generated Stories select one Preset from the dither family:
 
-`overflow-hidden` clips the full-bleed backdrop; `z-0` backdrop, `z-10` content. Content column is `max-w-6xl`.
+- `ditherTide`
+- `ditherViolet`
+- `ditherSky`
+- `ditherEmber`
+- `ditherMint`
+- `ditherRose`
+- `ditherIndigo`
 
-### 8.2 Base grids — asymmetric cluster
+`ambientLava`, `softField`, `nightMatte`, `meshBloom`, `metaOrbs`, and `panelParade` are not generated-Story Presets in v3. The prompt and generated schema must not expose them.
 
-The base register composes cards in an editorial 12-col cluster with intentional vertical offsets, **not** a uniform grid:
+Specs select a Preset name only. Raw shader type, palette, speed, pixel size, shape, or other uniforms are renderer-owned.
 
-```tsx
-<div className="mt-16 grid grid-cols-1 gap-6 md:grid-cols-12">
-  <div className="... md:col-span-5">…</div>
-  <div className="... md:col-span-4 md:translate-y-10">…</div>
-  <figure className="... md:col-span-3 md:-translate-y-6">…</figure>
-</div>
-```
+### 8.3 Scene Cues
 
-`<Columns>`/`<Grid>` primitives keep literal responsive class maps (never template strings — Tailwind must see full names) as in v1 §2.4.
+> Status: **Roadmap.** Shipped Scene Cues use the bounded `{ phase, focus, intensity }` schema and apply focus/intensity to the single Backdrop. The named `calm` / `focus` / `lift` / `resolve` vocabulary below is not the current schema.
 
-### 8.3 Density register — the bento layout
+A Scene may select one bounded Cue within the Story's chosen Preset:
 
-**When it applies (both light and dark):**
-- The `StaticComposition` short-answer fallback (`StorySpec mode:"static"`, §9.5).
-- Stat-heavy scenes (multiple `StatReveal`), dashboard-ish chapters, dense multi-fact answers.
-- Any moment where several small facts must coexist above the fold.
+- `calm`
+- `focus`
+- `lift`
+- `resolve`
 
-**Rules:**
-- Grid: `grid auto-rows-[minmax(7rem,auto)] grid-cols-2 gap-3 md:grid-cols-4`.
-- Tile spans express hierarchy: hero fact `col-span-2 row-span-2`; column facts `col-span-1 row-span-2`; wide feature `col-span-2`; atom facts `col-span-1`.
-- Tiles are matte tiles (§3.2); labels are mono `[10px]` with a `size-4` icon (§5).
-- Display heading is sans-bold and overlaps the grid top edge via negative margin (§6.2).
-- Backdrop is the sphere `GrainGradient` (§2.3, §10); accents are violet emphasis + (dark) mint.
-- Applies in **both** schemes — it is a composition register, not a dark theme.
+Cues steer safe preset-local state such as focal position, intensity, or phase. They never switch shader family, change the palette identity, or mount a second long-lived canvas. Cue transitions are app-owned and reduced-motion aware.
 
-Candidate C's *complete* look (its full palette + backdrop as a bundled identity) is preserved as a future Backdrop **Preset**/**Theme** in #42; that is distinct from using the bento *layout* here.
+## 9. Motion and Media Assets
 
-### 8.4 Reading / static column
+### 9.1 Technology decision
 
-Short answers and the static story fallback render in a centered reading column: `mx-auto w-full max-w-3xl`. Generated specs in this column do **not** add their own full-width section wrappers (see §12).
+Use a two-tier Motion Asset stack:
 
-## 9. Motion
+1. **Motion/Framer Motion with project-owned SVG/React components** for icons, path drawing, morphing, diagrams, and Scene choreography.
+2. **`@lottiefiles/dotlottie-react` with self-hosted, vetted `.lottie` files** only for multi-layer, designer-authored sequences that would be materially harder to maintain as small JSX/SVG components.
 
-### 9.1 Baseline — shared `enter` (kept from v1)
+Keep `lucide-react` as the ordinary icon geometry source. Selected AnimateIcons choreography may be copied and adapted asset-by-asset only with retained MIT and underlying Lucide ISC provenance.
 
-The one mount animation for every Catalog component, in `lib/jsonui/motion.ts`:
+Do not add Rive, `lottie-react`, Anime.js, GSAP, or the licensing-ambiguous `pqoqubbw/icons` collection under this contract. Reconsidering one requires a new concrete capability need, not a desire for more variety.
 
-```ts
-export const enter: Variants = {
-  hidden: { opacity: 0, y: 12 },
-  show: (i = 0) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.06, type: "spring", stiffness: 220, damping: 24 },
-  }),
-};
-```
+### 9.2 Trusted Motion Asset registry
 
-- Wrap component roots in `motion.*` with `variants={enter} initial="hidden" animate="show"`.
-- Lists pass `custom={index}` to stagger by 60 ms.
-- Do not invent spring values; extend `motion.ts` and document here.
+Generated Specs select a semantic `assetId`; they never supply markup or animation parameters. Every registry entry records:
 
-### 9.2 Scene motion (scroll-driven, from #37)
+- stable asset ID and semantic tags;
+- renderer (`motion-svg` or `dotlottie`);
+- local component or self-hosted file;
+- intrinsic aspect ratio and responsive bounds;
+- accessible title/description policy;
+- playback trigger and whether replay is allowed;
+- off-screen pause behavior;
+- curated reduced-motion/static representation;
+- source and author;
+- runtime license and asset/choreography license separately.
 
-A **Scene** is a full-height (`min-h-screen`) chapter driven by scroll entry:
+Unknown IDs fail validation. “Found on GitHub” or “downloaded from LottieFiles” is not provenance.
 
-```tsx
-<motion.section
-  initial="hidden"
-  whileInView="show"
-  viewport={{ once: true, amount: 0.3 }}
-  variants={{ show: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } } }}
->
-```
+### 9.3 Motion budget
 
-- **Scene:** `viewport={{ once: true, amount: 0.3 }}` — reveal once, when 30% enters. Parent `staggerChildren: 0.12`, `delayChildren: 0.1` drives an in-scene stagger of its blocks (children reuse `enter`).
-- **`ChapterHeading`:** kicker (e.g. `Chapter 02`) + serif display (§6.1) `text-4xl md:text-6xl`; spring stiffness 220 / damping 24 (same as `enter`).
-- **`NarrativeBeat`:** one prose paragraph, `max-w-2xl text-lg`.
-- **`StatReveal`:** count-up metric gated on `useInView` with **tighter `amount: 0.6`** (so it doesn't count while barely visible); `useMotionValue` + `animate` + `useTransform`.
-- **`SequencedTimeline`:** rows reveal via nested `staggerChildren`; provide exactly one row source: inline `rows` or a `statePath` bound to Corpus state.
-- **`SceneProgress`:** the **only** scrub-driven element — `useScroll` → `useSpring` → `scaleY` rail.
+Each Scene has exactly one focal animation. Supporting elements may use one-shot entrance choreography or optional focus/hover/tap micro-interactions, but they do not become concurrent ambient loops.
 
-**Granularity rule:** cap a scene at **2–3 blocks** — one `ChapterHeading` anchor + one payload block (beat / stat / timeline). At 4+ blocks the 0.12s stagger pushes the tail reveal past ~0.6s after entry, animating after the reader has scrolled away; 1 block wastes a viewport. Promote heavy elements (timeline, multi-stat) to their own scene.
+- Scene content reveals once on entry.
+- Off-screen loops pause.
+- Hover behavior has equivalent focus/tap behavior.
+- Interaction may replay, inspect, or expand evidence, but required information is never interaction-gated.
+- Scroll scrubbing is reserved for the Story Rail and explicitly designed diagrams; it is not the default Motion Asset driver.
 
-### 9.3 Trigger vs scrub
+### 9.4 Media Assets
 
-| Mode | Driver | Cost | Use for |
-|------|--------|------|---------|
-| **Trigger** | `whileInView`, one-shot, own timeline | cheap, intentional | All chapter reveals and in-scene stagger. |
-| **Scrub** | `useScroll`, continuous, every frame, bidirectional | expensive | Progress rails, parallax, pinned sequences only. |
+Personal photos or videos enter a curated Media Asset registry with semantic tags and Evidence Refs to the projects, places, periods, or facts they depict.
 
-Default to trigger. Reach for scrub only for `SceneProgress`-type continuous rails.
+- `mediaFeature` is eligible only when a relevant asset exists.
+- A portrait is not inserted into every Story.
+- Missing media never produces a placeholder image; another eligible Pattern and Motion Asset is selected.
+- Media treatment follows Nocturne's dither/halftone framing without obscuring the subject.
 
-### 9.4 StorySpec shape (JSON-render-friendly; array order IS scene order)
+## 10. Story Rail and navigation
 
-```ts
-type StoryBlock =
-  | { type: "chapterHeading"; props: { kicker?: string; text: string } }
-  | { type: "narrativeBeat";  props: { text: string } }
-  | { type: "statReveal";     props: { value: number; suffix?: string; caption: string } }
-  | { type: "timeline";       props: { rows: { period: string; role: string; company: string }[] } };
+Every Story includes a persistent, unobtrusive **Story Rail**.
 
-type StorySpec = {
-  mode: "scenes" | "static";
-  scenes: { id: string; accent?: string; align?: "center" | "start"; blocks: StoryBlock[] }[];
-};
-```
+- It lists short human-readable Scene labels.
+- It identifies the active Scene.
+- Ready labels are click, tap, and keyboard jump targets.
+- One pending indicator may appear while a Scene is composing.
+- Activating a target scrolls to the Scene and moves focus only when the interaction requires it; passive scroll never steals focus.
+- Normal scrolling remains primary.
+- On narrow screens the Rail may collapse into a compact accessible control without removing direct Scene navigation.
 
-A Scene's optional `accent` selects from the §2.2 allowlist only. `align` maps `center`/`start` to layout alignment.
+The final Scene's Related Questions start new Stories. Selecting one:
 
-### 9.5 Static fallback (short answers)
+1. cancels unfinished work, if any;
+2. enters a new Prelude;
+3. pushes a new browser-history entry;
+4. replaces the current Story document rather than appending another Story;
+5. allows Back to restore the prior cached Story and its last scroll position.
 
-The **same block set** drives scenes and the static fallback by swapping only the motion driver. `StaticComposition` renders the blocks in a centered `max-w-3xl` column (§8.4) with plain mount stagger (shared `enter`, §9.1) — no scroll dependency. Short answers reuse the identical spec with `mode: "static"`; dense static answers use the bento register (§8.3).
+## 11. Story identity, caching, and invalidation
 
-### 9.6 Reduced motion
+> Status: **Shipped.** The current Story store uses private normalized cache identity, opaque public IDs, and Corpus/contract-version compatibility checks.
 
-`prefers-reduced-motion` forces every shader `speed` to `0` (Backdrop and texture) and should render a curated still `frame` for the Backdrop (§10). Component `enter`/scene stagger degrade to instant per framer-motion's reduced-motion handling. The prototype's `usePrefersReducedMotion()` is the reference; the app-wide seam lives in the Backdrop component (§10).
+### 11.1 Cache identity
 
-## 10. Backdrop preset guidance
+Complete Stories are reused by a key derived from:
 
-The **Backdrop** is a single full-screen `@paper-design/shaders-react` canvas (pinned `0.0.77`), steered per answer. Constraints below trace to the #34 research doc.
+- normalized question;
+- Corpus revision;
+- Story Contract version.
 
-- **Family:** the `GrainGradient` shaders are the sanctioned Backdrop for both registers — base uses `shape="wave"`, density uses `shape="sphere"`. Prototyped props:
+The storage key uses a non-reversible digest. Do not place normalized question text in KV key names.
 
-  | Register | shape | softness | intensity | noise | speed (active) |
-  |----------|-------|----------|-----------|-------|----------------|
-  | Base (Soft Field) | `wave` | `0.85` | `0.4` | `0.3` | `0.35` |
-  | Density (Night Matte) | `sphere` | `0.7` | `0.5` | `0.3` | `0.45` |
+The Story record contains the original display question, normalized digest, version stamps, validated Plan, composed Scenes, and Evidence Refs. Only complete validated Stories enter the durable cache.
 
-- **Presets only, never free-form params.** A spec selects an allowlisted **Preset** (shader + palette + speed); it never sets raw shader uniforms. The palettes in §2.1 / §2.3 are the two seed presets; the full Preset **Catalog** (and Night Matte Bento as a bundled Preset/Theme) is owned by #42.
-- **Pre-hydration / fallback:** always paint the CSS gradient (§2.1, §2.3) under the shader — it is both the pre-JS first paint and the WebGL-unavailable fallback. Wrap the canvas in an error boundary that falls back to that gradient (library throws if WebGL2 is missing; no built-in fallback).
-- **Reduced motion:** `speed={0}` cancels the rAF loop; pass a curated static `frame` for a branded still (§9.6).
-- **Mobile cost levers:** `minPixelRatio={1}` (prototype default) and cap `maxPixelCount` (~1.6M) on coarse pointers — gradients survive downscaling. `GrainGradient` blob/sphere is ~5× the wave cost; keep costly full-screen work off mobile where possible.
-- **Steering vs switching:** same-shader palette/speed changes are cheap uniform writes (tween app-side, keep color-array length constant). Switching shader *type* is a canvas remount — cross-fade by briefly stacking two canvases, never keep two past the fade.
-- **Pin exactly** `0.0.77`; upgrades are deliberate (breaking changes ship under 0.0.x).
+### 11.2 Opaque Story IDs
 
-## 11. Component boundaries
+A complete Story receives an opaque, non-semantic public ID and a dedicated URL such as `/ask/{storyId}`.
 
-Carried forward from v1 §4, re-skinned to §2–§8. Components adopt tokens under #29; the shared `useIsDark()` helper (`lib/jsonui/use-is-dark.ts`) still owns dark detection — no per-component `MutationObserver`.
+- The URL does not contain the raw question.
+- The same current-version normalized question reuses the validated cached Story and ID.
+- In-progress or aborted Stories are not shareable records.
+- Share controls remain unavailable until the complete Story validates.
 
-### 11.1 Primitives (`lib/jsonui/components/primitives.tsx`)
+### 11.3 Invalidation
 
-| Component | Contract |
-|-----------|----------|
-| `<Section>` | Full-width chapter: base container (§8.1), optional serif title (§6.1), `motion.section` with `enter`. `height="screen"` → `min-h-screen`; `centered` adds `flex flex-col items-center justify-center`. |
-| `<Stack>` | Vertical rhythm (`space-y-*` per `gap`), `motion.div` with `enter`. |
-| `<Columns>` / `<Grid>` | Literal responsive class maps (never template strings). Base cluster uses the §8.2 12-col pattern; dense uses the §8.3 bento. |
-| `<Prose>` | Body/muted ink (§2.1), `max-w-2xl`, `motion.p` with `enter`; optional `statePath` binds to Corpus state. |
-| `<Heading>` | Serif subsection heading `font-serif text-2xl tracking-tight` (§6.1), level clamped 1–4. |
-| `<Callout>` | Matte card (§3.1) with `border-l-4` in an accent from §2.2; `motion.div` with `enter`. |
-| `<Quote>` | `border-l-2` hairline + `pl-4 italic`, optional cite. |
+A Story ID is current only when both its Corpus revision and Story Contract version match the active deployment.
 
-### 11.2 Facts (`lib/jsonui/components/facts.tsx`)
+- **Any Corpus update invalidates all existing Story IDs.**
+- **Any incompatible Story Contract/Catalog change invalidates all existing Story IDs.**
+- Ordinary compatible fixes do not require a contract-version bump.
+- An old URL must not replay stale Scene content.
+- It renders an explicit outdated state and offers to regenerate the stored original question against current versions.
+- Regeneration creates or reuses a new current Story ID; it never mutates the old ID's rendition in place.
 
-| Component | Contract |
-|-----------|----------|
-| `<ProjectShowcase>` | Matte figure cards (§3.1) with **dithered** cover images (§4.1); `rounded-3xl overflow-hidden`; staggered `enter`. |
-| `<SkillGrid>` / `<SkillCloud>` | Pills on matte surfaces (§3), mono labels; category headings via serif `<Heading>` + `Code2` icon (§5). |
-| `<CareerTimeline>` | Left-border timeline; `motion.li` staggered `enter`; `Briefcase`/`Layers`-style icon at 1.5 stroke; company links use violet emphasis (§2.2). Promote to `SequencedTimeline` (§9.2) inside stories. |
-| `<ContactCard>` | Grid of matte cards (§3.1), large 1.5-stroke icon + title + link. |
-| `<StatCallout>` | Big serif/number value + caption on a matte surface; inside a story use `StatReveal` (§9.2). |
-| `<OperatingSystemsGrid>` | Matte-card grid; header icon `size-4` (was `w-8 h-8`) beside env name; staggered `enter`. |
+## 12. Recovery behavior
 
-### 11.3 Story primitives (`#37` → promote into Catalog)
+> Status: **Shipped.** Current generation and replay paths implement bounded repair, explicit plan/service failures, and cache-failure handling.
 
-`Scene`, `ChapterHeading`, `NarrativeBeat`, `StatReveal`, `SequencedTimeline`, `SceneProgress`, `StaticComposition` (§9). `SequencedTimeline` accepts exactly one of inline `rows` or a Corpus `statePath`; the two sources are mutually exclusive. Promotion of the scene-prototype primitives into the shipping Catalog is tracked under #37.
+### 12.1 Scene repair
 
-### 11.4 Personality (`lib/jsonui/components/extras.tsx`)
+If a planned Scene fails composition or validation:
 
-| Component | Contract |
-|-----------|----------|
-| `<LottieFigure>` | Centered `w-full max-w-sm`, optional caption. |
-| `<SpotifyNowPlaying>` | Reuses `<SpotifyReveal />`; keep styling untouched (audit under #29 for matte alignment). |
-| `<ImageBlock>` | Dithered image (§4.1) in a matte figure (`rounded-3xl`), optional mono figcaption. |
-| `<StepFlow>` | `motion.ol` staggered `motion.li`; numbered badge on a matte/accent surface (no `bg-blue-500` — use violet emphasis, §2.2). |
-| `<SideProjects>` | Static matte-card grid (escape hatch); promote to data-driven `FeatureCard` if answers need this shape. |
+1. retry composition against the locked Scene Plan and Evidence Refs;
+2. if repair still fails, render the same claims through a deterministic **Fallback Scene** Pattern;
+3. append it in the original order and continue with later Scenes.
 
-## 12. Home vs story / answer layouts
+A Fallback Scene preserves evidence and narrative role. It must not invent content, expose malformed JSON, show a generic error card, or restart the entire visible Story.
 
-### 12.1 Home layout
-- Rendered by `homeSpec.ts`; full-width `<Section>` stack in the base register.
-- Uses fact components (`SkillGrid`, `CareerTimeline`, `ProjectShowcase`, `ContactCard`); each section owns its container (§8.1).
+### 12.2 Plan and service failures
 
-### 12.2 Story / answer layout
-- Generated by `/api/generate` as a `StorySpec` (§9.4).
-- `mode: "scenes"` → full-height Scenes (§9.2), scroll-choreographed, base register (dense chapters may use the bento register, §8.3).
-- `mode: "static"` (short answers) → centered `max-w-3xl` reading column (§8.4) with `enter` stagger; dense static answers use the bento register.
-- Generated specs in the static column do **not** wrap content in `<Section>` (it adds full-width container + `min-h-screen`). Use `<Stack>` / `<Heading>` / `<Prose>` / `<Callout>` / `<StatReveal>` instead.
+If no valid Story Plan can be produced after bounded retries, show a technical retry state in the Prelude. Do not misclassify a generation outage as a Boundary Story and do not fall back to retired static answers.
 
-## 13. Prompt guidance for `/api/generate`
+### 12.3 Cache failures
 
-Append to the Catalog prompt:
+Cache read/write failures must not change answer semantics. A cache miss generates normally; a write failure leaves the complete Story usable in the active session but not shareable until persistence succeeds.
 
-1. Compose answers as a **Story** (`StorySpec`): `mode:"scenes"` for narrative multi-part answers, `mode:"static"` for short answers — the same blocks drive both.
-2. Cap each **Scene** at 2–3 blocks: one `chapterHeading` + one payload (`narrativeBeat` / `statReveal` / `timeline`). Promote heavy elements to their own scene.
-3. Use the **base (Soft Field)** register by default; switch to the **bento density** register (§8.3) only for stat-heavy or multi-fact-dense moments (both apply in light and dark).
-4. Surfaces are **matte** — never request blur, glass, or translucency. Use serif for display/chapter headings, mono for kickers/labels.
-5. Accents come from the fixed violet palette (§2.2); do not request colors. A Scene may set `accent` from the allowlist only.
-6. Backdrop is chosen by **Preset** (§10), never raw shader params.
-7. Keep motion implicit — components animate via `enter`; scenes via `whileInView`. Do not add custom `motion` props.
-8. Generated prose is concise (1–2 short paragraphs per beat) and lives in `max-w-2xl` (scene) / `max-w-3xl` (static).
+## 13. Accessibility and adaptive fidelity
 
-## 14. Migration from v1 (retired)
+### 13.1 Reduced motion
 
-| v1 (retired) | v2 replacement |
-|--------------|----------------|
-| **Lava-lamp navy-blob background** | Single `GrainGradient` **Backdrop** (§10), Preset-selected, with CSS-gradient fallback (§2.1). |
-| **`FrostedGlassBox`** (translucent frosted surface, `variant`/`glassOpacity`/`hoverEffect`) | **Matte** surfaces (§3): `rounded-3xl`/`rounded-2xl` opaque cards/tiles, hairline borders, soft shadows. `FrostedGlassBox` is retired — remove it from Catalog components (#29). No `backdrop-blur` anywhere. |
-| `blue`/`emerald`/`purple`/`amber`/`rose` frosted variants; `text-blue-500` links | Fixed **violet ink** accent (§2.2); mint secondary in the density register (dark). No bright saturated hues. |
-| Solid `bg-gray-100/900` media cards with raw `object-cover` photos | Tinted matte figure cards with **dithered** images (§4.1). |
-| `text-3xl font-bold` sans headings only | Serif display scale (§6.1) + dense sans display (§6.2); mono kickers/labels (§6.3). |
-| `rounded-xl` card / `container px-4` / `py-20` | `rounded-3xl`/`rounded-2xl` (§7.2); `max-w-6xl px-6 md:px-10`, `pb-24 pt-32` (§7.1). |
-| `bg-blue-500` step badges, per-component `MutationObserver` | Violet-emphasis badges (§2.2); shared `useIsDark()` (§11). |
-| Flat answer render in `max-w-3xl` | Story/Scene motion model (§9) with a `max-w-3xl` static fallback. |
+`prefers-reduced-motion` preserves the complete Story and replaces motion—not content:
 
-## 15. Deferred / open items
+- Backdrop speed becomes zero with a curated still frame;
+- Motion SVG and dotLottie focal assets render curated static states;
+- entrance sequences become immediate;
+- scroll jumps avoid animated scrolling;
+- the Rail, evidence, interactions, and all Scenes remain available.
 
-- **Display serif + mono fonts:** app loads only Inter; `font-serif`/`font-mono` fall back to system stacks. Wire a dedicated display serif and mono via `next/font` — needs a font-wiring ticket (not yet filed).
-- **Backdrop Preset Catalog:** the full allowlist of Presets (beyond the two seed palettes in §2.1/§2.3) and **Night Matte Bento as a bundled Preset/Theme** — owned by **#42**; shader constraints in **#34**.
-- **Story primitive promotion:** move `Scene`/`ChapterHeading`/`StatReveal`/etc. from the #37 prototype into the shipping Catalog — **#37**.
-- **Component adaptation to these tokens:** re-skin existing Catalog components off `FrostedGlassBox`/`blue` onto §2–§8 — **#29**; new primitives (shadcn) — **#30**.
-- **`react-icons` → lucide migration:** any remaining `react-icons` usages should move to lucide at 1.5 stroke (§5) — under **#29**.
+### 13.2 Mobile and low-power devices
+
+Mobile receives the same Scenes, patterns, evidence, and navigation as desktop. Adaptive fidelity may:
+
+- reduce shader pixel density;
+- simplify non-semantic transforms;
+- pause all off-screen players;
+- replace costly dotLottie playback with its curated static representation;
+- collapse the Rail presentation while retaining direct navigation.
+
+Do not replace Stories with generic mobile card stacks.
+
+### 13.3 Semantic requirements
+
+- One page-level heading; Scene headings follow a valid hierarchy.
+- Each Scene is a labeled semantic region.
+- Text contrast meets WCAG AA in both palettes.
+- Motion Assets that communicate meaning have accessible names or equivalent text; decorative assets are hidden.
+- Appended content is announced without interrupting current reading.
+- Optional interactions are reachable and operable by keyboard and touch.
+
+## 14. Performance contract
+
+- Target validated Scene 1 within 6 seconds and complete Story within 20 seconds.
+- Mount at most one full-screen Backdrop shader canvas.
+- Keep one focal animation active in the visible Scene; pause off-screen players.
+- Prefer Motion SVG; use dotLottie only when its richer authoring model earns the additional player cost.
+- Keep static CSS fallbacks under every shader.
+- Avoid cross-fading full shader families during a Story; Scene Cues stay within one Preset.
+- Abort superseded model work.
+- Progressive delivery appends in order and does not block scrolling through ready Scenes.
+
+Performance degradation changes effects, never Story facts, Scene count, or access to evidence.
+
+## 15. Validation and acceptance
+
+> Status: **Roadmap.** These checks describe the full v3 acceptance target. Current automated validation covers the shipped seven-pattern v5 contract, not the 17-pattern experience matrix below.
+
+Implementation is not complete until focused automated and browser-level checks prove:
+
+### Schema and grounding
+
+- 3–5 Scenes are required and `static` is rejected.
+- Scene 1 contains the direct answer role.
+- Pattern names, Registers, Motion Asset IDs, Presets, and Cues are allowlisted.
+- Pattern evidence-shape requirements are enforced.
+- Claims without valid Evidence Refs fail.
+- Boundary Stories contain exactly the three required roles and do not infer an answer.
+- Raw SVG, code, CSS, and shader params in generated data are rejected.
+
+### Richness
+
+- No Pattern repeats within a Story.
+- At least two Registers appear.
+- At least one evidence-heavy Pattern appears.
+- Every Scene has one focal Motion Asset.
+- The final Scene contains grounded Related Questions.
+- A three-paragraph or three-heading wrapper cannot pass as a rich Story.
+
+### Streaming and recovery
+
+- Prelude states reflect real lifecycle phases.
+- Scene 1 reveals before later Scenes.
+- Scenes append in Plan order.
+- The composing sentinel appears only while work is pending.
+- New questions cancel old work and incomplete Stories are not cached.
+- Invalid Scenes repair, then use deterministic fallback without losing earlier Scenes.
+
+### Identity and invalidation
+
+- Cache keys do not contain question plaintext.
+- Same normalized current-version question reuses one Story.
+- Opaque URLs replay only complete current-version Stories.
+- Corpus or incompatible contract changes invalidate old IDs and expose the refresh path without stale content.
+- Related Questions push history; Back restores the previous Story and scroll position.
+
+### Experience
+
+- All 17 Patterns pass light, dark, mobile, keyboard, reduced-motion, and streaming-state checks before entering the generated allowlist.
+- Story Rail active state and jumps work with mouse, touch, and keyboard.
+- Append operations do not steal focus or force scroll.
+- Off-screen animation pauses.
+- Main content remains understandable with shaders, JavaScript animation, WebGL, or motion disabled.
+
+## 16. Clean migration from v2
+
+The v3 cutover is intentionally clean:
+
+| Retired v2/current behavior | v3 authority |
+|---|---|
+| `mode: "scenes" | "static"` | Story always contains 3–5 Scenes. |
+| `StaticComposition` short-answer path | Removed; no alias or hidden emergency path. |
+| Soft Field generated default | Nocturne generated language in coordinated light/dark palettes. |
+| `ambientLava` generated default | Dither-family Story Preset selected by Plan. |
+| Broad model-visible shader-family catalog | Seven named dither Story Presets and four bounded Scene Cues. |
+| One model-produced arbitrary Catalog tree | Plan-first selection of typed Scene Patterns and trusted assets. |
+| Prompt-only richness | Deterministic richness validator. |
+| Whole-Spec reveal | Scene 1 first, then ordered append. |
+| Normalized question text in KV key | Non-reversible versioned digest. |
+| Catalog-version cache only | Corpus revision plus Story Contract version. |
+| Share semantics implicit | Opaque complete-Story ID with explicit invalidation and refresh path. |
+| Generated/raw animation possibility | Trusted Motion Asset registry; Motion SVG plus vetted dotLottie. |
+
+Migration updates every generator prompt, schema, validator, renderer, cache caller, navigation caller, test, and documentation reference together. Do not leave compatibility aliases, deprecated fields, dual rendering paths, or model-visible retired Presets.

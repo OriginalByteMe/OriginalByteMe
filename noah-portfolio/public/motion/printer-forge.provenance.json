@@ -1,0 +1,26 @@
+{
+  "assetId": "printer-forge",
+  "format": "dotLottie v2",
+  "creator": "LottieFiles community creator (page attribution to confirm)",
+  "sourceKind": "project-authored",
+  "source": "https://lottiefiles.com",
+  "revision": "sha256:ac4b7ee5d702839e536c41b4c51b7dc994aaa778441e99cdbab3437b31a0e4a5",
+  "reviewedOn": "2026-07-14",
+  "embeddedResources": {
+    "images": false,
+    "fonts": false,
+    "audio": false,
+    "themes": false,
+    "stateMachines": false
+  },
+  "runtimeLicense": {
+    "name": "dotLottie React",
+    "identifier": "MIT",
+    "notice": "@lottiefiles/dotlottie-react is distributed under the MIT License."
+  },
+  "choreographyLicense": {
+    "name": "3D printer at work",
+    "identifier": "Lottie Simple License (FL 9.13.21)",
+    "notice": "Downloaded from lottiefiles.com by Noah Rijkaard on 2026-07-14 (file: 3D printer.lottie); per-asset page URL and creator attribution to confirm."
+  }
+}
