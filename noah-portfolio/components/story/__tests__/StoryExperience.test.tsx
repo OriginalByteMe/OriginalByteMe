@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -8,6 +9,8 @@ import type { PublicStory, StoryPlan, StoryScene } from "@/lib/story/types";
 const motionState = vi.hoisted(() => ({ reducedMotion: false }));
 
 vi.mock("framer-motion", () => ({
+  AnimatePresence: ({ children }: { children: ReactNode }) => <>{children}</>,
+  motion: { div: "div" },
   useReducedMotion: () => motionState.reducedMotion,
 }));
 
@@ -16,6 +19,34 @@ vi.mock("@/components/story/MotionAsset", () => ({
     <div data-testid="motion-asset" data-asset-id={assetId}>
       Curated motion: {assetId}
     </div>
+  ),
+}));
+
+vi.mock("@/components/story/remotion/RemotionScene", () => ({
+  RemotionScene: ({ fallback }: { fallback: ReactNode }) => (
+    <div data-testid="remotion-scene">{fallback}</div>
+  ),
+}));
+
+vi.mock("@/components/story/SceneTransition", () => ({
+  SceneTransition: ({
+    index,
+    seed,
+    from,
+    to,
+  }: {
+    index: number;
+    seed: string;
+    from: StoryScene;
+    to: StoryScene;
+  }) => (
+    <div
+      data-testid="scene-transition"
+      data-index={index}
+      data-seed={seed}
+      data-from={from.id}
+      data-to={to.id}
+    />
   ),
 }));
 
@@ -118,12 +149,14 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
 describe("StoryExperience", () => {
-  it("types a creative Prelude phrase, then flips blueprint rows with real Scene events", () => {
+  it("whispers phase and Scene progress in side pills, then removes them on completion", () => {
+    vi.useFakeTimers();
     const plan = makePlan();
     const scenes = makeScenes(plan);
     const common = {
@@ -143,7 +176,12 @@ describe("StoryExperience", () => {
       "Let me think about Noah",
     );
     expect(document.querySelector(".story-phrase__typed")).toHaveTextContent("");
-    expect(screen.getByText("Planning the Story")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("group", { name: "Story generation progress" })).getByText(
+        "Planning the Story",
+      ),
+    ).toBeInTheDocument();
+    expect(document.querySelector(".story-prelude__phase")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Share this Story" })).not.toBeInTheDocument();
 
     rerender(
@@ -151,19 +189,8 @@ describe("StoryExperience", () => {
     );
 
     expect(screen.queryByText("Preparing your Story")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Building the plan into Scenes" })).toBeInTheDocument();
-    const blueprint = screen.getByRole("list", { name: "Planned Story scenes" });
-    let rows = within(blueprint).getAllByRole("listitem");
-    expect(rows).toHaveLength(3);
-    expect(rows.map((row) => row.dataset.state)).toEqual(["pending", "pending", "pending"]);
-    expect(rows[0]).toHaveTextContent("hero statement");
-    expect(screen.getByText("Planning the Story")).toBeInTheDocument();
-
-    rerender(
-      <StoryExperience {...common} phase="composing" plan={plan} scenes={[]} />,
-    );
-    rows = within(blueprint).getAllByRole("listitem");
-    expect(rows.map((row) => row.dataset.state)).toEqual(["composing", "pending", "pending"]);
+    expect(document.querySelector(".story-blueprint")).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Planned Story scenes" })).not.toBeInTheDocument();
 
     rerender(
       <StoryExperience
@@ -174,29 +201,54 @@ describe("StoryExperience", () => {
       />,
     );
 
-    rows = within(blueprint).getAllByRole("listitem");
-    expect(rows.map((row) => row.dataset.state)).toEqual(["ready", "composing", "pending"]);
+    const pills = screen.getByRole("group", { name: "Story generation progress" });
+    expect(within(pills).getByText("Composing Scenes")).toBeInTheDocument();
+    expect(
+      within(pills).getByText("Composed 1 of 3 — Start with the operating truth"),
+    ).toBeInTheDocument();
+    expect(pills.querySelectorAll(".story-phase-pill")).toHaveLength(2);
+    expect(pills.querySelector(".story-phase-pill--scene")).toHaveAttribute(
+      "data-state",
+      "ready",
+    );
+    expect(screen.getByRole("status", { name: "Story generation status" })).toHaveTextContent(
+      "1 of 3 planned Scenes ready. Composing Trace decisions to evidence",
+    );
+
+    act(() => vi.advanceTimersByTime(1200));
+    expect(
+      within(pills).getByText("Composing 2 of 3 — Trace decisions to evidence"),
+    ).toBeInTheDocument();
+    expect(pills.querySelector(".story-phase-pill--scene")).toHaveAttribute(
+      "data-state",
+      "composing",
+    );
+
     const sceneSections = document.querySelectorAll("section[data-story-scene]");
     expect(sceneSections).toHaveLength(1);
     expect(sceneSections[0]).toHaveClass("story-scene");
     expect(screen.getByRole("heading", { name: scenes[0].title })).toBeInTheDocument();
+    expect(screen.getAllByTestId("remotion-scene")).toHaveLength(1);
     expect(screen.getAllByTestId("motion-asset")).toHaveLength(1);
+    expect(screen.queryByTestId("scene-transition")).not.toBeInTheDocument();
     expect(screen.getByText("Composing Scene 2 of 3")).toBeInTheDocument();
-    expect(document.querySelector(".story-sentinel")?.tagName).toBe("DIV");
 
+    const story = makeStory(plan);
     rerender(
       <StoryExperience
         {...common}
-        phase="validating"
-        plan={plan}
-        scenes={scenes}
+        phase="publishing"
+        plan={story.plan}
+        scenes={story.scenes}
+        story={story}
       />,
     );
-    rows = within(blueprint).getAllByRole("listitem");
-    expect(rows.map((row) => row.dataset.state)).toEqual(["ready", "ready", "ready"]);
-    expect(document.querySelectorAll("section[data-story-scene]")).toHaveLength(3);
-    expect(screen.queryByText(/Composing Scene/)).not.toBeInTheDocument();
-    expect(screen.getByText("Validating the Story")).toBeInTheDocument();
+
+    expect(
+      screen.queryByRole("group", { name: "Story generation progress" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("status", { name: "Story generation status" })).not.toBeInTheDocument();
+    expect(document.querySelector(".story-phase-pill")).not.toBeInTheDocument();
   });
 
   it("swaps complete Prelude phrases without typewriter motion when reduced motion is preferred", async () => {
@@ -250,6 +302,31 @@ describe("StoryExperience", () => {
     const sections = document.querySelectorAll<HTMLElement>("section[data-story-scene]");
     expect(sections).toHaveLength(3);
     sections.forEach((section) => expect(section).toHaveClass("story-scene"));
+    story.scenes.forEach((scene, index) => {
+      expect(
+        within(sections[index]).getByRole("heading", { level: 2, name: scene.title }),
+      ).toBeInTheDocument();
+    });
+    expect(screen.getAllByTestId("scene-transition")).toHaveLength(2);
+    expect(screen.getAllByTestId("scene-transition").map((transition) => ({
+      index: transition.dataset.index,
+      seed: transition.dataset.seed,
+      from: transition.dataset.from,
+      to: transition.dataset.to,
+    }))).toEqual([
+      {
+        index: "1",
+        seed: story.plan.question,
+        from: story.scenes[0].id,
+        to: story.scenes[1].id,
+      },
+      {
+        index: "2",
+        seed: story.plan.question,
+        from: story.scenes[1].id,
+        to: story.scenes[2].id,
+      },
+    ]);
     expect(screen.getAllByTestId("motion-asset")).toHaveLength(3);
     expect(screen.getAllByTestId("motion-asset").map((asset) => asset.dataset.assetId)).toEqual([
       "circuit-mind",
@@ -264,7 +341,8 @@ describe("StoryExperience", () => {
     const sourceTrigger = within(firstScene).getByRole("button", {
       name: "Sources for this claim",
     });
-    expect(claim.closest(".story-scene__claim-row")).toContainElement(sourceTrigger);
+    expect(firstScene.querySelector(".story-scene__stage")).toContainElement(sourceTrigger);
+    expect(claim.closest(".story-scene__detail")).toBeInTheDocument();
 
     act(() => sourceTrigger.focus());
     let sourcePopover = within(firstScene).getByRole("dialog", {

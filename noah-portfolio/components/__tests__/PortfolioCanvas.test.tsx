@@ -24,6 +24,10 @@ vi.mock("@/components/story/MotionAsset", () => ({
   ),
 }));
 
+vi.mock("@/components/story/SceneTransition", () => ({
+  SceneTransition: () => <div data-testid="scene-transition" />,
+}));
+
 const evidence = [CORPUS_EVIDENCE_REFS[0], CORPUS_EVIDENCE_REFS[1]];
 const FIRST_STORY_ID = "AbCdEfGhIjKlMnOpQrStUvWx";
 const SECOND_STORY_ID = "ZyXwVuTsRqPoNmLkJiHgFeDc";
@@ -229,6 +233,7 @@ describe("PortfolioCanvas Story integration", () => {
     expect(screen.getByText("Composing Scene 2 of 3")).toBeInTheDocument();
     expect(document.querySelectorAll("section[data-story-scene]")).toHaveLength(1);
     expect(screen.getAllByTestId("motion-asset")).toHaveLength(1);
+    expect(screen.queryByTestId("scene-transition")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Share this Story" })).not.toBeInTheDocument();
 
     await act(async () => {
@@ -239,6 +244,7 @@ describe("PortfolioCanvas Story integration", () => {
     await waitFor(() => expect(screen.getByTestId("canvas-mode")).toHaveTextContent("answer"));
     expect(document.querySelectorAll("section[data-story-scene]")).toHaveLength(3);
     expect(screen.getAllByTestId("motion-asset")).toHaveLength(3);
+    expect(screen.getAllByTestId("scene-transition")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Share this Story" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Related Questions" })).toBeInTheDocument();
     expect(window.location.pathname).toBe(`/ask/${FIRST_STORY_ID}`);

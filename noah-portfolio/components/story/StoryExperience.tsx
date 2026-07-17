@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import { useReducedMotion } from 'framer-motion';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import type { RefObject } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowRight, Check, CircleDashed, Info, Link2, RotateCcw } from 'lucide-react';
 
 import type {
@@ -12,7 +13,8 @@ import type {
   StoryScene,
 } from '@/lib/story/types';
 import { MotionAsset } from '@/components/story/MotionAsset';
-import { StoryProjects } from '@/components/story/StoryProjects';
+import { SceneTransition } from '@/components/story/SceneTransition';
+import { RemotionScene } from '@/components/story/remotion/RemotionScene';
 
 
 const PHASE_LABELS: Record<StoryPhase, string> = {
@@ -168,79 +170,134 @@ function StoryPhraseCarousel() {
   );
 }
 
-function StoryBlueprint({
-  plan,
+function StoryPhasePills({
   phase,
+  plan,
   readyCount,
+  story,
+  error,
 }: {
-  plan: StoryPlan;
   phase: StoryPhase | null;
+  plan: StoryPlan | null;
   readyCount: number;
+  story: PublicStory | null;
+  error: string | null;
 }) {
-  const composingIndex = phase === 'composing' && readyCount < plan.scenes.length
-    ? readyCount
+  const reducedMotion = Boolean(useReducedMotion());
+  const previousReadyCount = useRef(0);
+  const [landedCount, setLandedCount] = useState<number | null>(null);
+  const sceneCount = plan?.scenes.length ?? 0;
+  const safeReadyCount = Math.min(readyCount, sceneCount);
+
+  useEffect(() => {
+    const previous = previousReadyCount.current;
+    previousReadyCount.current = readyCount;
+    if (phase !== 'composing' || !plan || readyCount <= previous) {
+      setLandedCount(null);
+      return;
+    }
+
+    const nextLandedCount = Math.min(readyCount, plan.scenes.length);
+    if (nextLandedCount === 0) return;
+    setLandedCount(nextLandedCount);
+    const timer = window.setTimeout(() => setLandedCount(null), 1200);
+    return () => window.clearTimeout(timer);
+  }, [phase, plan, readyCount]);
+
+  const landedScene = plan && landedCount
+    ? plan.scenes[landedCount - 1]
     : null;
-  const status = composingIndex === null
-    ? `${readyCount} of ${plan.scenes.length} planned Scenes ready`
-    : `${readyCount} of ${plan.scenes.length} planned Scenes ready. Composing ${plan.scenes[composingIndex].title}`;
+  const composingScene = phase === 'composing' && plan && safeReadyCount < sceneCount
+    ? plan.scenes[safeReadyCount]
+    : null;
+  const completedScene = phase === 'composing' && plan && sceneCount > 0 && safeReadyCount === sceneCount
+    ? plan.scenes[sceneCount - 1]
+    : null;
+  const sceneProgress = landedScene
+    ? `Composed ${landedCount} of ${sceneCount} — ${landedScene.title}`
+    : composingScene
+      ? `Composing ${safeReadyCount + 1} of ${sceneCount} — ${composingScene.title}`
+      : completedScene
+        ? `Composed ${sceneCount} of ${sceneCount} — ${completedScene.title}`
+        : null;
+  const progressStatus = plan
+    ? composingScene
+      ? `${safeReadyCount} of ${sceneCount} planned Scenes ready. Composing ${composingScene.title}`
+      : `${safeReadyCount} of ${sceneCount} planned Scenes ready`
+    : '';
+  const visible = phase !== null && story === null && error === null;
+  const initial = reducedMotion ? { opacity: 0 } : { opacity: 0, x: '100%', scale: 0.96 };
+  const exit = reducedMotion ? { opacity: 0 } : { opacity: 0, x: '100%', scale: 0.96 };
+  const transition = reducedMotion
+    ? { duration: 0.18 }
+    : { type: 'spring' as const, stiffness: 320, damping: 28 };
 
   return (
-    <section className="story-blueprint" aria-labelledby="story-blueprint-title">
-      <div className="story-blueprint__heading">
-        <div>
-          <p className="story-eyebrow">Live Story blueprint</p>
-          <h2 id="story-blueprint-title">Building the plan into Scenes</h2>
-        </div>
-        {phase ? (
-          <p className="story-blueprint__phase">
-            <span aria-hidden="true">Phase</span>
-            {PHASE_LABELS[phase]}
-          </p>
+    <>
+      <AnimatePresence>
+        {visible ? (
+          <motion.div
+            className="story-phase-pills"
+            role="group"
+            aria-label="Story generation progress"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <AnimatePresence mode="popLayout">
+              <motion.div
+                key={`phase-${phase}`}
+                className="story-phase-pill story-phase-pill--phase"
+                initial={initial}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={exit}
+                transition={transition}
+              >
+                <span>Phase</span>
+                {phase ? PHASE_LABELS[phase] : null}
+              </motion.div>
+              {sceneProgress ? (
+                <motion.div
+                  key={landedScene ? `landed-${landedCount}` : `scene-${safeReadyCount}`}
+                  className="story-phase-pill story-phase-pill--scene"
+                  data-state={landedScene || completedScene ? 'ready' : 'composing'}
+                  initial={initial}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={exit}
+                  transition={transition}
+                >
+                  {landedScene || completedScene ? (
+                    <Check aria-hidden="true" />
+                  ) : (
+                    <CircleDashed aria-hidden="true" />
+                  )}
+                  <span>{sceneProgress}</span>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+          </motion.div>
         ) : null}
-      </div>
-      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {status}
-      </p>
-      <ol className="story-blueprint__list" aria-label="Planned Story scenes">
-        {plan.scenes.map((scene, index) => {
-          const state = index < readyCount
-            ? 'ready'
-            : index === composingIndex
-              ? 'composing'
-              : 'pending';
-          return (
-            <li key={scene.id} className="story-blueprint__row" data-state={state}>
-              <span className="story-blueprint__mark" aria-hidden="true">
-                {state === 'ready' ? (
-                  <Check />
-                ) : state === 'composing' ? (
-                  <CircleDashed />
-                ) : (
-                  String(index + 1).padStart(2, '0')
-                )}
-              </span>
-              <span className="story-blueprint__scene">
-                <strong>{scene.title}</strong>
-                <span>{scene.pattern.replaceAll('-', ' ')}</span>
-              </span>
-              <span className="story-blueprint__state">
-                {state === 'ready' ? 'Ready' : state === 'composing' ? 'Composing' : 'Queued'}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
-    </section>
+      </AnimatePresence>
+      {visible && progressStatus ? (
+        <p
+          className="sr-only"
+          role="status"
+          aria-label="Story generation status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {progressStatus}
+        </p>
+      ) : null}
+    </>
   );
 }
 
 function StoryPrelude({
-  phase,
   question,
   error,
   onRetry,
 }: {
-  phase: StoryPhase | null;
   question: string;
   error: string | null;
   onRetry: () => void;
@@ -260,15 +317,7 @@ function StoryPrelude({
             </button>
           </div>
         ) : (
-          <>
-            <StoryPhraseCarousel />
-            {phase ? (
-              <p className="story-prelude__phase">
-                <span aria-hidden="true">Phase</span>
-                {PHASE_LABELS[phase]}
-              </p>
-            ) : null}
-          </>
+          <StoryPhraseCarousel />
         )}
       </div>
     </section>
@@ -420,10 +469,12 @@ function SceneSources({
 
 function StorySceneSection({
   scene,
+  plan,
   cue,
   evidenceById,
 }: {
   scene: StoryScene;
+  plan: StoryPlan;
   cue: StoryPlan['scenes'][number]['cue'];
   evidenceById: Map<string, EvidenceRef>;
 }) {
@@ -441,34 +492,51 @@ function StorySceneSection({
       aria-labelledby={titleId}
     >
       <div className="story-scene__frame">
-        <header className="story-scene__heading">
-          <p className="story-scene__role">
-            <span>{String(scene.index + 1).padStart(2, '0')}</span>
-            {ROLE_LABELS[scene.role]}
-          </p>
-          <h2 id={titleId}>{scene.title}</h2>
-          <div className="story-scene__claim-row">
-            <p className="story-scene__claim">{scene.claim}</p>
+        <div className="story-scene__stage">
+          <RemotionScene
+            scene={scene}
+            plan={plan}
+            fallback={<MotionAsset assetId={scene.assetId} />}
+          />
+
+          <header className="story-scene__chrome">
+            <p className="story-scene__role" aria-hidden="true">
+              <span>{String(scene.index + 1).padStart(2, '0')}</span>
+              {ROLE_LABELS[scene.role]}
+            </p>
+            <h2 id={titleId} className="sr-only">{scene.title}</h2>
+          </header>
+
+          <div className="story-scene__proof">
             <SceneSources scene={scene} evidenceById={evidenceById} />
           </div>
-        </header>
-
-        <div className="story-scene__asset">
-          <MotionAsset assetId={scene.assetId} />
         </div>
 
-        <div className="story-scene__body">
-          {scene.body.split(/\n\n+/).map((paragraph) => (
-            <p key={paragraph}>{paragraph}</p>
-          ))}
-        </div>
-
-        {scene.projects?.length ? (
-          <div className="story-scene__projects">
-            <StoryProjects projects={scene.projects} />
+        <div className="story-scene__detail">
+          <p className="story-scene__claim">{scene.claim}</p>
+          <div className="story-scene__body">
+            {scene.body.split(/\n\n+/).map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
           </div>
-        ) : null}
+        </div>
 
+        {scene.pattern !== 'project-spotlight' && scene.projects?.length ? (
+          <nav className="story-scene__projects" aria-label="Referenced projects">
+            {scene.projects.map((project) => (
+              <a
+                key={project.slug}
+                href={project.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`View ${project.title} project`}
+              >
+                <span>{project.title}</span>
+                <ArrowRight aria-hidden="true" />
+              </a>
+            ))}
+          </nav>
+        ) : null}
       </div>
     </section>
   );
@@ -500,12 +568,20 @@ export default function StoryExperience({
 
   if (!plan) {
     return (
-      <StoryPrelude
-        phase={phase}
-        question={question}
-        error={error}
-        onRetry={onRetry}
-      />
+      <>
+        <StoryPrelude
+          question={question}
+          error={error}
+          onRetry={onRetry}
+        />
+        <StoryPhasePills
+          phase={phase}
+          plan={plan}
+          readyCount={scenes.length}
+          story={story}
+          error={error}
+        />
+      </>
     );
   }
 
@@ -574,9 +650,13 @@ export default function StoryExperience({
         ) : null}
       </header>
 
-      {!story ? (
-        <StoryBlueprint plan={plan} phase={phase} readyCount={scenes.length} />
-      ) : null}
+      <StoryPhasePills
+        phase={phase}
+        plan={plan}
+        readyCount={scenes.length}
+        story={story}
+        error={error}
+      />
 
       {scenes.length > 0 ? (
         <StoryRail
@@ -588,13 +668,23 @@ export default function StoryExperience({
       ) : null}
 
       <div className="story-scenes">
-        {scenes.map((scene) => (
-          <StorySceneSection
-            key={scene.id}
-            scene={scene}
-            cue={plan.scenes[scene.index].cue}
-            evidenceById={evidenceById}
-          />
+        {scenes.map((scene, position) => (
+          <Fragment key={scene.id}>
+            {position > 0 ? (
+              <SceneTransition
+                index={scene.index}
+                seed={plan.question}
+                from={scenes[position - 1]}
+                to={scene}
+              />
+            ) : null}
+            <StorySceneSection
+              scene={scene}
+              plan={plan}
+              cue={plan.scenes[scene.index].cue}
+              evidenceById={evidenceById}
+            />
+          </Fragment>
         ))}
       </div>
 

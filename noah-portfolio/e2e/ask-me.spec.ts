@@ -10,8 +10,6 @@ import {
   RELATED_STORY_ID,
 } from "@/lib/story/__fixtures__/story-fixtures";
 
-const ACTIVE_ASSET_IDS = ["circuit-mind", "print-layers", "morning-coffee"];
-
 function publicationTokenFor(story: PublicStory): string {
   return `${story.id}.${"a".repeat(43)}`;
 }
@@ -222,31 +220,39 @@ test("progressively reveals ordered Scenes, stable reading position, Rail, share
   await pushStoryEvent(page); // planning
   await expect(page.getByText("Planning the Story")).toBeVisible();
   await pushStoryEvent(page); // plan
-  await expect(page.getByRole("heading", { name: "Building the plan into Scenes" })).toBeVisible();
-  const blueprintRows = page
-    .getByRole("list", { name: "Planned Story scenes" })
-    .getByRole("listitem");
-  await expect(blueprintRows).toHaveCount(3);
-  await expect(blueprintRows.nth(0)).toHaveAttribute("data-state", "pending");
-  await expect(blueprintRows.nth(0)).toContainText("hero statement");
+  const phasePills = page.locator(".story-phase-pills");
+  const phasePill = phasePills.locator(".story-phase-pill--phase").last();
+  const sceneProgressPill = phasePills.locator(".story-phase-pill--scene").last();
+  await expect(phasePills).toBeVisible();
+  await expect(phasePill).toContainText("Planning the Story");
+  await expect(sceneProgressPill).toHaveCount(0);
   await pushStoryEvent(page); // composing
-  await expect(blueprintRows.nth(0)).toHaveAttribute("data-state", "composing");
+  await expect(phasePills).toContainText("Composing Scenes");
+  await expect(sceneProgressPill).toContainText(
+    "Composing 1 of 3 — Systems become usable products",
+  );
+  await expect(sceneProgressPill).toHaveAttribute("data-state", "composing");
 
   await pushStoryEvent(page); // Scene 1
   await expect(page.getByRole("heading", { name: "Systems become usable products" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Preparing your Story" })).toHaveCount(0);
-  await expect(blueprintRows.nth(0)).toHaveAttribute("data-state", "ready");
-  await expect(blueprintRows.nth(1)).toHaveAttribute("data-state", "composing");
+  await expect(sceneProgressPill).toContainText(/(Composed 1 of 3|Composing 2 of 3)/);
+  await expect(page.locator(".story-transition")).toHaveCount(0);
   const desktopRail = page.getByRole("navigation", { name: "Story scenes" });
   await expect(desktopRail).toBeVisible();
   await expect(desktopRail.getByRole("button", { name: /Evidence from shipped work/ })).toBeDisabled();
   await expect(page.getByRole("status").filter({ hasText: "Composing Scene 2 of 3" })).toBeVisible();
 
   const firstScene = page.locator("[data-story-scene]").first();
+  const firstStage = firstScene.locator(".story-scene__stage");
+  await expect(firstStage.locator(".story-scene__composition")).toHaveAttribute(
+    "aria-hidden",
+    "true",
+  );
   const firstSource = CURRENT_PUBLIC_STORY.evidence.find(
     ({ id }) => id === CURRENT_PUBLIC_STORY.scenes[0].evidenceRefIds[0],
   )!;
-  const sourceTrigger = firstScene.getByRole("button", { name: "Sources for this claim" });
+  const sourceTrigger = firstStage.getByRole("button", { name: "Sources for this claim" });
   await sourceTrigger.focus();
   const sourcePopover = firstScene.getByRole("dialog", { name: "Sources for this claim" });
   await expect(sourcePopover).toBeVisible();
@@ -274,8 +280,8 @@ test("progressively reveals ordered Scenes, stable reading position, Rail, share
   await expect(page.getByRole("heading", { name: "Evidence from shipped work" })).toBeVisible();
   await expect(firstRailTarget).toBeFocused();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(scrollBeforeAppend);
-  await expect(blueprintRows.nth(1)).toHaveAttribute("data-state", "ready");
-  await expect(blueprintRows.nth(2)).toHaveAttribute("data-state", "composing");
+  await expect(sceneProgressPill).toContainText(/(Composed 2 of 3|Composing 3 of 3)/);
+  await expect(page.locator(".story-transition")).toHaveCount(1);
   await expect(page.getByRole("status").filter({ hasText: "Composing Scene 3 of 3" })).toBeVisible();
 
   await pushStoryEvent(page); // Scene 3
@@ -284,7 +290,8 @@ test("progressively reveals ordered Scenes, stable reading position, Rail, share
     "Evidence from shipped work",
     "Craft meets delivery",
   ]);
-  await expect(blueprintRows.nth(2)).toHaveAttribute("data-state", "ready");
+  await expect(sceneProgressPill).toContainText("Composed 3 of 3 — Craft meets delivery");
+  await expect(page.locator(".story-transition")).toHaveCount(2);
   const projectShowcases = page.getByLabel("Referenced projects");
   await expect(projectShowcases).toHaveCount(2);
   await expect(projectShowcases.first().getByRole("link")).toHaveCount(2);
@@ -295,13 +302,27 @@ test("progressively reveals ordered Scenes, stable reading position, Rail, share
   const scenes = page.locator("[data-story-scene]");
   await expect(scenes).toHaveCount(3);
   for (let index = 0; index < 3; index += 1) {
-    await expect(scenes.nth(index).locator("[data-motion-asset]")).toHaveCount(1);
+    const scene = scenes.nth(index);
+    const stage = scene.locator(".story-scene__stage");
+    await expect(stage).toHaveCount(1);
+    await expect(stage.locator(".story-scene__composition")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    await expect(
+      stage.getByRole("button", { name: "Sources for this claim" }),
+    ).toHaveCount(1);
+    await expect(scene.locator(".story-scene__detail")).toBeVisible();
+    expect(
+      await scene.evaluate((element) => {
+        const stageElement = element.querySelector(".story-scene__stage");
+        const detailElement = element.querySelector(".story-scene__detail");
+        if (!stageElement || !detailElement) return false;
+        return detailElement.getBoundingClientRect().top >=
+          stageElement.getBoundingClientRect().bottom;
+      }),
+    ).toBe(true);
   }
-  expect(
-    await scenes.locator("[data-motion-asset]").evaluateAll((assets) =>
-      assets.map((asset) => asset.getAttribute("data-motion-asset")),
-    ),
-  ).toEqual(ACTIVE_ASSET_IDS);
 
   await pushRemainingStoryEvents(page, events.length, 6);
   await expect(page).toHaveURL(`/ask/${CURRENT_STORY_ID}`);
@@ -344,6 +365,23 @@ test("a current public Story survives reload without generation", async ({ page 
   await expect(page.getByRole("heading", { name: CURRENT_QUESTION })).toBeVisible();
   await expect(page.locator("[data-story-scene]")).toHaveCount(3);
   expect(generateRequests).toBe(0);
+});
+
+test("a direct Story load starts Remotion playback without a user gesture", async ({ page }) => {
+  await page.goto(`/ask/${CURRENT_STORY_ID}`);
+
+  const firstComposition = page.locator(".story-scene__composition").first();
+  await expect(firstComposition).toHaveAttribute("aria-hidden", "true");
+  const driftingDot = firstComposition.locator("span").first();
+  await expect(driftingDot).toBeAttached();
+  const initialTransform = await driftingDot.evaluate(
+    (element) => getComputedStyle(element).transform,
+  );
+
+  await expect.poll(
+    () => driftingDot.evaluate((element) => getComputedStyle(element).transform),
+    { timeout: 3_000, intervals: [100, 250, 500] },
+  ).not.toBe(initialTransform);
 });
 
 test("an outdated URL exposes no stale Scene and regenerates into a current opaque ID", async ({ page }) => {
@@ -449,16 +487,17 @@ test("desktop scroll, theme, keyboard navigation, and offscreen motion preserve 
 
   const viewportHeight = await page.evaluate(() => window.innerHeight);
   await page.mouse.wheel(0, viewportHeight * 1.25);
-  await expect(page.getByRole("heading", { name: "Evidence from shipped work" })).toBeInViewport();
+  const secondStage = page.locator("[data-story-scene]").nth(1).locator(".story-scene__stage");
+  await expect(secondStage).toBeInViewport();
 
   const thirdTarget = desktopRail.getByRole("button", { name: /Craft meets delivery/ });
   await thirdTarget.focus();
   await page.keyboard.press("Enter");
   await expect(thirdTarget).toBeFocused();
-  const morningCoffee = page.locator('[data-motion-asset="morning-coffee"]');
-  await expect(page.getByRole("heading", { name: "Craft meets delivery" })).toBeInViewport();
-  await expect(morningCoffee).toHaveAttribute("data-motion-renderer", "dotlottie");
-  await expect(morningCoffee).toHaveAttribute("data-motion-state", "playing");
+  const thirdStage = page.locator("[data-story-scene]").nth(2).locator(".story-scene__stage");
+  const thirdComposition = thirdStage.locator(".story-scene__composition");
+  await expect(thirdStage).toBeInViewport();
+  await expect(thirdComposition).toHaveAttribute("aria-hidden", "true");
 
   const themeToggle = page.getByRole("button", { name: "Toggle color theme" });
   const previousTheme = await themeToggle.getAttribute("aria-pressed");
@@ -472,19 +511,20 @@ test("desktop scroll, theme, keyboard navigation, and offscreen motion preserve 
   ]);
 
   await page.keyboard.press("Home");
-  await expect(page.getByRole("heading", { name: "Systems become usable products" })).toBeInViewport();
-  await expect(morningCoffee).toHaveAttribute("data-motion-state", "paused");
-  await expect(page.locator("[data-motion-asset]")).toHaveCount(ACTIVE_ASSET_IDS.length);
+  const firstStage = page.locator("[data-story-scene]").first().locator(".story-scene__stage");
+  await expect(firstStage).toBeInViewport();
+  await expect(thirdStage).not.toBeInViewport();
+  await expect(page.locator(".story-scene__composition")).toHaveCount(3);
 });
 
-test("dotLottie failure falls back to a semantic static poster", async ({ page }) => {
-  await page.route("**/motion/morning-coffee.lottie", (route) => route.abort("failed"));
+test("the reduced-motion fallback remains a semantic static poster", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(`/ask/${CURRENT_STORY_ID}`);
 
   const morningCoffee = page.locator('[data-motion-asset="morning-coffee"]');
-  await page.getByRole("heading", { name: "Craft meets delivery" }).scrollIntoViewIfNeeded();
+  await expect(morningCoffee).toHaveCount(1);
+  await morningCoffee.scrollIntoViewIfNeeded();
 
-  await expect(morningCoffee).toHaveAttribute("data-motion-runtime-fallback", "true");
   await expect(morningCoffee).toHaveAttribute("data-motion-state", "static");
   await expect(morningCoffee.locator('[data-motion-poster-state="static"]')).toBeVisible();
   await expect(
@@ -506,10 +546,14 @@ test.describe("mobile and touch", () => {
     const sceneSelect = page.getByRole("combobox", { name: "Choose a Story scene" });
     await expect(sceneSelect).toHaveValue("0");
     await sceneSelect.selectOption("1");
-    await expect(page.getByRole("heading", { name: "Evidence from shipped work" })).toBeInViewport();
+    await expect(
+      page.locator("[data-story-scene]").nth(1).locator(".story-scene__stage"),
+    ).toBeInViewport();
 
-    await page.getByRole("button", { name: RELATED_QUESTION }).tap();
-    await expect(page).toHaveURL(`/ask/${RELATED_STORY_ID}`);
+    const relatedQuestion = page.getByRole("button", { name: RELATED_QUESTION });
+    await relatedQuestion.scrollIntoViewIfNeeded();
+    await relatedQuestion.tap();
+    await expect(page).toHaveURL(`/ask/${RELATED_STORY_ID}`, { timeout: 15_000 });
     await expect(page.getByRole("heading", { name: RELATED_QUESTION })).toBeVisible();
   });
 });
