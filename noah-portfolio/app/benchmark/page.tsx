@@ -3,11 +3,17 @@ import Link from 'next/link';
 import { ArrowLeft, CheckCircle2, Gauge, Sparkles } from 'lucide-react';
 import BenchmarkCharts, { type BenchmarkDatum } from '@/components/benchmark/BenchmarkCharts';
 import { ThemeSwitch } from '@/components/ThemeSwitch';
-import { benchmark, costUsdPerStory, pricingSnapshotDates } from '@/lib/benchmark/data';
+import {
+  benchmark,
+  costUsdPerStory,
+  pricingSnapshotDates,
+  runDates,
+  storySampleSizes,
+} from '@/lib/benchmark/data';
 
 export const metadata: Metadata = {
   title: 'Story Pipeline Benchmark | Noah Rijkaard',
-  description: 'A seven-model benchmark of the plan, repair, scene, and validation pipeline behind Noah Rijkaard’s generated Stories.',
+  description: `A ${benchmark.models.length}-model benchmark of the plan, repair, scene, and validation pipeline behind Noah Rijkaard’s generated Stories.`,
 };
 
 const chartModels: BenchmarkDatum[] = benchmark.models.map((model) => ({
@@ -24,12 +30,13 @@ const chartModels: BenchmarkDatum[] = benchmark.models.map((model) => ({
 }));
 
 const winner = benchmark.models.find((model) => model.verdict === 'default');
-const runDate = new Intl.DateTimeFormat('en', {
-  month: 'long',
-  day: 'numeric',
-  year: 'numeric',
-  timeZone: 'UTC',
-}).format(new Date(`${benchmark.runDate}T00:00:00Z`));
+const benchmarkRunDates = runDates(benchmark);
+const sampleSizes = storySampleSizes(benchmark);
+const sampleSizeLabel = sampleSizes.length === 0
+  ? 'Story questions per model'
+  : sampleSizes.length === 1
+    ? `${sampleSizes[0]} Story questions per model`
+    : `${sampleSizes[0]}–${sampleSizes[sampleSizes.length - 1]} Story questions per model`;
 
 export default function BenchmarkPage() {
   return (
@@ -51,13 +58,29 @@ export default function BenchmarkPage() {
         <section aria-labelledby="benchmark-heading" className="grid gap-10 border-b border-border pb-14 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
           <div className="max-w-3xl">
             <p className="font-mono text-xs uppercase tracking-[0.26em] text-muted-foreground">
-              Story pipeline / <time dateTime={benchmark.runDate}>{runDate}</time>
+              Story pipeline /{' '}
+              {benchmarkRunDates.length === 0 ? (
+                'Date unavailable'
+              ) : benchmarkRunDates.length === 1 ? (
+                <time dateTime={benchmarkRunDates[0]}>{benchmarkRunDates[0]}</time>
+              ) : (
+                <>
+                  <time dateTime={benchmarkRunDates[0]}>{benchmarkRunDates[0]}</time>
+                  {' – '}
+                  <time dateTime={benchmarkRunDates[benchmarkRunDates.length - 1]}>
+                    {benchmarkRunDates[benchmarkRunDates.length - 1]}
+                  </time>
+                </>
+              )}
             </p>
             <h1 id="benchmark-heading" className="mt-5 text-balance font-serif text-5xl leading-[0.95] tracking-tight sm:text-6xl lg:text-7xl">
-              Seven models entered the Story pipeline.
+              {benchmark.models.length} model{benchmark.models.length === 1 ? '' : 's'} entered the Story pipeline.
             </h1>
             <p className="mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground">
-              {benchmark.questionsPerModel} questions per model went through the real plan → repair → scenes pipeline and the app&apos;s own validators. GLM 5.2 won the blinded review and became the default.
+              {sampleSizeLabel} went through the real plan → repair → scenes pipeline and the app&apos;s own validators.{' '}
+              {winner
+                ? `${winner.label} won the blinded review and became the default.`
+                : 'The results below compare every completed run.'}
             </p>
           </div>
 

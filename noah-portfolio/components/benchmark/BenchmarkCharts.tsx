@@ -89,19 +89,29 @@ function ChartFrame({
 function ScatterChart({ models, pricingDates, pricingNote }: BenchmarkChartsProps) {
   const reducedMotion = Boolean(useReducedMotion());
   const pricedModels = models.filter(
-    (model): model is BenchmarkDatum & { costUsdPerStory: number } => model.costUsdPerStory !== undefined,
+    (model): model is BenchmarkDatum & { costUsdPerStory: number } =>
+      model.costUsdPerStory !== undefined &&
+      model.costUsdPerStory > 0 &&
+      model.meanStoryMs > 0,
   );
-  const xMin = Math.log10(7);
-  const xMax = Math.log10(330);
-  const yMin = Math.log10(0.0009);
-  const yMax = Math.log10(0.036);
+  const speeds = pricedModels.map((model) => model.meanStoryMs / 1000);
+  const costs = pricedModels.map((model) => model.costUsdPerStory);
+  const minSeconds = speeds.length ? Math.min(...speeds) : 1;
+  const maxSeconds = speeds.length ? Math.max(...speeds) : 10;
+  const minCost = costs.length ? Math.min(...costs) : 0.001;
+  const maxCost = costs.length ? Math.max(...costs) : 0.01;
+  const domainPadding = 1.25;
+  const xMin = Math.log10(minSeconds / domainPadding);
+  const xMax = Math.log10(maxSeconds * domainPadding);
+  const yMin = Math.log10(minCost / domainPadding);
+  const yMax = Math.log10(maxCost * domainPadding);
   const plot = { left: 104, right: 836, top: 42, bottom: 432 };
   const x = (seconds: number) =>
     plot.left + ((Math.log10(seconds) - xMin) / (xMax - xMin)) * (plot.right - plot.left);
   const y = (cost: number) =>
     plot.bottom - ((Math.log10(cost) - yMin) / (yMax - yMin)) * (plot.bottom - plot.top);
-  const xTicks = [10, 30, 100, 300];
-  const yTicks = [0.001, 0.003, 0.01, 0.03];
+  const xTicks = [...new Set([minSeconds, Math.sqrt(minSeconds * maxSeconds), maxSeconds])];
+  const yTicks = [...new Set([minCost, Math.sqrt(minCost * maxCost), maxCost])];
 
   return (
     <ChartFrame
@@ -115,7 +125,7 @@ function ScatterChart({ models, pricingDates, pricingNote }: BenchmarkChartsProp
           viewBox="0 0 920 510"
           className="mx-auto h-auto min-w-[46rem] max-w-[57.5rem] w-full"
           role="img"
-          aria-label={`Scatter chart comparing ${pricedModels.length} models by estimated cost and mean time per Story. GPT-OSS 120B is fastest and cheapest; GLM 5.2 is the selected default.`}
+          aria-label={`Scatter chart comparing ${pricedModels.length} priced models by estimated cost and mean time per Story. Point color shows verdict and the outer ring shows final plan validity.`}
         >
           <title>Model cost and latency efficiency frontier</title>
           {yTicks.map((tick) => {
@@ -135,7 +145,7 @@ function ScatterChart({ models, pricingDates, pricingNote }: BenchmarkChartsProp
               <g key={tick}>
                 <line x1={cx} x2={cx} y1={plot.top} y2={plot.bottom} stroke={BORDER} strokeDasharray="4 6" />
                 <text x={cx} y={plot.bottom + 24} textAnchor="middle" fontSize="13" fill={MUTED}>
-                  {tick} s
+                  {formatSeconds(tick * 1000)}
                 </text>
               </g>
             );
@@ -237,8 +247,13 @@ function ScatterChart({ models, pricingDates, pricingNote }: BenchmarkChartsProp
         <caption>Efficiency frontier source data</caption>
         <thead><tr><th>Model</th><th>Time per Story</th><th>Estimated cost per Story</th><th>Final plan validity</th></tr></thead>
         <tbody>
-          {pricedModels.map((model) => (
-            <tr key={model.id}><th>{model.label}</th><td>{formatSeconds(model.meanStoryMs)}</td><td>{formatCost(model.costUsdPerStory)}</td><td>{formatPercent(model.planFinalValid)}</td></tr>
+          {models.map((model) => (
+            <tr key={model.id}>
+              <th>{model.label}</th>
+              <td>{formatSeconds(model.meanStoryMs)}</td>
+              <td>{model.costUsdPerStory === undefined ? 'Not priced' : formatCost(model.costUsdPerStory)}</td>
+              <td>{formatPercent(model.planFinalValid)}</td>
+            </tr>
           ))}
         </tbody>
       </table>
@@ -252,6 +267,11 @@ function ValidityChart({ models }: { models: BenchmarkDatum[] }) {
     (a, b) => b.planFinalValid - a.planFinalValid || b.planFirstTryValid - a.planFirstTryValid,
   );
   const plot = { left: 258, right: 820, top: 54, row: 54 };
+  const plotBottom = plot.top + Math.max(sorted.length - 1, 0) * plot.row + 52;
+  const viewHeight = plotBottom + 28;
+  const maxRescue = sorted.length
+    ? Math.max(...sorted.map((model) => model.planFinalValid - model.planFirstTryValid))
+    : 0;
   const x = (value: number) => plot.left + value * (plot.right - plot.left);
 
   return (
@@ -263,17 +283,17 @@ function ValidityChart({ models }: { models: BenchmarkDatum[] }) {
     >
       <div className="-mx-2 overflow-x-auto px-2 pb-2">
         <svg
-          viewBox="0 0 900 470"
+          viewBox={`0 0 900 ${viewHeight}`}
           className="mx-auto h-auto min-w-[46rem] max-w-[56.25rem] w-full"
           role="img"
-          aria-label={`Dumbbell chart comparing first-try and final plan validity for ${sorted.length} models. The repair loop rescued up to 60 percentage points for a model.`}
+          aria-label={`Dumbbell chart comparing first-try and final plan validity for ${sorted.length} models. The largest observed repair gain is ${Math.round(maxRescue * 100)} percentage points.`}
         >
           <title>First-try versus final plan validity after repair</title>
           {[0, 0.25, 0.5, 0.75, 1].map((tick) => {
             const cx = x(tick);
             return (
               <g key={tick}>
-                <line x1={cx} x2={cx} y1="36" y2="430" stroke={BORDER} strokeDasharray="4 6" />
+                <line x1={cx} x2={cx} y1="36" y2={plotBottom} stroke={BORDER} strokeDasharray="4 6" />
                 <text x={cx} y="24" textAnchor="middle" fontSize="13" fill={MUTED}>{formatPercent(tick)}</text>
               </g>
             );
@@ -348,8 +368,15 @@ function QualityChart({ models }: { models: BenchmarkDatum[] }) {
   const reducedMotion = Boolean(useReducedMotion());
   const sorted = [...models].sort((a, b) => a.repetitionMax - b.repetitionMax);
   const plot = { left: 258, right: 746, top: 56, row: 54 };
-  const maxScale = 0.18;
-  const width = (value: number) => (value / maxScale) * (plot.right - plot.left);
+  const plotBottom = plot.top + Math.max(sorted.length - 1, 0) * plot.row + 52;
+  const viewHeight = plotBottom + 28;
+  const observedMax = Math.max(
+    0,
+    ...sorted.map((model) => Math.max(model.repetitionMax, model.repetitionMean)),
+  );
+  const maxScale = Math.max(0.02, Math.ceil(observedMax / 0.02) * 0.02);
+  const qualityTicks = [0, maxScale / 3, (maxScale * 2) / 3, maxScale];
+  const width = (value: number) => (Math.max(0, value) / maxScale) * (plot.right - plot.left);
 
   return (
     <ChartFrame
@@ -360,18 +387,20 @@ function QualityChart({ models }: { models: BenchmarkDatum[] }) {
     >
       <div className="-mx-2 overflow-x-auto px-2 pb-2">
         <svg
-          viewBox="0 0 900 470"
+          viewBox={`0 0 900 ${viewHeight}`}
           className="mx-auto h-auto min-w-[46rem] max-w-[56.25rem] w-full"
           role="img"
-          aria-label={`Horizontal bar chart comparing repetition and banned phrase counts for ${sorted.length} models. Qwen3.5 27B recorded zero repetition; GPT-OSS 120B was the only model with a banned phrase.`}
+          aria-label={`Horizontal bar chart comparing maximum and mean repetition plus banned phrase counts for ${sorted.length} models. Lower values are better.`}
         >
           <title>Cross-scene repetition and banned phrase quality measures</title>
-          {[0, 0.06, 0.12, 0.18].map((tick) => {
+          {qualityTicks.map((tick) => {
             const cx = plot.left + width(tick);
             return (
               <g key={tick}>
-                <line x1={cx} x2={cx} y1="36" y2="430" stroke={BORDER} strokeDasharray="4 6" />
-                <text x={cx} y="24" textAnchor="middle" fontSize="13" fill={MUTED}>{tick.toFixed(2)}</text>
+                <line x1={cx} x2={cx} y1="36" y2={plotBottom} stroke={BORDER} strokeDasharray="4 6" />
+                <text x={cx} y="24" textAnchor="middle" fontSize="13" fill={MUTED}>
+                  {tick.toFixed(maxScale < 0.1 ? 3 : 2)}
+                </text>
               </g>
             );
           })}

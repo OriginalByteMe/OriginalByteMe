@@ -1,7 +1,5 @@
 {
   "benchmark": "story-pipeline",
-  "runDate": "2026-07-18",
-  "questionsPerModel": 5,
   "pricingNote": "Costs are estimates: run token totals \u00d7 one OpenRouter price snapshot per model. The eval used auto-routing, and per-provider endpoint prices vary materially (GLM-5.2 endpoints ranged $0.2968/$0.9328 to $1.05/$4.40 per MTok at review time).",
   "source": "scripts/story-model-eval.ts --pipeline",
   "models": [
@@ -24,7 +22,8 @@
         "pricedAt": "2026-07-18"
       },
       "verdict": "default",
-      "note": "Blinded-review winner (C > A > B): best breadth, zero entailment violations, MIT license. Promoted to the application default."
+      "note": "Blinded-review winner (C > A > B): best breadth, zero entailment violations, MIT license. Promoted to the application default.",
+      "runDate": "2026-07-18"
     },
     {
       "id": "deepseek/deepseek-v4-flash",
@@ -45,7 +44,8 @@
         "pricedAt": "2026-07-18"
       },
       "verdict": "finalist",
-      "note": "The former default. Perfect validity but the highest cross-scene repetition (0.163 max Jaccard) and 68 s per Story."
+      "note": "The former default. Perfect validity but the highest cross-scene repetition (0.163 max Jaccard) and 68 s per Story.",
+      "runDate": "2026-07-18"
     },
     {
       "id": "openai/gpt-oss-120b",
@@ -66,7 +66,8 @@
         "pricedAt": "2026-07-18"
       },
       "verdict": "finalist",
-      "note": "Fastest and cheapest by far (8.3 s/Story), but shipped one banned filler phrase and invented an evidence relationship in the blinded review."
+      "note": "Fastest and cheapest by far (8.3 s/Story), but shipped one banned filler phrase and invented an evidence relationship in the blinded review.",
+      "runDate": "2026-07-18"
     },
     {
       "id": "qwen/qwen3.5-27b",
@@ -87,7 +88,8 @@
         "pricedAt": "2026-07-18"
       },
       "verdict": "eliminated",
-      "note": "Zero repetition but 186 s per Story and the highest completion-token bill of the field."
+      "note": "Zero repetition but 186 s per Story and the highest completion-token bill of the field.",
+      "runDate": "2026-07-18"
     },
     {
       "id": "mistralai/mistral-small-2603",
@@ -108,7 +110,8 @@
         "pricedAt": "2026-07-18"
       },
       "verdict": "eliminated",
-      "note": "Fast, but only 1 in 5 plans was valid on the first try and one Story never validated even after repair."
+      "note": "Fast, but only 1 in 5 plans was valid on the first try and one Story never validated even after repair.",
+      "runDate": "2026-07-18"
     },
     {
       "id": "z-ai/glm-4.7-flash",
@@ -129,7 +132,8 @@
         "pricedAt": "2026-07-18"
       },
       "verdict": "eliminated",
-      "note": "232 s per Story with 20% first-try plan validity \u2014 slow and unreliable."
+      "note": "232 s per Story with 20% first-try plan validity \u2014 slow and unreliable.",
+      "runDate": "2026-07-18"
     },
     {
       "id": "qwen/qwen3.5-35b-a3b",
@@ -150,7 +154,8 @@
         "pricedAt": "2026-07-18"
       },
       "verdict": "eliminated",
-      "note": "No plan ever validated first try; only one Story survived repair. 296 s per Story."
+      "note": "No plan ever validated first try; only one Story survived repair. 296 s per Story.",
+      "runDate": "2026-07-18"
     }
   ]
 }

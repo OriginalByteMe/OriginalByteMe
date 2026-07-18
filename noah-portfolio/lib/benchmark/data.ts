@@ -40,13 +40,12 @@ export interface BenchmarkModel {
   pricing?: ModelPricing;
   verdict: ModelVerdict;
   note: string;
+  /** ISO date this model's pipeline run was measured. */
+  runDate: string;
 }
 
 export interface BenchmarkResults {
   benchmark: string;
-  /** ISO date of the eval run. */
-  runDate: string;
-  questionsPerModel: number;
   /** Why the $ figures are estimates, not measured spend. Surface wherever cost is charted. */
   pricingNote: string;
   source: string;
@@ -58,6 +57,20 @@ export function pricingSnapshotDates(results: BenchmarkResults): string[] {
   const dates = new Set<string>();
   for (const model of results.models) if (model.pricing) dates.add(model.pricing.pricedAt);
   return [...dates].sort();
+}
+
+/** Unique measurement dates across models, oldest first (for page copy). */
+export function runDates(results: BenchmarkResults): string[] {
+  const dates = new Set<string>();
+  for (const model of results.models) dates.add(model.runDate);
+  return [...dates].sort();
+}
+
+/** Unique per-model story sample sizes, ascending (for page copy). */
+export function storySampleSizes(results: BenchmarkResults): number[] {
+  const sizes = new Set<number>();
+  for (const model of results.models) sizes.add(model.stories);
+  return [...sizes].sort((a, b) => a - b);
 }
 
 export const benchmark = raw as BenchmarkResults;
@@ -74,7 +87,3 @@ export function costUsdPerStory(model: BenchmarkModel): number | undefined {
   return runCost / model.stories;
 }
 
-/** Total tokens consumed per Story. */
-export function tokensPerStory(model: BenchmarkModel): number {
-  return model.stories ? (model.promptTokens + model.completionTokens) / model.stories : 0;
-}

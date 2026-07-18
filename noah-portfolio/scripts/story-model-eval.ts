@@ -353,6 +353,7 @@ function benchmarkModel(
   metrics: PipelineMetrics,
   existing: BenchmarkModel | undefined,
   pricing: ModelPricing | undefined,
+  runDate: string,
 ): BenchmarkModel {
   return {
     id: metrics.modelId,
@@ -374,6 +375,7 @@ function benchmarkModel(
     ...(pricing ? { pricing } : {}),
     verdict: existing?.verdict ?? "candidate",
     note: existing?.note ?? "",
+    runDate,
   };
 }
 
@@ -395,23 +397,23 @@ export function mergePipelineResults(
           freshPricing
             ? { ...freshPricing, pricedAt: runDate }
             : existingModel?.pricing,
+          runDate,
         ),
       ];
     }),
   );
   const existingIds = new Set(existing?.models.map((model) => model.id));
+  const models = [
+    ...(existing?.models.map((model) => measured.get(model.id) ?? model) ?? []),
+    ...metrics
+      .filter((result) => !existingIds.has(result.modelId))
+      .map((result) => measured.get(result.modelId)!),
+  ];
   return {
     benchmark: existing?.benchmark ?? "story-pipeline",
-    runDate,
-    questionsPerModel: metrics[0]?.stories ?? 0,
     pricingNote: existing?.pricingNote ?? DEFAULT_PRICING_NOTE,
     source: existing?.source ?? "scripts/story-model-eval.ts --pipeline",
-    models: [
-      ...(existing?.models.map((model) => measured.get(model.id) ?? model) ?? []),
-      ...metrics
-        .filter((result) => !existingIds.has(result.modelId))
-        .map((result) => measured.get(result.modelId)!),
-    ],
+    models,
   };
 }
 
@@ -644,6 +646,8 @@ async function main(): Promise<void> {
       "self-test": { type: "boolean" },
     },
   });
+  if (values.out && !values.pipeline) throw new Error("--out requires --pipeline");
+  if (values.out && values.quick) throw new Error("--quick cannot be combined with --out");
   if (values["self-test"]) {
     const bodies = [
       "One two three four.",
@@ -694,8 +698,6 @@ async function main(): Promise<void> {
     ];
     const existingResults: BenchmarkResults = {
       benchmark: "story-pipeline",
-      runDate: "2026-07-17",
-      questionsPerModel: 5,
       pricingNote: "Existing pricing note",
       source: "existing source",
       models: [
@@ -719,6 +721,7 @@ async function main(): Promise<void> {
           },
           verdict: "finalist",
           note: "Keep this note",
+          runDate: "2026-07-17",
         },
       ],
     };
@@ -736,6 +739,23 @@ async function main(): Promise<void> {
     const withoutFreshPricing = mergePipelineResults(
       pipelineMetrics,
       existingResults,
+      {},
+      "2026-07-18",
+    );
+    const partialExistingResults: BenchmarkResults = {
+      ...existingResults,
+      models: [
+        ...existingResults.models,
+        {
+          ...existingResults.models[0]!,
+          id: "vendor/untouched",
+          label: "Untouched",
+        },
+      ],
+    };
+    const partialMerge = mergePipelineResults(
+      [pipelineMetrics[0]!],
+      partialExistingResults,
       {},
       "2026-07-18",
     );
@@ -770,13 +790,17 @@ async function main(): Promise<void> {
     assert.equal(candidate?.planFirstTryValid, 0);
     assert.equal(candidate?.scenesValid, 0);
     assert.equal(candidate?.repetitionMax, 0);
-    assert.equal(merged.questionsPerModel, 2);
-    assert.equal(merged.runDate, "2026-07-18");
+    assert.equal(existingModel?.runDate, "2026-07-18");
+    assert.equal(candidate?.runDate, "2026-07-18");
     assert.deepEqual(existingModel?.pricing, {
       promptUsdPerTok: 0.001,
       completionUsdPerTok: 0.002,
       pricedAt: "2026-07-18",
     });
+    assert.equal(
+      partialMerge.models.find((model) => model.id === "vendor/untouched")?.runDate,
+      "2026-07-17",
+    );
     assert.deepEqual(retainedPricing, {
       promptUsdPerTok: 0.003,
       completionUsdPerTok: 0.004,
