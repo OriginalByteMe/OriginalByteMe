@@ -15,6 +15,7 @@ import { SCENE_COMPOSITIONS } from "@/components/story/remotion/registry";
 export interface ScenePlayerProps {
   scene: StoryScene;
   plan: StoryPlan;
+  evidence: SceneCompositionProps["evidence"];
   playing: boolean;
 }
 
@@ -23,10 +24,10 @@ export interface ScenePlayerProps {
  * stays a lazily loaded chunk. `lazy()` cannot carry Player's generic, so the
  * generic is bound here instead of in RemotionScene.
  */
-export default function ScenePlayer({ scene, plan, playing }: ScenePlayerProps) {
+export default function ScenePlayer({ scene, plan, evidence, playing }: ScenePlayerProps) {
   const playerRef = useRef<PlayerRef>(null);
   const entry = SCENE_COMPOSITIONS[scene.pattern];
-  const inputProps: SceneCompositionProps = { scene, plan };
+  const inputProps: SceneCompositionProps = { scene, plan, evidence };
 
   // Playback is driven imperatively from visibility. `autoPlay` is snapshotted
   // once at mount, so it can never track visibility changes.

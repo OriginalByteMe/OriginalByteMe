@@ -51,6 +51,7 @@ const DEFAULT_QUESTION = "How does Noah approach complex products?";
 function makePlan(question = DEFAULT_QUESTION): StoryPlan {
   return {
     question,
+    mode: "grounded",
     backdropPreset: "ambientLava",
     scenes: [
       {
@@ -95,6 +96,27 @@ function makePlan(question = DEFAULT_QUESTION): StoryPlan {
     relatedQuestions: [
       "Which projects best show that approach?",
       "How does Noah work across product and engineering?",
+    ],
+  };
+}
+
+function makeSingleScenePlan(question = DEFAULT_QUESTION): StoryPlan {
+  const plan = makePlan(question);
+  return { ...plan, scenes: [plan.scenes[0]] };
+}
+
+function makeTwoScenePlan(question = DEFAULT_QUESTION): StoryPlan {
+  const plan = makePlan(question);
+  return {
+    ...plan,
+    scenes: [
+      plan.scenes[0],
+      {
+        ...plan.scenes[2],
+        id: "two-scene-synthesis",
+        index: 1,
+        evidenceRefIds: [evidence[2].id],
+      },
     ],
   };
 }
@@ -148,6 +170,89 @@ describe("Story validation", () => {
     expect(new Set(plan.scenes.map((scene) => scene.pattern)).size).toBe(3);
     expect(new Set(plan.scenes.map((scene) => scene.register)).size).toBeGreaterThanOrEqual(2);
     expect(plan.scenes[1].evidenceRefIds).toHaveLength(2);
+  });
+
+  it("accepts grounded one- and two-scene Plans plus an uncited one-scene Boundary Story", () => {
+    const single = makeSingleScenePlan();
+    const unsupportedBoundary = makeSingleScenePlan();
+    unsupportedBoundary.mode = "boundary";
+    unsupportedBoundary.scenes[0].evidenceRefIds = [];
+    const pair = makeTwoScenePlan();
+
+    expect(() => assertValidStoryPlan(single, evidence, single.question)).not.toThrow();
+    expect(() => assertValidStoryPlan(unsupportedBoundary, [], unsupportedBoundary.question)).not.toThrow();
+    expect(() => assertValidStreamPlan(unsupportedBoundary, [], unsupportedBoundary.question)).not.toThrow();
+    expect(() => StoryStreamEventSchema.parse({
+      type: "plan",
+      plan: unsupportedBoundary,
+      evidence: [],
+    })).not.toThrow();
+    expect(() => assertValidStoryPlan(pair, evidence, pair.question)).not.toThrow();
+    expect(single.scenes.map((scene) => [scene.role, scene.cue.phase])).toEqual([
+      ["direct-answer", "intro"],
+    ]);
+    expect(pair.scenes.map((scene) => [scene.role, scene.cue.phase])).toEqual([
+      ["direct-answer", "intro"],
+      ["synthesis", "resolve"],
+    ]);
+  });
+
+  it("rejects role, cue, and Register violations in short Plans", () => {
+    const wrongSingleCue = makeSingleScenePlan();
+    wrongSingleCue.scenes[0].cue.phase = "resolve";
+    expect(() =>
+      assertValidStoryPlan(wrongSingleCue, evidence, wrongSingleCue.question)
+    ).toThrow(/cue phase must be intro/);
+
+    const evidenceEnding = makeTwoScenePlan();
+    evidenceEnding.scenes[1] = {
+      ...makePlan().scenes[1],
+      index: 1,
+    };
+    expect(() =>
+      assertValidStoryPlan(evidenceEnding, evidence, evidenceEnding.question)
+    ).toThrow(/Scene 1 must have role synthesis/);
+
+    const oneRegister = makeTwoScenePlan();
+    oneRegister.scenes[1].register = oneRegister.scenes[0].register;
+    expect(() =>
+      assertValidStoryPlan(oneRegister, evidence, oneRegister.question)
+    ).toThrow(/at least two Registers/);
+
+    const groundedWithoutEvidence = makeSingleScenePlan();
+    groundedWithoutEvidence.scenes[0].evidenceRefIds = [];
+    expect(() =>
+      assertValidStoryPlan(groundedWithoutEvidence, [], groundedWithoutEvidence.question)
+    ).toThrow(/grounded mode requires at least one Evidence Ref/);
+
+    const citedBoundary = makeSingleScenePlan();
+    const boundaryWithUnrelatedVocabulary = makeSingleScenePlan();
+    boundaryWithUnrelatedVocabulary.mode = "boundary";
+    boundaryWithUnrelatedVocabulary.scenes[0].evidenceRefIds = [];
+    expect(() =>
+      assertValidStreamPlan(
+        boundaryWithUnrelatedVocabulary,
+        evidence,
+        boundaryWithUnrelatedVocabulary.question,
+      )
+    ).toThrow(/boundary mode must not include an Evidence vocabulary/);
+
+    citedBoundary.mode = "boundary";
+    expect(() =>
+      assertValidStoryPlan(citedBoundary, evidence, citedBoundary.question)
+    ).toThrow(/boundary mode must not include Evidence Refs/);
+
+    const multiSceneBoundary = makeTwoScenePlan();
+    multiSceneBoundary.mode = "boundary";
+    expect(() =>
+      assertValidStoryPlan(multiSceneBoundary, evidence, multiSceneBoundary.question)
+    ).toThrow(/boundary mode requires exactly one Scene/);
+
+    const missingEvidence = makeTwoScenePlan();
+    missingEvidence.scenes[1].evidenceRefIds = [];
+    expect(() =>
+      assertValidStoryPlan(missingEvidence, evidence, missingEvidence.question)
+    ).toThrow(/grounded mode requires at least one Evidence Ref/);
   });
 
   it("uses one trimmed 280-character Question contract for display and related questions", async () => {

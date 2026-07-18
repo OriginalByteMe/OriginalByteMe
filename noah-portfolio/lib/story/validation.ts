@@ -109,6 +109,9 @@ export function assertValidStoryScene(
 /** Validate a schema-parsed private record without re-parsing its Evidence. */
 export function assertValidParsedStoryRecord(record: StoryRecord): void {
   const { plan, scenes, evidence, displayQuestion } = record;
+  if (plan.mode === "boundary" && evidence.length !== 0) {
+    throw new Error("Invalid Story Record: boundary mode must not include Evidence");
+  }
   const validatedEvidence = validatedStoryEvidenceFromParsed(evidence);
   assertKnownStoryPlanProjectSlugs(plan);
   assertValidParsedStreamPlan(plan, validatedEvidence.ids, displayQuestion);

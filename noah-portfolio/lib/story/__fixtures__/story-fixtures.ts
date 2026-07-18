@@ -5,6 +5,7 @@ import {
 import { seedStoryFixtures } from "@/lib/story/store";
 import {
   toPublicStory,
+  STORY_CONTRACT_VERSION,
   type ProjectSlug,
   type StoryProject,
   type StoryRecord,
@@ -85,7 +86,7 @@ function makeRecord({
   bodies,
   relatedQuestions,
   corpusRevision = "2026-07-14",
-  storyContractVersion = "v5",
+  storyContractVersion = STORY_CONTRACT_VERSION,
 }: {
   id: string;
   displayQuestion: string;
@@ -104,6 +105,7 @@ function makeRecord({
     createdAt: "2026-07-14T07:00:00.000Z",
     plan: {
       question: displayQuestion,
+      mode: "grounded",
       backdropPreset: "ditherTide",
       scenes: scenes.map((scene) => ({
         id: scene.id,

@@ -220,7 +220,7 @@ export default function NightDrive({ scene, plan }: SceneCompositionProps) {
               textTransform: "uppercase",
             }}
           >
-            Night drive · {String(scene.index + 1).padStart(2, "0")}
+            Timeline · {String(scene.index + 1).padStart(2, "0")}
           </div>
           <div
             style={{

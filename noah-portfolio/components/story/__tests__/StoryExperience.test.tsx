@@ -56,6 +56,7 @@ const QUESTION = "How does Noah approach production systems?";
 function makePlan(): StoryPlan {
   return {
     question: QUESTION,
+    mode: "grounded",
     backdropPreset: "ditherIndigo",
     relatedQuestions: [
       "Which systems has Noah designed?",
@@ -249,6 +250,38 @@ describe("StoryExperience", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("status", { name: "Story generation status" })).not.toBeInTheDocument();
     expect(document.querySelector(".story-phase-pill")).not.toBeInTheDocument();
+  });
+
+  it("renders a complete single-scene Story without a transition or synthesis", () => {
+    const plan = makePlan();
+    plan.mode = "boundary";
+    plan.scenes[0].evidenceRefIds = [];
+    plan.scenes = [plan.scenes[0]];
+    const story = makeStory(plan);
+    story.evidence = [];
+
+    render(
+      <StoryExperience
+        question={QUESTION}
+        phase="publishing"
+        plan={story.plan}
+        scenes={story.scenes}
+        evidence={story.evidence}
+        story={story}
+        error={null}
+        onRetry={vi.fn()}
+        onRelatedQuestion={vi.fn()}
+      />,
+    );
+
+    expect(document.querySelectorAll("section[data-story-scene]")).toHaveLength(1);
+    expect(screen.getByRole("navigation", { name: "Story scenes" }).querySelectorAll("li")).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Sources for this claim" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Grounded in 0 evidence references/i)).not.toBeInTheDocument();
+    expect(screen.getByText("1 of 1 ready")).toBeInTheDocument();
+    expect(screen.queryByTestId("scene-transition")).not.toBeInTheDocument();
+    expect(screen.getByText("Direct answer")).toBeInTheDocument();
+    expect(screen.queryByText("Synthesis")).not.toBeInTheDocument();
   });
 
   it("swaps complete Prelude phrases without typewriter motion when reduced motion is preferred", async () => {

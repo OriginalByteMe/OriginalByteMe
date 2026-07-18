@@ -248,10 +248,11 @@ describe("homeSpec end-to-end render", () => {
       "LLM Comparison app",
       "Moodify",
       "Ask-Me Portfolio",
+      "Story Model Benchmark",
     ]) {
       expect(screen.getByRole("heading", { name: project })).toBeInTheDocument();
     }
-    expect(buildsQueries.getAllByRole("link")).toHaveLength(4);
+    expect(buildsQueries.getAllByRole("link")).toHaveLength(5);
 
     for (const operatingSystem of ["Debian", "Ubuntu", "Windows", "WSL2", "macOS"]) {
       expect(operatingSystemQueries.getByAltText(operatingSystem)).toBeInTheDocument();

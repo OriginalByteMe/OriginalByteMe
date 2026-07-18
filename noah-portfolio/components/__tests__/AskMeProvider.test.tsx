@@ -10,6 +10,7 @@ import { makeStore } from "@/lib/store";
 const evidence = [CORPUS_EVIDENCE_REFS[0], CORPUS_EVIDENCE_REFS[1]];
 const plan: StoryPlan = {
   question: "How does Noah work?",
+  mode: "grounded",
   backdropPreset: "ditherIndigo",
   relatedQuestions: ["What has Noah built?", "How does Noah work?"],
   scenes: [

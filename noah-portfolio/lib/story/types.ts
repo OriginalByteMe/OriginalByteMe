@@ -3,7 +3,7 @@ import { isMotionAssetId, type MotionAssetId } from "@/lib/motion-assets/catalog
 import { z } from "zod";
 
 /** Deliberate compatibility boundary for generated Story structure and behavior. */
-export const STORY_CONTRACT_VERSION = "v5" as const;
+export const STORY_CONTRACT_VERSION = "v6" as const;
 
 /** Deliberate compatibility boundary for the authored Corpus used to ground Stories. */
 export const CORPUS_REVISION = "2026-07-14" as const;
@@ -33,6 +33,7 @@ export const PROJECT_SLUGS = [
   "ask-me-portfolio",
   "llm-comparison",
   "moodify",
+  "story-model-benchmark",
 ] as const;
 export const ELIGIBLE_PATTERNS_BY_ROLE = {
   "direct-answer": ["hero-statement"],
@@ -94,7 +95,6 @@ export const SceneCueSchema = z
 
 const EvidenceRefIdsSchema = z
   .array(nonEmptyText(120).regex(SLUG_PATTERN))
-  .min(1)
   .max(12);
 
 export const ProjectSlugSchema = z.enum(PROJECT_SLUGS, {
@@ -158,10 +158,11 @@ export const StorySceneSchema = ScenePlanSchema
 export const StoryPlanSchema = z
   .object({
     question: StoryQuestionSchema,
+    mode: z.enum(["grounded", "boundary"]),
     backdropPreset: z.custom<BackdropPresetName>(isBackdropPresetName, {
       message: "Unknown Backdrop Preset",
     }),
-    scenes: z.array(ScenePlanSchema).min(3).max(5),
+    scenes: z.array(ScenePlanSchema).min(1).max(5),
     relatedQuestions: z.array(StoryQuestionSchema).min(2).max(3),
   })
   .strict();
@@ -178,8 +179,8 @@ export const StoryRecordSchema = z
     storyContractVersion: nonEmptyText(120),
     createdAt: z.string().datetime({ offset: true }),
     plan: StoryPlanSchema,
-    scenes: z.array(StorySceneSchema).min(3).max(5),
-    evidence: z.array(EvidenceRefSchema).min(1).max(64),
+    scenes: z.array(StorySceneSchema).min(1).max(5),
+    evidence: z.array(EvidenceRefSchema).max(64),
   })
   .strict();
 
@@ -216,7 +217,7 @@ export const PublishStoryResponseSchema = z
 export const StoryStreamEventSchema = z.union([
   z.object({ type: z.literal("phase"), phase: z.enum(NON_PUBLISHING_STORY_PHASES) }).strict(),
   StoryPublishingEventSchema,
-  z.object({ type: z.literal("plan"), plan: StoryPlanSchema, evidence: z.array(EvidenceRefSchema).min(1).max(64) }).strict(),
+  z.object({ type: z.literal("plan"), plan: StoryPlanSchema, evidence: z.array(EvidenceRefSchema).max(64) }).strict(),
   z.object({ type: z.literal("scene"), index: z.number().int().min(0).max(4), scene: StorySceneSchema }).strict(),
   PublishStoryResponseSchema,
   z.object({ type: z.literal("error"), message: nonEmptyText(500) }).strict(),

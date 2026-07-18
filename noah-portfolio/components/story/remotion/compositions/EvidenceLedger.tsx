@@ -135,12 +135,26 @@ function VerifiedMark() {
   );
 }
 
-export default function EvidenceLedger({ scene }: SceneCompositionProps) {
+const MAX_ROW_LABEL_LENGTH = 72;
+
+export function getEvidenceLedgerRows(
+  evidenceRefIds: readonly string[],
+  evidence: SceneCompositionProps["evidence"],
+) {
+  const labelsById = new Map(evidence.map(({ id, label }) => [id, label.trim()]));
+
+  return evidenceRefIds.slice(0, 8).map((id) => {
+    const label = labelsById.get(id) || id.replaceAll("-", " ");
+    return label.length > MAX_ROW_LABEL_LENGTH
+      ? `${label.slice(0, MAX_ROW_LABEL_LENGTH - 1).trimEnd()}…`
+      : label;
+  });
+}
+
+export default function EvidenceLedger({ scene, evidence }: SceneCompositionProps) {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
-  const rows = scene.evidenceRefIds
-    .slice(0, 8)
-    .map((id) => id.replaceAll("-", " "));
+  const rows = getEvidenceLedgerRows(scene.evidenceRefIds, evidence);
   const firstRowFrame = 42;
   const rowStagger = 22;
   const finalBeatFrame = firstRowFrame + rows.length * rowStagger + 28;
@@ -176,7 +190,7 @@ export default function EvidenceLedger({ scene }: SceneCompositionProps) {
           position: "absolute",
           top: 48,
           right: 64,
-          left: 64,
+          left: 184,
           display: "flex",
           alignItems: "flex-end",
           justifyContent: "flex-start",
@@ -198,6 +212,10 @@ export default function EvidenceLedger({ scene }: SceneCompositionProps) {
           </p>
           <h1
             style={{
+              display: "-webkit-box",
+              overflow: "hidden",
+              WebkitBoxOrient: "vertical",
+              WebkitLineClamp: 2,
               margin: "8px 0 0",
               fontFamily: "var(--story-display-font)",
               fontSize: 50,

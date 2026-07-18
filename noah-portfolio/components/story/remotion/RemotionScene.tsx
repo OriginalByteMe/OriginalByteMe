@@ -4,6 +4,7 @@ import { Component, Suspense, lazy, useEffect, useRef, useState, type ReactNode 
 import { useReducedMotion } from "framer-motion";
 
 import type { StoryPlan, StoryScene } from "@/lib/story/types";
+import type { SceneCompositionProps } from "@/components/story/remotion/contract";
 
 // Runtime-gated chunk: reduced-motion Stories never pay for the Remotion runtime.
 const LazyScenePlayer = lazy(() => import("@/components/story/remotion/ScenePlayer"));
@@ -11,6 +12,7 @@ const LazyScenePlayer = lazy(() => import("@/components/story/remotion/ScenePlay
 interface RemotionSceneProps {
   scene: StoryScene;
   plan: StoryPlan;
+  evidence: SceneCompositionProps["evidence"];
   /** Static rendering used for reduced motion, runtime failure, and Suspense. */
   fallback: ReactNode;
 }
@@ -31,7 +33,7 @@ class CompositionBoundary extends Component<
 }
 
 /** Plays a Scene's pattern composition while it is on screen; pauses off screen. */
-export function RemotionScene({ scene, plan, fallback }: RemotionSceneProps) {
+export function RemotionScene({ scene, plan, evidence, fallback }: RemotionSceneProps) {
   const reducedMotion = Boolean(useReducedMotion());
   const hostRef = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
@@ -60,7 +62,7 @@ export function RemotionScene({ scene, plan, fallback }: RemotionSceneProps) {
     >
       <CompositionBoundary fallback={fallback}>
         <Suspense fallback={fallback}>
-          <LazyScenePlayer scene={scene} plan={plan} playing={inView} />
+          <LazyScenePlayer scene={scene} plan={plan} evidence={evidence} playing={inView} />
         </Suspense>
       </CompositionBoundary>
     </div>
