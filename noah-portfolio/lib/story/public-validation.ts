@@ -30,7 +30,7 @@ export function validationError(label: string, error: z.ZodError): Error {
 }
 
 export function parseEvidence(value: unknown): EvidenceRef[] {
-  const result = z.array(EvidenceRefSchema).min(1).max(64).safeParse(value);
+  const result = z.array(EvidenceRefSchema).max(64).safeParse(value);
   if (!result.success) throw validationError("Evidence Refs", result.error);
   return result.data;
 }
@@ -118,13 +118,21 @@ export function assertValidParsedStreamPlan(
   }
 
   const scenes = plan.scenes;
+  if (plan.mode === "boundary") {
+    if (scenes.length !== 1) {
+      throw new Error("Invalid Story Plan: boundary mode requires exactly one Scene");
+    }
+    if (scenes[0].evidenceRefIds.length !== 0) {
+      throw new Error("Invalid Story Plan: boundary mode must not include Evidence Refs");
+    }
+  }
   if (new Set(scenes.map((scene) => scene.id)).size !== scenes.length) {
     throw new Error("Invalid Story Plan: Scene IDs must be unique");
   }
   if (new Set(scenes.map((scene) => scene.pattern)).size !== scenes.length) {
     throw new Error("Invalid Story Plan: Scene Patterns must be unique");
   }
-  if (new Set(scenes.map((scene) => scene.register)).size < 2) {
+  if (scenes.length > 1 && new Set(scenes.map((scene) => scene.register)).size < 2) {
     throw new Error("Invalid Story Plan: at least two Registers are required");
   }
 
@@ -149,11 +157,18 @@ export function assertValidParsedStreamPlan(
         `Invalid Story Plan: ${scene.role} Scene cue phase must be ${EXPECTED_CUE_PHASE_BY_ROLE[scene.role]}`,
       );
     }
+    if (scene.evidenceRefIds.length === 0 && plan.mode !== "boundary") {
+      throw new Error(`Invalid Story Plan: grounded mode requires at least one Evidence Ref for Scene ${index}`);
+    }
     assertGeneratorEligibleAsset(scene.assetId, scene.pattern, "Story Plan");
     assertReferencesExist(scene.evidenceRefIds, evidenceIds, `Story Plan Scene ${index}`);
   }
 
-  if (!scenes.slice(1, -1).some((scene) => scene.evidenceRefIds.length >= 2)) {
+  const middleScenes = scenes.slice(1, -1);
+  if (
+    middleScenes.length > 0
+    && !middleScenes.some((scene) => scene.evidenceRefIds.length >= 2)
+  ) {
     throw new Error("Invalid Story Plan: an evidence-heavy middle Scene must cite at least two Evidence Refs");
   }
   const related = plan.relatedQuestions.map(normalizeQuestion);
@@ -170,9 +185,13 @@ export function assertValidStreamPlan(
 ): asserts plan is StoryPlan {
   const parsed = StoryPlanSchema.safeParse(plan);
   if (!parsed.success) throw validationError("Story Plan", parsed.error);
+  const parsedEvidence = parseEvidence(evidence);
+  if (parsed.data.mode === "boundary" && parsedEvidence.length !== 0) {
+    throw new Error("Invalid Story Plan: boundary mode must not include an Evidence vocabulary");
+  }
   assertValidParsedStreamPlan(
     parsed.data,
-    evidenceIdsFor(parseEvidence(evidence)),
+    evidenceIdsFor(parsedEvidence),
     expectedQuestion,
   );
 }
@@ -216,6 +235,9 @@ export function assertValidPublicStory(story: unknown): asserts story is PublicS
   const parsed = PublicStorySchema.safeParse(story);
   if (!parsed.success) throw validationError("Public Story", parsed.error);
   const { plan, scenes, evidence, displayQuestion } = parsed.data;
+  if (plan.mode === "boundary" && evidence.length !== 0) {
+    throw new Error("Invalid Public Story: boundary mode must not include Evidence");
+  }
   const evidenceIds = evidenceIdsFor(evidence);
   assertValidParsedStreamPlan(plan, evidenceIds, displayQuestion);
   if (scenes.length !== plan.scenes.length) {

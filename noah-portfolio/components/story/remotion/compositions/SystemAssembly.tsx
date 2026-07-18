@@ -155,19 +155,21 @@ function Connector({ from, to }: ConnectorProps) {
   );
 }
 
-export default function SystemAssembly({ scene, plan }: SceneCompositionProps) {
+export default function SystemAssembly({ scene, plan, evidence }: SceneCompositionProps) {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
-  const evidenceLabels = scene.evidenceRefIds
-    .slice(0, 6)
-    .map((id) => id.replaceAll("-", " "));
-  const beatLabels = plan.scenes.map(({ title }) => title);
-  const candidates = evidenceLabels.length >= 3 ? [...evidenceLabels, ...beatLabels] : beatLabels;
-  const labels = [...new Set(candidates)].slice(0, 6);
-  while (labels.length < 4) {
-    const beat = plan.scenes[labels.length % plan.scenes.length];
-    labels.push(`${beat.title} / ${beat.role.replaceAll("-", " ")}`);
-  }
+  const evidenceById = new Map(evidence.map(({ id, label }) => [id, label]));
+  const evidenceLabels = scene.evidenceRefIds.flatMap((id) => {
+    const label = evidenceById.get(id);
+    return label ? [label] : [];
+  });
+  const otherSceneTitles = plan.scenes
+    .filter(({ id }) => id !== scene.id)
+    .map(({ title }) => title);
+  const labels = [...new Set([...evidenceLabels, ...otherSceneTitles])].slice(
+    0,
+    POSITIONS.length,
+  );
   const nodes = labels.map((label, index) => ({ label, position: POSITIONS[index] }));
   const hubIndex = Math.min(2, nodes.length - 1);
   const edges = nodes

@@ -10,6 +10,7 @@ import {
 beforeEach(() => {
   vi.stubEnv("OPENROUTER_API_KEY", "test-key");
   vi.stubEnv("OPENROUTER_MODEL", "");
+  vi.stubEnv("OPENROUTER_PROVIDER_ORDER", undefined);
   vi.stubEnv("CF_ACCOUNT_ID", "");
   vi.stubEnv("STORY_CACHE_HMAC_KEY", "");
   vi.stubEnv("STORY_CACHE_HMAC_KEY_ID", "");
@@ -26,8 +27,30 @@ afterEach(() => {
 
 describe("LLM environment", () => {
   it("defaults the model when unset", () => {
-    expect(getServerEnv().openrouterModel).toBe("deepseek/deepseek-v4-flash");
+    expect(getServerEnv().openrouterModel).toBe("z-ai/glm-5.2");
   });
+
+  it("leaves provider order unset by default", () => {
+    expect(getServerEnv().openrouterProviderOrder).toBeUndefined();
+  });
+
+  it("parses a CSV provider order", () => {
+    vi.stubEnv("OPENROUTER_PROVIDER_ORDER", "novita,deepinfra");
+    expect(getServerEnv().openrouterProviderOrder).toEqual(["novita", "deepinfra"]);
+  });
+
+  it("trims provider-order whitespace", () => {
+    vi.stubEnv("OPENROUTER_PROVIDER_ORDER", " novita , deepinfra ");
+    expect(getServerEnv().openrouterProviderOrder).toEqual(["novita", "deepinfra"]);
+  });
+
+  it.each(["novita,,deepinfra", "novita,", "   "])(
+    "rejects empty provider-order entries in %j",
+    (providerOrder) => {
+      vi.stubEnv("OPENROUTER_PROVIDER_ORDER", providerOrder);
+      expect(() => getServerEnv()).toThrow(/must not contain empty entries/);
+    },
+  );
 
   it("throws when the API key is missing", () => {
     vi.stubEnv("OPENROUTER_API_KEY", "");

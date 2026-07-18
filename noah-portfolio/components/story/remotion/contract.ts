@@ -8,6 +8,7 @@ import type { StoryPlan, StoryScene } from "@/lib/story/types";
 export type SceneCompositionProps = {
   scene: StoryScene;
   plan: StoryPlan;
+  evidence: readonly { id: string; label: string }[];
 };
 
 export const SCENE_COMPOSITION_FPS = 30;

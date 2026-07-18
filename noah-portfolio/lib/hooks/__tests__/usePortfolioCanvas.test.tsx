@@ -25,6 +25,7 @@ const SECOND_PUBLICATION_TOKEN = `${SECOND_STORY_ID}.${"B".repeat(43)}`;
 function makePlan(question = "What has Noah built?"): StoryPlan {
   return {
     question,
+    mode: "grounded",
     backdropPreset: "ditherIndigo",
     relatedQuestions: [
       "Which systems has Noah designed?",

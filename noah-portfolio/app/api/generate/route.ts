@@ -144,6 +144,8 @@ function parseSceneBody(output: string): string {
 }
 
 async function composeScene(
+  question: string,
+  storyOutline: readonly Pick<ScenePlan, "index" | "role" | "title" | "claim">[],
   lockedPlan: ScenePlan,
   storyEvidence: ValidatedStoryEvidence,
   signal: AbortSignal,
@@ -157,7 +159,7 @@ async function composeScene(
     let output = "";
     try {
       output = await collectModelText(
-        buildSceneSystemPrompt(lockedPlan, lockedEvidence),
+        buildSceneSystemPrompt(question, storyOutline, lockedPlan, lockedEvidence),
         messages,
         signal,
         storyTelemetry("story-scene", { sceneIndex: lockedPlan.index, attempt }),
@@ -265,8 +267,14 @@ function generationStream(
 
             emit({ type: "phase", phase: "composing" });
             const scenes: StoryScene[] = [];
+            const storyOutline = plan.scenes.map(({ index, role, title, claim }) => ({
+              index,
+              role,
+              title,
+              claim,
+            }));
             for (const lockedScene of plan.scenes) {
-              const scene = await composeScene(lockedScene, evidence, signal);
+              const scene = await composeScene(question, storyOutline, lockedScene, evidence, signal);
               scenes.push(scene);
               emit({ type: "scene", index: scene.index, scene });
             }

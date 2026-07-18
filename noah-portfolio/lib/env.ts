@@ -7,6 +7,7 @@ export interface CloudflareD1Config {
 export interface OpenRouterEnv {
   openrouterApiKey: string;
   openrouterModel: string;
+  openrouterProviderOrder: string[] | undefined;
 }
 
 export interface LangfuseEnv {
@@ -19,12 +20,21 @@ export function getServerEnv(): OpenRouterEnv {
   const openrouterApiKey = process.env.OPENROUTER_API_KEY;
   if (!openrouterApiKey) throw new Error("Missing OPENROUTER_API_KEY");
 
+  const providerOrderValue = process.env.OPENROUTER_PROVIDER_ORDER;
+  const providerOrder =
+    providerOrderValue === undefined
+      ? undefined
+      : providerOrderValue.split(",").map((provider) => provider.trim());
+  if (providerOrder?.some((provider) => !provider)) {
+    throw new Error("OPENROUTER_PROVIDER_ORDER must not contain empty entries");
+  }
+
   return {
     openrouterApiKey,
-    openrouterModel: process.env.OPENROUTER_MODEL || "deepseek/deepseek-v4-flash",
+    openrouterModel: process.env.OPENROUTER_MODEL || "z-ai/glm-5.2",
+    openrouterProviderOrder: providerOrder,
   };
 }
-
 
 /** D1-only environment access for strongly consistent Story publication. */
 export function getD1Env(): CloudflareD1Config | undefined {

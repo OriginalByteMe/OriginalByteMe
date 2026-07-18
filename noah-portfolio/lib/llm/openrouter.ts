@@ -2,13 +2,15 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { getServerEnv } from "@/lib/env";
 
 /**
- * Build the OpenRouter chat model to use for spec generation.
+ * Build the model for Story generation.
  *
- * `getServerEnv()` is called lazily (inside this function, not at module
- * scope) so importing this module never throws when `OPENROUTER_API_KEY`
- * is unset — only calling `getModel()` does.
+ * Environment is read lazily inside this function, so importing this module
+ * never throws when provider credentials are unset.
  */
 export function getModel() {
   const env = getServerEnv();
-  return createOpenRouter({ apiKey: env.openrouterApiKey })(env.openrouterModel);
+  const openrouter = createOpenRouter({ apiKey: env.openrouterApiKey });
+  return env.openrouterProviderOrder
+    ? openrouter(env.openrouterModel, { provider: { order: env.openrouterProviderOrder } })
+    : openrouter(env.openrouterModel);
 }

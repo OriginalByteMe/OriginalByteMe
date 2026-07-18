@@ -54,6 +54,7 @@ const EVIDENCE = CORPUS_EVIDENCE_REFS.slice(0, 3);
 
 const VALID_PLAN: StoryPlan = {
   question: QUESTION,
+  mode: "grounded",
   backdropPreset: "ambientLava",
   scenes: [
     {
@@ -99,6 +100,12 @@ const VALID_PLAN: StoryPlan = {
     "Which projects best demonstrate that approach?",
     "Which skills does Noah use most often?",
   ],
+};
+
+const ONE_SCENE_PLAN: StoryPlan = {
+  ...VALID_PLAN,
+  mode: "boundary",
+  scenes: [{ ...VALID_PLAN.scenes[0], evidenceRefIds: [] }],
 };
 
 const FIVE_SCENE_PLAN: StoryPlan = {
@@ -328,6 +335,34 @@ describe("POST /api/generate", () => {
     expect(persisted.scenes[2].projects).toEqual(
       resolveStoryProjects(VALID_PLAN.scenes[2].projectSlugs),
     );
+  });
+
+  it("streams, composes, and prepares an uncited one-Scene Boundary Story for publication", async () => {
+    streamTextMock
+      .mockReturnValueOnce(modelResult(JSON.stringify(ONE_SCENE_PLAN)))
+      .mockReturnValueOnce(modelResult(JSON.stringify({ body: "I have not shared that information." })));
+
+    const events = await readEvents(await generate(postRequest({ question: QUESTION })));
+    const sceneEvents = events.filter((event) => event.type === "scene");
+
+    expect(sceneEvents).toHaveLength(1);
+    expect(events.find((event) => event.type === "plan")).toEqual({
+      type: "plan",
+      plan: ONE_SCENE_PLAN,
+      evidence: [],
+    });
+    expect(sceneEvents[0]).toEqual({
+      type: "scene",
+      index: 0,
+      scene: { ...ONE_SCENE_PLAN.scenes[0], body: "I have not shared that information." },
+    });
+    expect(prepareCompleteStoryMock.mock.calls[0][0].scenes).toHaveLength(1);
+    expect(prepareCompleteStoryMock.mock.calls[0][0].evidence).toEqual([]);
+    expect(events.at(-1)).toEqual({
+      type: "phase",
+      phase: "publishing",
+      publicationToken: PUBLICATION_TOKEN,
+    });
   });
 
   it("accepts and preserves the five-Scene upper boundary in Plan order", async () => {

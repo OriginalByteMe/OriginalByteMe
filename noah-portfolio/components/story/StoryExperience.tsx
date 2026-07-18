@@ -346,7 +346,18 @@ function StoryRail({ plan, readyCount, activeIndex, onNavigate }: StoryRailProps
                   onClick={() => onNavigate(index)}
                 >
                   <span className="story-rail__index">{String(index + 1).padStart(2, '0')}</span>
-                  <span className="story-rail__title">{scene.title}</span>
+                  <span
+                    className="story-rail__title"
+                    title={scene.title}
+                    style={{
+                      display: '-webkit-box',
+                      WebkitBoxOrient: 'vertical',
+                      WebkitLineClamp: 2,
+                      whiteSpace: 'normal',
+                    }}
+                  >
+                    {scene.title}
+                  </span>
                   <span className="sr-only">
                     {ready ? (active ? ', active Scene' : ', ready Scene') : ', pending Scene'}
                   </span>
@@ -472,11 +483,13 @@ function StorySceneSection({
   plan,
   cue,
   evidenceById,
+  evidence,
 }: {
   scene: StoryScene;
   plan: StoryPlan;
   cue: StoryPlan['scenes'][number]['cue'];
   evidenceById: Map<string, EvidenceRef>;
+  evidence: readonly Pick<EvidenceRef, 'id' | 'label'>[];
 }) {
   const titleId = `story-scene-title-${scene.index + 1}`;
 
@@ -496,6 +509,7 @@ function StorySceneSection({
           <RemotionScene
             scene={scene}
             plan={plan}
+            evidence={evidence}
             fallback={<MotionAsset assetId={scene.assetId} />}
           />
 
@@ -560,6 +574,10 @@ export default function StoryExperience({
   useBackdropCue(plan, activeIndex);
   const evidenceById = useMemo(
     () => new Map(evidence.map((evidenceRef) => [evidenceRef.id, evidenceRef])),
+    [evidence],
+  );
+  const compositionEvidence = useMemo(
+    () => evidence.map(({ id, label }) => ({ id, label })),
     [evidence],
   );
 
@@ -683,6 +701,7 @@ export default function StoryExperience({
               plan={plan}
               cue={plan.scenes[scene.index].cue}
               evidenceById={evidenceById}
+              evidence={compositionEvidence}
             />
           </Fragment>
         ))}
@@ -722,10 +741,12 @@ export default function StoryExperience({
               </button>
             ))}
           </div>
-          <p className="story-related__complete">
-            <Check aria-hidden="true" />
-            Grounded in {story.evidence.length} evidence {story.evidence.length === 1 ? 'reference' : 'references'}
-          </p>
+          {story.evidence.length > 0 ? (
+            <p className="story-related__complete">
+              <Check aria-hidden="true" />
+              Grounded in {story.evidence.length} evidence {story.evidence.length === 1 ? 'reference' : 'references'}
+            </p>
+          ) : null}
         </footer>
       ) : null}
     </article>

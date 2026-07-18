@@ -1,46 +1,66 @@
-export const THREE_SCENE_PROJECT_USAGE_EXAMPLE = [
-  { index: 0, role: "direct-answer" },
-  { index: 1, role: "evidence", projectSlugs: ["ask-me-portfolio", "moodify"] },
-  { index: 2, role: "synthesis", projectSlugs: ["ask-me-portfolio"] },
-] as const;
+export const GOLD_STANDARD_STORY_PLAN_EXAMPLE = {
+  question: "What did Noah build at Supa?",
+  mode: "grounded",
+  backdropPreset: "ditherTide",
+  scenes: [
+    {
+      id: "supa-training-data",
+      index: 0,
+      role: "direct-answer",
+      pattern: "hero-statement",
+      register: "editorial",
+      title: "Supa training-data tools, 2020–2025",
+      claim:
+        "From 2020 to 2025, I built data-labeling and AI training-data tooling end to end.",
+      assetId: "circuit-mind",
+      evidenceRefIds: ["career-2"],
+      cue: { phase: "intro", focus: "center", intensity: "strong" },
+    },
+    {
+      id: "supa-llm-evaluation",
+      index: 1,
+      role: "evidence",
+      pattern: "capability-map",
+      register: "technical",
+      title: "LLM evaluation tooling at Supa",
+      claim: "At Supa, I shipped the open-source LLM Comparison app as LLM evaluation tooling.",
+      assetId: "circuit-mind",
+      evidenceRefIds: ["career-2", "project-llm-comparison"],
+      projectSlugs: ["llm-comparison"],
+      cue: { phase: "develop", focus: "left", intensity: "strong" },
+    },
+    {
+      id: "supa-two-llm-comparison",
+      index: 2,
+      role: "synthesis",
+      pattern: "closing-synthesis",
+      register: "reflective",
+      title: "Two-LLM comparison",
+      claim:
+        "The open-source LLM Comparison app lets users pit two LLMs against each other and compare them.",
+      assetId: "morning-coffee",
+      evidenceRefIds: ["project-llm-comparison"],
+      projectSlugs: ["llm-comparison"],
+      cue: { phase: "resolve", focus: "right", intensity: "medium" },
+    },
+  ],
+  relatedQuestions: [
+    "How did Noah evaluate LLMs at Supa?",
+    "Which Noah project lets users compare two LLMs?",
+    "What AI engineering work did Noah do after Supa?",
+  ],
+} as const;
 
-export const FIVE_SCENE_PROJECT_USAGE_EXAMPLE = [
-  { index: 0, role: "direct-answer" },
-  { index: 1, role: "evidence", projectSlugs: ["ai-image-cutout"] },
-  { index: 2, role: "evidence", projectSlugs: ["llm-comparison"] },
-  { index: 3, role: "evidence", projectSlugs: ["ask-me-portfolio", "moodify"] },
-  {
-    index: 4,
-    role: "synthesis",
-    projectSlugs: ["ai-image-cutout", "llm-comparison", "ask-me-portfolio"],
-  },
-] as const;
+export const SCENE_COMPOSITION_EXAMPLE = {
+  body:
+    "Moodify lets people search for a favourite tune and watch the album cover's colour palette take over the page. The same palette trick recolours this site's hero dither.",
+} as const;
 
 export const STORY_EXAMPLES = `
-## Planning examples
+## Gold-standard complete Story Plan
 
-A valid plan has 3–5 ordered scenes. Scene 1 is the direct answer, one or more middle
-scenes carry evidence, and the final scene synthesizes a useful answer. Every scene
-locks one claim, one distinct eligible Scene Pattern, one Register, one Motion Asset ID,
-and one or more Evidence Ref IDs. The story uses at least two Registers and ends with
-2–3 grounded related questions.
+This example is complete and follows every invariant, including distinct Patterns, exact
+Evidence Ref IDs and project slugs, specific titles and claims, and answerable related questions:
 
-These are project-selection excerpts, not complete Plans. They demonstrate that projectSlugs
-are optional, use only exact catalog slugs, and belong on relevant evidence and synthesis scenes.
-
-Three-scene project usage:
-${JSON.stringify(THREE_SCENE_PROJECT_USAGE_EXAMPLE, null, 2)}
-
-Five-scene project usage:
-${JSON.stringify(FIVE_SCENE_PROJECT_USAGE_EXAMPLE, null, 2)}
-
-## Composition example
-
-For a locked scene, return only a JSON object with a concise body:
-
-{"body":"I build the interface and the systems behind it, so the work stays coherent from interaction through delivery."}
-
-The body supports the locked claim using only its locked Evidence Refs. It never changes
-scene identity, order, role, Pattern, Register, title, claim, Motion Asset, Evidence Refs,
-project slugs, or Scene Cue.
+${JSON.stringify(GOLD_STANDARD_STORY_PLAN_EXAMPLE, null, 2)}
 `;
