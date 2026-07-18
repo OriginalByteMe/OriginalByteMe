@@ -13,6 +13,29 @@ import {
 } from "@/lib/story/types";
 import { SCENE_COMPOSITION_EXAMPLE, STORY_EXAMPLES } from "@/lib/llm/examples";
 
+export const BANNED_PHRASES = [
+  "technical depth",
+  "clear product story",
+  "passionate",
+  "seamless",
+  "leveraging",
+  "showcase",
+  "aligning",
+  "robust",
+  "cutting-edge",
+  "The bigger picture",
+  "Impact",
+  "Synthesis of Skills",
+  "Why This Stack Matters",
+  "Making Things That Matter",
+  "shows the kind of work I do",
+  "ability to work across",
+  "core part of my identity",
+  "bridging prototyping with production",
+  "Current Role",
+  "Full-Stack Range",
+] as const;
+
 const PLAN_SCHEMA = `{
   "question": "the visitor question exactly as supplied",
   "mode": "grounded | boundary",
@@ -141,7 +164,7 @@ Body rules:
 - Treat the Story Outline as a fact-ownership map. Facts assigned to other scenes may appear only as a short transitional clause, never as this body's substance; this body's new information must come from this scene's assigned locked Evidence.
 - Outside the own-fact and short-transition exceptions, do not restate the locked title or claim, add facts from other Evidence Refs, or repeat another scene's proposition. A synthesis cannot inventory, paraphrase, or relabel earlier facts.
 - In honest-boundary mode, write only standalone unattributed absence sentences: never mention the corpus, profile, excerpt, Evidence, Ref, or any locked-excerpt content; never use "but", "however", "though", "doesn't include", "doesn't mention", or "doesn't say". Covered alternatives and redirects belong only in relatedQuestions.
-- Never use "technical depth", "clear product story", "passionate", "seamless", "leveraging", "showcase", "aligning", "robust", "cutting-edge", "The bigger picture", "Impact", "Synthesis of Skills", "Why This Stack Matters", "Making Things That Matter", "shows the kind of work I do", "ability to work across", "core part of my identity", "bridging prototyping with production", "Current Role", or "Full-Stack Range". Use plain, concrete language instead.
+- Never use ${BANNED_PHRASES.map((phrase, index) => `${index === BANNED_PHRASES.length - 1 ? "or " : ""}"${phrase}"`).join(", ")}. Use plain, concrete language instead.
 - The banned phrases remain banned even if they appear in the locked claim or Story Outline.
 - Before returning, verify: 1–4 sentences; only excerpt-entailed clauses except for an honest boundary absence; no other scene's facts beyond a short transition; no title or claim copied verbatim outside the own-fact exception; and none of the banned phrases.
 - You cannot change any locked Plan field.

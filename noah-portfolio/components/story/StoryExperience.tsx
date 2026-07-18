@@ -576,10 +576,6 @@ export default function StoryExperience({
     () => new Map(evidence.map((evidenceRef) => [evidenceRef.id, evidenceRef])),
     [evidence],
   );
-  const compositionEvidence = useMemo(
-    () => evidence.map(({ id, label }) => ({ id, label })),
-    [evidence],
-  );
 
   useEffect(() => setShareStatus(''), [question]);
 
@@ -701,7 +697,7 @@ export default function StoryExperience({
               plan={plan}
               cue={plan.scenes[scene.index].cue}
               evidenceById={evidenceById}
-              evidence={compositionEvidence}
+              evidence={evidence}
             />
           </Fragment>
         ))}
