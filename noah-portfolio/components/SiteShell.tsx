@@ -1,9 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, MotionConfig, motion, useReducedMotion } from 'framer-motion';
-import { ArrowDown, ArrowUpRight } from 'lucide-react';
+import { ArrowDown, ArrowUpRight, BarChart3 } from 'lucide-react';
 import Hero from './Hero';
 import PortfolioCanvas from './PortfolioCanvas';
 import CompactHeader from './CompactHeader';
@@ -150,6 +151,13 @@ export default function SiteShell() {
             >
               Story <ArrowDown strokeWidth={1.5} className="size-4" aria-hidden />
             </a>
+            <Link
+              className={TOP_CHROME_ACTION_CLASS}
+              href="/benchmark"
+            >
+              <span className="sr-only sm:not-sr-only">Benchmark</span>
+              <BarChart3 strokeWidth={1.5} className="size-4" aria-hidden />
+            </Link>
             <a
               className={TOP_CHROME_ACTION_CLASS}
               href="https://blog.noahrijkaard.com"

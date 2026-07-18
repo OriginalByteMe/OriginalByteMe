@@ -33,6 +33,7 @@ export const PROJECT_SLUGS = [
   "ask-me-portfolio",
   "llm-comparison",
   "moodify",
+  "story-model-benchmark",
 ] as const;
 export const ELIGIBLE_PATTERNS_BY_ROLE = {
   "direct-answer": ["hero-statement"],

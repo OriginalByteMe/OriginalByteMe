@@ -1,6 +1,12 @@
+// Refresh benchmark data: npm run eval -- --pipeline --models <slug> --out lib/benchmark/results.json
+
+import assert from "node:assert/strict";
+import { readFile, writeFile } from "node:fs/promises";
+import { parseArgs } from "node:util";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText } from "ai";
 import {
+  BANNED_PHRASES,
   buildSceneRepairMessage,
   buildSceneSystemPrompt,
   buildSceneUserMessage,
@@ -12,6 +18,7 @@ import {
   resolveStoryProjects,
 } from "../lib/story/evidence";
 import type { ScenePlan, StoryPlan } from "../lib/story/types";
+import type { BenchmarkModel, BenchmarkResults, ModelPricing } from "../lib/benchmark/data";
 import {
   assertValidStoryPlan,
   assertValidStoryPlanWithEvidence,
@@ -216,7 +223,7 @@ function emptyMetrics(model: ModelConfig, task: TaskName, cases: number): Metric
 async function evaluatePlans(model: ModelConfig, questions: readonly string[]): Promise<Metrics> {
   const metrics = emptyMetrics(model, "plan", questions.length);
 
-  for (const [caseIndex, question] of questions.entries()) {
+  for (const question of questions) {
     const messages: ChatMessage[] = [{ role: "user", content: buildUserMessage(question) }];
     let output = "";
     let lastError = "The model did not return a valid Story Plan.";
@@ -225,13 +232,8 @@ async function evaluatePlans(model: ModelConfig, questions: readonly string[]): 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         output = await modelAttempt(model, buildSystemPrompt(), messages, metrics);
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(stripFences(output));
-          metrics.jsonParsed += 1;
-        } catch (error) {
-          throw error;
-        }
+        const parsed: unknown = JSON.parse(stripFences(output));
+        metrics.jsonParsed += 1;
         assertValidStoryPlan(parsed, CORPUS_EVIDENCE_REFS, question);
         if (attempt === 0) metrics.firstTryValid += 1;
         else metrics.repairRescued += 1;
@@ -269,7 +271,7 @@ async function evaluateScenes(
 ): Promise<Metrics & { bodies: string[] }> {
   const metrics = { ...emptyMetrics(model, "scene", scenes.length), bodies: [] as string[] };
 
-  for (const [caseIndex, lockedPlan] of scenes.entries()) {
+  for (const lockedPlan of scenes) {
     const lockedEvidence = storyEvidence.refs.filter((ref) => lockedPlan.evidenceRefIds.includes(ref.id));
     const resolvedProjects = resolveStoryProjects(lockedPlan.projectSlugs);
     const system = buildSceneSystemPrompt(question, storyOutline, lockedPlan, lockedEvidence);
@@ -319,6 +321,7 @@ async function evaluateScenes(
 }
 type PipelineMetrics = AttemptTotals & {
   model: string;
+  modelId: string;
   stories: number;
   planFirstTryValid: number;
   planFinalValid: number;
@@ -331,29 +334,129 @@ type PipelineMetrics = AttemptTotals & {
   storyLatencyMs: number;
 };
 
-// Keep synchronized with the banned filler rule in ../lib/llm/prompt.ts.
-const BANNED_PHRASES = [
-  "technical depth",
-  "clear product story",
-  "passionate",
-  "seamless",
-  "leveraging",
-  "showcase",
-  "aligning",
-  "robust",
-  "cutting-edge",
-  "The bigger picture",
-  "Impact",
-  "Synthesis of Skills",
-  "Why This Stack Matters",
-  "Making Things That Matter",
-  "shows the kind of work I do",
-  "ability to work across",
-  "core part of my identity",
-  "bridging prototyping with production",
-  "Current Role",
-  "Full-Stack Range",
-] as const;
+
+type OpenRouterPricing = Omit<ModelPricing, "pricedAt">;
+type PricingByModel = Readonly<Partial<Record<string, OpenRouterPricing>>>;
+
+const DEFAULT_PRICING_NOTE =
+  "Costs are estimates: run token totals × one OpenRouter price snapshot per model. The eval used auto-routing, and per-provider endpoint prices vary.";
+
+function benchmarkLabel(modelId: string): string {
+  return (modelId.split("/").at(-1) ?? modelId)
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function benchmarkModel(
+  metrics: PipelineMetrics,
+  existing: BenchmarkModel | undefined,
+  pricing: ModelPricing | undefined,
+): BenchmarkModel {
+  return {
+    id: metrics.modelId,
+    label: existing?.label ?? benchmarkLabel(metrics.modelId),
+    stories: metrics.stories,
+    planFirstTryValid: metrics.stories ? metrics.planFirstTryValid / metrics.stories : 0,
+    planFinalValid: metrics.stories ? metrics.planFinalValid / metrics.stories : 0,
+    scenesValid: metrics.sceneCases ? metrics.scenesValid / metrics.sceneCases : 0,
+    repetitionMax: metrics.measuredStories
+      ? metrics.repetitionMaxTotal / metrics.measuredStories
+      : 0,
+    repetitionMean: metrics.measuredStories
+      ? metrics.repetitionMeanTotal / metrics.measuredStories
+      : 0,
+    bannedPhrases: metrics.bannedPhraseCount,
+    meanStoryMs: metrics.stories ? Math.round(metrics.storyLatencyMs / metrics.stories) : 0,
+    promptTokens: metrics.promptTokens,
+    completionTokens: metrics.completionTokens,
+    ...(pricing ? { pricing } : {}),
+    verdict: existing?.verdict ?? "candidate",
+    note: existing?.note ?? "",
+  };
+}
+
+export function mergePipelineResults(
+  metrics: readonly PipelineMetrics[],
+  existing: BenchmarkResults | undefined,
+  pricing: PricingByModel,
+  runDate: string,
+): BenchmarkResults {
+  const measured = new Map(
+    metrics.map((result) => {
+      const freshPricing = pricing[result.modelId];
+      const existingModel = existing?.models.find((model) => model.id === result.modelId);
+      return [
+        result.modelId,
+        benchmarkModel(
+          result,
+          existingModel,
+          freshPricing
+            ? { ...freshPricing, pricedAt: runDate }
+            : existingModel?.pricing,
+        ),
+      ];
+    }),
+  );
+  const existingIds = new Set(existing?.models.map((model) => model.id));
+  return {
+    benchmark: existing?.benchmark ?? "story-pipeline",
+    runDate,
+    questionsPerModel: metrics[0]?.stories ?? 0,
+    pricingNote: existing?.pricingNote ?? DEFAULT_PRICING_NOTE,
+    source: existing?.source ?? "scripts/story-model-eval.ts --pipeline",
+    models: [
+      ...(existing?.models.map((model) => measured.get(model.id) ?? model) ?? []),
+      ...metrics
+        .filter((result) => !existingIds.has(result.modelId))
+        .map((result) => measured.get(result.modelId)!),
+    ],
+  };
+}
+
+async function openRouterPricing(modelIds: readonly string[]): Promise<PricingByModel> {
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/models");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = (await response.json()) as {
+      data?: Array<{
+        id?: string;
+        pricing?: { prompt?: string; completion?: string };
+      }>;
+    };
+    const pricing: Partial<Record<string, OpenRouterPricing>> = {};
+    for (const modelId of modelIds) {
+      const match = payload.data?.find((model) => model.id === modelId);
+      const promptUsdPerTok = Number(match?.pricing?.prompt);
+      const completionUsdPerTok = Number(match?.pricing?.completion);
+      if (
+        match &&
+        Number.isFinite(promptUsdPerTok) &&
+        Number.isFinite(completionUsdPerTok)
+      ) {
+        pricing[modelId] = { promptUsdPerTok, completionUsdPerTok };
+      } else {
+        console.error(`Warning: Fresh OpenRouter pricing not found for ${modelId}.`);
+      }
+    }
+    return pricing;
+  } catch (error) {
+    console.error(
+      `Warning: OpenRouter pricing fetch failed (${errorMessage(error)}); no fresh pricing for ${modelIds.join(", ")}.`,
+    );
+    return {};
+  }
+}
+
+async function readBenchmarkResults(path: string): Promise<BenchmarkResults | undefined> {
+  try {
+    return JSON.parse(await readFile(path, "utf8")) as BenchmarkResults;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+}
 
 export function repetitionMetrics(sceneBodies: readonly string[]): { max: number; mean: number } {
   const trigrams = sceneBodies.map((body) => {
@@ -392,6 +495,7 @@ function bannedPhraseOccurrences(sceneBodies: readonly string[]): number {
 function emptyPipelineMetrics(model: ModelConfig, stories: number): PipelineMetrics {
   return {
     model: `${model.name} (${model.model})`,
+    modelId: model.model,
     stories,
     attempts: 0,
     latencyMs: 0,
@@ -454,16 +558,10 @@ async function evaluatePipeline(
       if (!plan) continue;
       const evidence = evidenceForPlan(plan, question);
       if (plan.mode === "boundary") continue;
-      const storyOutline = plan.scenes.map(({ index, role, title, claim }) => ({
-        index,
-        role,
-        title,
-        claim,
-      }));
       const sceneMetrics = await evaluateScenes(
         model,
         question,
-        storyOutline,
+        plan.scenes,
         plan.scenes,
         evidence,
       );
@@ -523,16 +621,10 @@ function table(metrics: Metrics[]): string {
   ].join("\n");
 }
 
-function selectedModels(args: string[]): ModelConfig[] {
-  const option = args.find((arg) => arg.startsWith("--models="));
-  const separateIndex = args.indexOf("--models");
-  const requested = (option?.slice("--models=".length) ??
-    (separateIndex >= 0 ? args[separateIndex + 1] : undefined))
-    ?.split(",")
-    .map((name) => name.trim())
-    .filter(Boolean);
-  if (!requested?.length) return MODELS;
-  return requested.map((name) => {
+function resolveModels(requested?: string): ModelConfig[] {
+  const names = requested?.split(",").map((name) => name.trim()).filter(Boolean);
+  if (!names?.length) return MODELS;
+  return names.map((name) => {
     const configured = MODELS.find((model) => model.name === name);
     if (configured) return configured;
     if (name.includes("/")) return { name, model: name };
@@ -543,9 +635,16 @@ function selectedModels(args: string[]): ModelConfig[] {
 }
 
 async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const quick = args.includes("--quick");
-  if (args.includes("--self-test")) {
+  const { values } = parseArgs({
+    options: {
+      models: { type: "string" },
+      out: { type: "string" },
+      quick: { type: "boolean" },
+      pipeline: { type: "boolean" },
+      "self-test": { type: "boolean" },
+    },
+  });
+  if (values["self-test"]) {
     const bodies = [
       "One two three four.",
       "One two three five.",
@@ -554,7 +653,136 @@ async function main(): Promise<void> {
     const first = repetitionMetrics(bodies);
     const second = repetitionMetrics(bodies);
     const slug = "qwen/qwen3-30b-a3b";
-    const selected = selectedModels(["--models", slug]);
+    const selected = resolveModels(slug);
+    const pipelineMetrics: PipelineMetrics[] = [
+      {
+        model: "Existing (vendor/existing)",
+        modelId: "vendor/existing",
+        stories: 2,
+        attempts: 5,
+        latencyMs: 100,
+        promptTokens: 120,
+        completionTokens: 80,
+        planFirstTryValid: 1,
+        planFinalValid: 2,
+        sceneCases: 4,
+        scenesValid: 3,
+        measuredStories: 2,
+        repetitionMaxTotal: 0.4,
+        repetitionMeanTotal: 0.2,
+        bannedPhraseCount: 3,
+        storyLatencyMs: 201,
+      },
+      {
+        model: "New (vendor/new-model)",
+        modelId: "vendor/new-model",
+        stories: 0,
+        attempts: 0,
+        latencyMs: 0,
+        promptTokens: 0,
+        completionTokens: 0,
+        planFirstTryValid: 0,
+        planFinalValid: 0,
+        sceneCases: 0,
+        scenesValid: 0,
+        measuredStories: 0,
+        repetitionMaxTotal: 0,
+        repetitionMeanTotal: 0,
+        bannedPhraseCount: 0,
+        storyLatencyMs: 0,
+      },
+    ];
+    const existingResults: BenchmarkResults = {
+      benchmark: "story-pipeline",
+      runDate: "2026-07-17",
+      questionsPerModel: 5,
+      pricingNote: "Existing pricing note",
+      source: "existing source",
+      models: [
+        {
+          id: "vendor/existing",
+          label: "Existing Label",
+          stories: 5,
+          planFirstTryValid: 0,
+          planFinalValid: 0,
+          scenesValid: 0,
+          repetitionMax: 0,
+          repetitionMean: 0,
+          bannedPhrases: 0,
+          meanStoryMs: 0,
+          promptTokens: 0,
+          completionTokens: 0,
+          pricing: {
+            promptUsdPerTok: 0.003,
+            completionUsdPerTok: 0.004,
+            pricedAt: "2026-07-17",
+          },
+          verdict: "finalist",
+          note: "Keep this note",
+        },
+      ],
+    };
+    const merged = mergePipelineResults(
+      pipelineMetrics,
+      existingResults,
+      {
+        "vendor/existing": {
+          promptUsdPerTok: 0.001,
+          completionUsdPerTok: 0.002,
+        },
+      },
+      "2026-07-18",
+    );
+    const withoutFreshPricing = mergePipelineResults(
+      pipelineMetrics,
+      existingResults,
+      {},
+      "2026-07-18",
+    );
+    const retainedPricing = withoutFreshPricing.models.find(
+      (model) => model.id === "vendor/existing",
+    )?.pricing;
+    const existingModel = merged.models.find((model) => model.id === "vendor/existing");
+    const candidate = merged.models.find((model) => model.id === "vendor/new-model");
+    assert.deepEqual(
+      {
+        planFirstTryValid: existingModel?.planFirstTryValid,
+        planFinalValid: existingModel?.planFinalValid,
+        scenesValid: existingModel?.scenesValid,
+        repetitionMax: existingModel?.repetitionMax,
+        repetitionMean: existingModel?.repetitionMean,
+        meanStoryMs: existingModel?.meanStoryMs,
+      },
+      {
+        planFirstTryValid: 0.5,
+        planFinalValid: 1,
+        scenesValid: 0.75,
+        repetitionMax: 0.2,
+        repetitionMean: 0.1,
+        meanStoryMs: 101,
+      },
+    );
+    assert.equal(existingModel?.verdict, "finalist");
+    assert.equal(existingModel?.note, "Keep this note");
+    assert.equal(candidate?.verdict, "candidate");
+    assert.equal(candidate?.note, "");
+    assert.equal(candidate?.label, "New Model");
+    assert.equal(candidate?.planFirstTryValid, 0);
+    assert.equal(candidate?.scenesValid, 0);
+    assert.equal(candidate?.repetitionMax, 0);
+    assert.equal(merged.questionsPerModel, 2);
+    assert.equal(merged.runDate, "2026-07-18");
+    assert.deepEqual(existingModel?.pricing, {
+      promptUsdPerTok: 0.001,
+      completionUsdPerTok: 0.002,
+      pricedAt: "2026-07-18",
+    });
+    assert.deepEqual(retainedPricing, {
+      promptUsdPerTok: 0.003,
+      completionUsdPerTok: 0.004,
+      pricedAt: "2026-07-17",
+    });
+    assert.equal(candidate?.pricing, undefined);
     if (
       JSON.stringify(first) !== JSON.stringify(second) ||
       first.max !== 1 / 3 ||
@@ -564,36 +792,38 @@ async function main(): Promise<void> {
       throw new Error("repetition metric self-test failed");
     }
     console.log(`repetition metric self-test passed: ${JSON.stringify(first)}`);
+    console.log("benchmark merge self-test passed");
     return;
   }
-  const pipeline = args.includes("--pipeline");
-  const models = selectedModels(args);
-  const questions = quick ? QUESTIONS.slice(0, 1) : QUESTIONS;
-  if (pipeline) {
+  const models = resolveModels(values.models);
+  const questions = values.quick ? QUESTIONS.slice(0, 1) : QUESTIONS;
+  if (values.pipeline) {
     const results: PipelineMetrics[] = [];
     for (const model of models) results.push(await evaluatePipeline(model, questions));
-    console.log(`\n# Story model pipeline eval${quick ? " (quick)" : ""}\n`);
+    console.log(`\n# Story model pipeline eval${values.quick ? " (quick)" : ""}\n`);
     console.log(pipelineTable(results));
+    if (values.out) {
+      const pricing = await openRouterPricing(results.map((result) => result.modelId));
+      const existing = await readBenchmarkResults(values.out);
+      const runDate = new Date().toISOString().slice(0, 10);
+      const merged = mergePipelineResults(results, existing, pricing, runDate);
+      await writeFile(values.out, `${JSON.stringify(merged, null, 2)}\n`);
+      console.log(`\nWrote benchmark data to ${values.out}`);
+    }
     return;
   }
   const evidence = fixtureEvidence();
-  const scenes = quick ? SCENE_PLAN_FIXTURE.scenes.slice(0, 1) : SCENE_PLAN_FIXTURE.scenes;
-  const storyOutline = SCENE_PLAN_FIXTURE.scenes.map(({ index, role, title, claim }) => ({
-    index,
-    role,
-    title,
-    claim,
-  }));
+  const scenes = values.quick ? SCENE_PLAN_FIXTURE.scenes.slice(0, 1) : SCENE_PLAN_FIXTURE.scenes;
   const results: Metrics[] = [];
 
   for (const model of models) {
     results.push(await evaluatePlans(model, questions));
     results.push(
-      await evaluateScenes(model, SCENE_PLAN_FIXTURE.question, storyOutline, scenes, evidence),
+      await evaluateScenes(model, SCENE_PLAN_FIXTURE.question, SCENE_PLAN_FIXTURE.scenes, scenes, evidence),
     );
   }
 
-  console.log(`\n# Story model eval${quick ? " (quick)" : ""}\n`);
+  console.log(`\n# Story model eval${values.quick ? " (quick)" : ""}\n`);
   console.log(table(results));
 }
 

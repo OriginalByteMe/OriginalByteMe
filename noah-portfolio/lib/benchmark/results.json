@@ -1,0 +1,156 @@
+{
+  "benchmark": "story-pipeline",
+  "runDate": "2026-07-18",
+  "questionsPerModel": 5,
+  "pricingNote": "Costs are estimates: run token totals \u00d7 one OpenRouter price snapshot per model. The eval used auto-routing, and per-provider endpoint prices vary materially (GLM-5.2 endpoints ranged $0.2968/$0.9328 to $1.05/$4.40 per MTok at review time).",
+  "source": "scripts/story-model-eval.ts --pipeline",
+  "models": [
+    {
+      "id": "z-ai/glm-5.2",
+      "label": "GLM 5.2",
+      "stories": 5,
+      "planFirstTryValid": 0.8,
+      "planFinalValid": 1,
+      "scenesValid": 1,
+      "repetitionMax": 0.039,
+      "repetitionMean": 0.012,
+      "bannedPhrases": 0,
+      "meanStoryMs": 38930,
+      "promptTokens": 57631,
+      "completionTokens": 28190,
+      "pricing": {
+        "promptUsdPerTok": 2.94e-07,
+        "completionUsdPerTok": 9.24e-07,
+        "pricedAt": "2026-07-18"
+      },
+      "verdict": "default",
+      "note": "Blinded-review winner (C > A > B): best breadth, zero entailment violations, MIT license. Promoted to the application default."
+    },
+    {
+      "id": "deepseek/deepseek-v4-flash",
+      "label": "DeepSeek V4 Flash",
+      "stories": 5,
+      "planFirstTryValid": 1,
+      "planFinalValid": 1,
+      "scenesValid": 1,
+      "repetitionMax": 0.163,
+      "repetitionMean": 0.065,
+      "bannedPhrases": 0,
+      "meanStoryMs": 67887,
+      "promptTokens": 45334,
+      "completionTokens": 31247,
+      "pricing": {
+        "promptUsdPerTok": 9.8e-08,
+        "completionUsdPerTok": 1.96e-07,
+        "pricedAt": "2026-07-18"
+      },
+      "verdict": "finalist",
+      "note": "The former default. Perfect validity but the highest cross-scene repetition (0.163 max Jaccard) and 68 s per Story."
+    },
+    {
+      "id": "openai/gpt-oss-120b",
+      "label": "GPT-OSS 120B",
+      "stories": 5,
+      "planFirstTryValid": 0.6,
+      "planFinalValid": 1,
+      "scenesValid": 1,
+      "repetitionMax": 0.144,
+      "repetitionMean": 0.069,
+      "bannedPhrases": 1,
+      "meanStoryMs": 8298,
+      "promptTokens": 64975,
+      "completionTokens": 23272,
+      "pricing": {
+        "promptUsdPerTok": 3.7e-08,
+        "completionUsdPerTok": 1.7e-07,
+        "pricedAt": "2026-07-18"
+      },
+      "verdict": "finalist",
+      "note": "Fastest and cheapest by far (8.3 s/Story), but shipped one banned filler phrase and invented an evidence relationship in the blinded review."
+    },
+    {
+      "id": "qwen/qwen3.5-27b",
+      "label": "Qwen3.5 27B",
+      "stories": 5,
+      "planFirstTryValid": 0.6,
+      "planFinalValid": 1,
+      "scenesValid": 1,
+      "repetitionMax": 0,
+      "repetitionMean": 0,
+      "bannedPhrases": 0,
+      "meanStoryMs": 185908,
+      "promptTokens": 47026,
+      "completionTokens": 55949,
+      "pricing": {
+        "promptUsdPerTok": 2.6e-07,
+        "completionUsdPerTok": 2.6e-06,
+        "pricedAt": "2026-07-18"
+      },
+      "verdict": "eliminated",
+      "note": "Zero repetition but 186 s per Story and the highest completion-token bill of the field."
+    },
+    {
+      "id": "mistralai/mistral-small-2603",
+      "label": "Mistral Small 2603",
+      "stories": 5,
+      "planFirstTryValid": 0.2,
+      "planFinalValid": 0.8,
+      "scenesValid": 1,
+      "repetitionMax": 0.122,
+      "repetitionMean": 0.033,
+      "bannedPhrases": 0,
+      "meanStoryMs": 10963,
+      "promptTokens": 71569,
+      "completionTokens": 7088,
+      "pricing": {
+        "promptUsdPerTok": 1.5e-07,
+        "completionUsdPerTok": 6e-07,
+        "pricedAt": "2026-07-18"
+      },
+      "verdict": "eliminated",
+      "note": "Fast, but only 1 in 5 plans was valid on the first try and one Story never validated even after repair."
+    },
+    {
+      "id": "z-ai/glm-4.7-flash",
+      "label": "GLM 4.7 Flash",
+      "stories": 5,
+      "planFirstTryValid": 0.2,
+      "planFinalValid": 0.8,
+      "scenesValid": 0.93,
+      "repetitionMax": 0.137,
+      "repetitionMean": 0.035,
+      "bannedPhrases": 0,
+      "meanStoryMs": 231562,
+      "promptTokens": 62423,
+      "completionTokens": 51287,
+      "pricing": {
+        "promptUsdPerTok": 6.05e-08,
+        "completionUsdPerTok": 4e-07,
+        "pricedAt": "2026-07-18"
+      },
+      "verdict": "eliminated",
+      "note": "232 s per Story with 20% first-try plan validity \u2014 slow and unreliable."
+    },
+    {
+      "id": "qwen/qwen3.5-35b-a3b",
+      "label": "Qwen3.5 35B A3B",
+      "stories": 5,
+      "planFirstTryValid": 0,
+      "planFinalValid": 0.2,
+      "scenesValid": 0.67,
+      "repetitionMax": 0.017,
+      "repetitionMean": 0.006,
+      "bannedPhrases": 0,
+      "meanStoryMs": 296394,
+      "promptTokens": 13405,
+      "completionTokens": 27592,
+      "pricing": {
+        "promptUsdPerTok": 1.4e-07,
+        "completionUsdPerTok": 1e-06,
+        "pricedAt": "2026-07-18"
+      },
+      "verdict": "eliminated",
+      "note": "No plan ever validated first try; only one Story survived repair. 296 s per Story."
+    }
+  ]
+}
