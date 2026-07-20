@@ -8,6 +8,7 @@ export interface OpenRouterEnv {
   openrouterApiKey: string;
   openrouterModel: string;
   openrouterProviderOrder: string[] | undefined;
+  openrouterFallbackModels: string[] | undefined;
 }
 
 export interface LangfuseEnv {
@@ -29,10 +30,22 @@ export function getServerEnv(): OpenRouterEnv {
     throw new Error("OPENROUTER_PROVIDER_ORDER must not contain empty entries");
   }
 
+  // Default fallback keeps Story generation alive when paid credits run out;
+  // set OPENROUTER_FALLBACK_MODELS="" to disable fallback routing entirely.
+  const fallbackModelsValue = process.env.OPENROUTER_FALLBACK_MODELS ?? "tencent/hy3:free";
+  const fallbackModels =
+    fallbackModelsValue === ""
+      ? undefined
+      : fallbackModelsValue.split(",").map((model) => model.trim());
+  if (fallbackModels?.some((model) => !model)) {
+    throw new Error("OPENROUTER_FALLBACK_MODELS must not contain empty entries");
+  }
+
   return {
     openrouterApiKey,
     openrouterModel: process.env.OPENROUTER_MODEL || "z-ai/glm-5.2",
     openrouterProviderOrder: providerOrder,
+    openrouterFallbackModels: fallbackModels,
   };
 }
 

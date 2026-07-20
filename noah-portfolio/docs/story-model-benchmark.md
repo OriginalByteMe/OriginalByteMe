@@ -93,3 +93,13 @@ Use `--quick` to run only the first fixed question while checking credentials or
 | `qwen/qwen3.5-35b-a3b` | 0% | 20% | 67% | 0.017 | 0.006 | 0 | 296,394 | 13,405 | 27,592 |
 
 A blinded review ranked the viable finalists **C > A > B**: A was DeepSeek V4 Flash, B was GPT-OSS 120B, and C was GLM-5.2. GLM-5.2 covered the broadest set of projects and had no entailment violations in the reviewed output. It also combined 80% first-try and 100% final plan validity, zero banned phrases, 0.039 maximum repetition, and about 39 seconds per Story. DeepSeek repeated more and took about 68 seconds; GPT-OSS was much faster but used a banned phrase and invented an evidence relationship. GLM-5.2 and DeepSeek were MIT-licensed; GPT-OSS was Apache-2.0. The review selected `z-ai/glm-5.2` as the application default while retaining OpenRouter auto-routing unless an operator deliberately sets a provider order and reruns the benchmark.
+
+## 2026-07-20 free-fallback run
+
+A follow-up run measured `tencent/hy3:free`, the only OpenRouter `:free` model available without opting the account into prompt-logging/training. The goal was an out-of-credits fallback, not a new default.
+
+| Model | Plan first-try valid | Plan final valid | Scenes valid | Repetition max | Repetition mean | Banned phrases | Mean Story ms | Prompt tokens | Completion tokens |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `tencent/hy3:free` | 60% | 80% | 100% | 0.124 | 0.034 | 0 | 18,615 | 54,314 | 5,388 |
+
+One Story in five kept an invalid plan after the repair attempt, so this is a degraded mode relative to GLM-5.2 (80% first-try, 100% final). It is wired as the default fallback chain: `lib/env.ts` defaults `OPENROUTER_FALLBACK_MODELS` to `tencent/hy3:free` (empty string disables), and `lib/llm/openrouter.ts` passes the chain as OpenRouter's server-side `models` fallback plus an application-level retry on insufficient-credit (402) errors. Free endpoints are rate-limited by OpenRouter (1,000 requests/day for accounts with ≥$10 lifetime purchases, otherwise 50/day), which is fine for fallback traffic but not for repeated eval loops.

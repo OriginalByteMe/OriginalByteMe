@@ -11,6 +11,7 @@ beforeEach(() => {
   vi.stubEnv("OPENROUTER_API_KEY", "test-key");
   vi.stubEnv("OPENROUTER_MODEL", "");
   vi.stubEnv("OPENROUTER_PROVIDER_ORDER", undefined);
+  vi.stubEnv("OPENROUTER_FALLBACK_MODELS", undefined);
   vi.stubEnv("CF_ACCOUNT_ID", "");
   vi.stubEnv("STORY_CACHE_HMAC_KEY", "");
   vi.stubEnv("STORY_CACHE_HMAC_KEY_ID", "");
@@ -48,6 +49,42 @@ describe("LLM environment", () => {
     "rejects empty provider-order entries in %j",
     (providerOrder) => {
       vi.stubEnv("OPENROUTER_PROVIDER_ORDER", providerOrder);
+      expect(() => getServerEnv()).toThrow(/must not contain empty entries/);
+    },
+  );
+
+  it("defaults fallback models to the free-tier model", () => {
+    expect(getServerEnv().openrouterFallbackModels).toEqual(["tencent/hy3:free"]);
+  });
+
+  it("treats an empty fallback-model list as unset", () => {
+    vi.stubEnv("OPENROUTER_FALLBACK_MODELS", "");
+    expect(getServerEnv().openrouterFallbackModels).toBeUndefined();
+  });
+
+  it("parses CSV fallback models", () => {
+    vi.stubEnv("OPENROUTER_FALLBACK_MODELS", "tencent/hy3:free,openai/gpt-oss-20b:free");
+    expect(getServerEnv().openrouterFallbackModels).toEqual([
+      "tencent/hy3:free",
+      "openai/gpt-oss-20b:free",
+    ]);
+  });
+
+  it("trims fallback-model whitespace", () => {
+    vi.stubEnv(
+      "OPENROUTER_FALLBACK_MODELS",
+      " tencent/hy3:free , openai/gpt-oss-20b:free ",
+    );
+    expect(getServerEnv().openrouterFallbackModels).toEqual([
+      "tencent/hy3:free",
+      "openai/gpt-oss-20b:free",
+    ]);
+  });
+
+  it.each(["tencent/hy3:free,,openai/gpt-oss-20b:free", "tencent/hy3:free,", "   "])(
+    "rejects empty fallback-model entries in %j",
+    (fallbackModels) => {
+      vi.stubEnv("OPENROUTER_FALLBACK_MODELS", fallbackModels);
       expect(() => getServerEnv()).toThrow(/must not contain empty entries/);
     },
   );
