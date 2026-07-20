@@ -1,6 +1,6 @@
 {
   "benchmark": "story-pipeline",
-  "pricingNote": "Costs are estimates: run token totals \u00d7 one OpenRouter price snapshot per model. The eval used auto-routing, and per-provider endpoint prices vary materially (GLM-5.2 endpoints ranged $0.2968/$0.9328 to $1.05/$4.40 per MTok at review time).",
+  "pricingNote": "Costs are estimates: run token totals × one OpenRouter price snapshot per model. The eval used auto-routing, and per-provider endpoint prices vary materially (GLM-5.2 endpoints ranged $0.2968/$0.9328 to $1.05/$4.40 per MTok at review time).",
   "source": "scripts/story-model-eval.ts --pipeline",
   "models": [
     {
@@ -17,8 +17,8 @@
       "promptTokens": 57631,
       "completionTokens": 28190,
       "pricing": {
-        "promptUsdPerTok": 2.94e-07,
-        "completionUsdPerTok": 9.24e-07,
+        "promptUsdPerTok": 2.94e-7,
+        "completionUsdPerTok": 9.24e-7,
         "pricedAt": "2026-07-18"
       },
       "verdict": "default",
@@ -39,8 +39,8 @@
       "promptTokens": 45334,
       "completionTokens": 31247,
       "pricing": {
-        "promptUsdPerTok": 9.8e-08,
-        "completionUsdPerTok": 1.96e-07,
+        "promptUsdPerTok": 9.8e-8,
+        "completionUsdPerTok": 1.96e-7,
         "pricedAt": "2026-07-18"
       },
       "verdict": "finalist",
@@ -61,8 +61,8 @@
       "promptTokens": 64975,
       "completionTokens": 23272,
       "pricing": {
-        "promptUsdPerTok": 3.7e-08,
-        "completionUsdPerTok": 1.7e-07,
+        "promptUsdPerTok": 3.7e-8,
+        "completionUsdPerTok": 1.7e-7,
         "pricedAt": "2026-07-18"
       },
       "verdict": "finalist",
@@ -83,8 +83,8 @@
       "promptTokens": 47026,
       "completionTokens": 55949,
       "pricing": {
-        "promptUsdPerTok": 2.6e-07,
-        "completionUsdPerTok": 2.6e-06,
+        "promptUsdPerTok": 2.6e-7,
+        "completionUsdPerTok": 0.0000026,
         "pricedAt": "2026-07-18"
       },
       "verdict": "eliminated",
@@ -105,8 +105,8 @@
       "promptTokens": 71569,
       "completionTokens": 7088,
       "pricing": {
-        "promptUsdPerTok": 1.5e-07,
-        "completionUsdPerTok": 6e-07,
+        "promptUsdPerTok": 1.5e-7,
+        "completionUsdPerTok": 6e-7,
         "pricedAt": "2026-07-18"
       },
       "verdict": "eliminated",
@@ -127,12 +127,12 @@
       "promptTokens": 62423,
       "completionTokens": 51287,
       "pricing": {
-        "promptUsdPerTok": 6.05e-08,
-        "completionUsdPerTok": 4e-07,
+        "promptUsdPerTok": 6.05e-8,
+        "completionUsdPerTok": 4e-7,
         "pricedAt": "2026-07-18"
       },
       "verdict": "eliminated",
-      "note": "232 s per Story with 20% first-try plan validity \u2014 slow and unreliable.",
+      "note": "232 s per Story with 20% first-try plan validity — slow and unreliable.",
       "runDate": "2026-07-18"
     },
     {
@@ -149,13 +149,35 @@
       "promptTokens": 13405,
       "completionTokens": 27592,
       "pricing": {
-        "promptUsdPerTok": 1.4e-07,
-        "completionUsdPerTok": 1e-06,
+        "promptUsdPerTok": 1.4e-7,
+        "completionUsdPerTok": 0.000001,
         "pricedAt": "2026-07-18"
       },
       "verdict": "eliminated",
       "note": "No plan ever validated first try; only one Story survived repair. 296 s per Story.",
       "runDate": "2026-07-18"
+    },
+    {
+      "id": "tencent/hy3:free",
+      "label": "Hy3 (free)",
+      "stories": 5,
+      "planFirstTryValid": 0.6,
+      "planFinalValid": 0.8,
+      "scenesValid": 1,
+      "repetitionMax": 0.12380952380952381,
+      "repetitionMean": 0.03387126268924271,
+      "bannedPhrases": 0,
+      "meanStoryMs": 18615,
+      "promptTokens": 54314,
+      "completionTokens": 5388,
+      "pricing": {
+        "promptUsdPerTok": 0,
+        "completionUsdPerTok": 0,
+        "pricedAt": "2026-07-20"
+      },
+      "verdict": "candidate",
+      "note": "Zero-cost fallback, not a default contender: the only OpenRouter :free model usable without the prompt-logging opt-in. Wired as the app's default OPENROUTER_FALLBACK_MODELS chain for when paid credits run out.",
+      "runDate": "2026-07-20"
     }
   ]
 }

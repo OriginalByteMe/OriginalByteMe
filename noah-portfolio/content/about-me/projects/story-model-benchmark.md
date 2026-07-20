@@ -17,3 +17,5 @@ description: >-
 ---
 
 A production-pipeline benchmark for choosing the portfolio's Story-generation model with validity, grounding, repetition, latency, token, and estimated-cost evidence.
+
+The benchmark also selects the free-tier fallback: `tencent/hy3:free` (60% first-try / 80% final plan validity, 100% scene validity, ~19 s per Story) is wired as the default `OPENROUTER_FALLBACK_MODELS` chain, so Story generation degrades gracefully instead of failing when paid credits run out.
