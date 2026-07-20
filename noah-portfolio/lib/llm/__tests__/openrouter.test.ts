@@ -70,4 +70,20 @@ describe("OpenRouter model", () => {
     await expect(getModel().doGenerate({} as never)).rejects.toBe(error);
     expect(fallbackGenerate).not.toHaveBeenCalled();
   });
+
+  it("propagates non-402 errors whose message mentions payment", async () => {
+    const error = Object.assign(new Error("upstream 500: payment required page returned"), {
+      statusCode: 500,
+    });
+    primaryGenerate.mockRejectedValue(error);
+
+    await expect(getModel().doGenerate({} as never)).rejects.toBe(error);
+    expect(fallbackGenerate).not.toHaveBeenCalled();
+  });
+
+  it("retries on a credit-error message without a status code", async () => {
+    primaryGenerate.mockRejectedValue(new Error("Insufficient credits"));
+
+    await expect(getModel().doGenerate({} as never)).resolves.toBe(fallbackGenerateResult);
+  });
 });

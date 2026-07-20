@@ -6,13 +6,15 @@ import {
 import { getServerEnv } from "@/lib/env";
 
 function isCreditError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  // An explicit status code is authoritative: only 402 is a credit error.
+  if ("statusCode" in error && error.statusCode !== undefined) {
+    return error.statusCode === 402;
+  }
   return (
-    typeof error === "object" &&
-    error !== null &&
-    (("statusCode" in error && error.statusCode === 402) ||
-      ("message" in error &&
-        typeof error.message === "string" &&
-        /insufficient credits|payment required/i.test(error.message)))
+    "message" in error &&
+    typeof error.message === "string" &&
+    /insufficient credits|payment required/i.test(error.message)
   );
 }
 
