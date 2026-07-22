@@ -386,13 +386,14 @@ export async function POST(req: NextRequest): Promise<Response> {
         { headers: { ...RESPONSE_HEADERS, "x-cache": "pending" } },
       );
     }
-  } catch {
+  } catch (error) {
     if (req.signal.aborted) {
       return new Response(null, {
         headers: { ...RESPONSE_HEADERS, "x-cache": "miss" },
       });
     }
     // Invalid or unavailable cache entries regenerate through the normal pipeline.
+    console.error("Story cache lookup failed; regenerating without cache:", error);
   }
 
   return new Response(generationStream(question, req.signal), {
