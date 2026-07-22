@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "jsx": "preserve",
+    "paths": {
+      "@/lib/store": ["./lib/store/index.ts"],
+      "@/*": ["./*"],
+      "next/image": ["./.design-sync/support/next-image.tsx"]
+    }
+  }
+}
