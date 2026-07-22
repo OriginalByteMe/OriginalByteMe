@@ -67,18 +67,7 @@ elif [ "$ROOT_ENV" != "$ENV_FILE" ] && [ -f "$ROOT_ENV" ]; then
 elif [ -f "$EXAMPLE" ]; then
   if cp "$EXAMPLE" "$ENV_FILE"; then log "Created .env.local from .env.local.example - fill in the secrets."; else warn "Failed to copy the example env."; fi
 else
-  cat > "$ENV_FILE" <<'ENVEOF'
-OPENROUTER_API_KEY=
-OPENROUTER_MODEL=deepseek/deepseek-v4-flash
-CF_ACCOUNT_ID=
-CF_D1_DATABASE_ID=
-CF_D1_TOKEN=
-# Server-only HMAC key used for private Story cache identity. Use a long random value in production.
-STORY_CACHE_HMAC_KEY=
-# Non-secret rotation label. Change it whenever STORY_CACHE_HMAC_KEY changes.
-STORY_CACHE_HMAC_KEY_ID=
-ENVEOF
-  if [ -f "$ENV_FILE" ]; then log "Wrote a template .env.local - fill in the secrets."; else warn "Could not write $ENV_FILE"; fi
+  warn "No .env.local.example found - create $ENV_FILE manually."
 fi
 
 # --- dependencies --------------------------------------------------------------
