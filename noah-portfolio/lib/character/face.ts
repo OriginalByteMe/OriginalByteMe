@@ -10,18 +10,24 @@ import {
 export type FaceFrame = {
   /** Eyelid closure, 0 (open) to 1 (closed). */
   blink: number;
-  /** Expression envelope, 0 to 1. Internally capped to a subtle talk blend. */
+  /** Expression envelope, 0 to 1. Normal speech reaches about 0.6. */
   mouth: number;
   /** Elapsed seconds; the authored talk clip is sampled in a loop. */
   time: number;
-  /** Enable only while idle or greeting, not during locomotion. */
+  /** Enable in live scene states; disable to restore the underlying mixer pose. */
   active: boolean;
 };
 
 export type FaceLayer = { apply(frame: FaceFrame): void };
 
-// Keep the underlying idle / greeting expression clearly dominant.
-const MAX_TALK_BLEND = 0.45;
+// A 0.6 speech pulse previously became only 0.27 of the authored pose. Since
+// the idle pose is already an open grin, that barely changed its silhouette.
+// Ease the normal speech range into the complete authored mouth vector; keep
+// the small (0.12) idle envelope gentle and never extrapolate beyond the asset.
+const MAX_TALK_BLEND = 0.95;
+const SPEECH_ENVELOPE_PEAK = 0.6;
+// Give a 150–220ms blink a short fully closed hold even at the 30fps frame cap.
+const BLINK_CLOSED_THRESHOLD = 0.7;
 const MOUTH_NAME = /^FACE2_mouth_(cavity|teeth|tongue)(?:_\d+)?$/;
 const EYE_NAME = /^FACE2_(eye_white|eyelid|pupil)_[LR](?:_\d+)?$/;
 const weight = (value: number, fallback = 0) => Number.isFinite(value)
@@ -39,6 +45,7 @@ type Target = {
   applied: number[];
   hasApplied: boolean;
   sampler?: Interpolant;
+  blinkIndices?: ReadonlySet<number>;
 };
 
 // Three / GLTFLoader provide this factory at runtime, but @types/three omits
@@ -55,9 +62,9 @@ function isMorphMesh(node: Object3D): node is MorphMesh {
     && !!mesh.morphTargetDictionary;
 }
 
-function makeTarget(mesh: MorphMesh, indices: number[], sampler?: Interpolant): Target {
+function makeTarget(mesh: MorphMesh, indices: number[], sampler?: Interpolant, blinkIndices?: ReadonlySet<number>): Target {
   return {
-    mesh, indices, sampler,
+    mesh, indices, sampler, blinkIndices,
     baseline: mesh.morphTargetInfluences.map((value) => weight(value)),
     applied: Array(mesh.morphTargetInfluences.length).fill(0),
     hasApplied: false,
@@ -65,13 +72,16 @@ function makeTarget(mesh: MorphMesh, indices: number[], sampler?: Interpolant): 
 }
 
 /**
- * A small, non-additive face pass for Good Vibes. Call AFTER mixer.update(dt),
+ * A non-additive face pass for Good Vibes. Call AFTER mixer.update(dt),
  * every frame (including inactive frames). No mixer actions or clips are edited.
  *
  * Mouth pose includes ALL baked SURFACE_* correction weights from 05_Talk;
  * driving the Talk target alone breaks this model's mouth geometry. Only the
  * three known mouth meshes and six known eye meshes may be modified. Shirt
- * shoulder correctives, brows, bones and HappyEyes remain the mixer's property.
+ * shoulder correctives, brows and bones remain the mixer's property. HappyEyes
+ * is crossfaded out only during a blink: its white/pupil deformation is the
+ * same collapse as Blink, so adding the two can invert the visible eye. All
+ * mixer expressions are restored when the envelope returns to zero.
  */
 export function createFaceLayer(model: Object3D, clips: readonly AnimationClip[]): FaceLayer {
   const eyes: Target[] = [];
@@ -87,7 +97,14 @@ export function createFaceLayer(model: Object3D, clips: readonly AnimationClip[]
         .filter(([name, index]) => /^Blink\.[LR]$/.test(name) && Number.isInteger(index)
           && index >= 0 && index < node.morphTargetInfluences.length)
         .map(([, index]) => index);
-      if (indices.length) eyes.push(makeTarget(node, [...new Set(indices)]));
+      if (indices.length) {
+        const blinkIndices = new Set(indices);
+        const happy = node.morphTargetDictionary.HappyEyes;
+        if (Number.isInteger(happy) && happy >= 0 && happy < node.morphTargetInfluences.length) {
+          indices.push(happy);
+        }
+        eyes.push(makeTarget(node, [...new Set(indices)], undefined, blinkIndices));
+      }
     }
   });
 
@@ -120,8 +137,9 @@ export function createFaceLayer(model: Object3D, clips: readonly AnimationClip[]
 
   return {
     apply({ blink, mouth, time, active }) {
-      const closure = weight(blink);
-      const amount = weight(mouth) * MAX_TALK_BLEND;
+      const closure = weight(weight(blink) / BLINK_CLOSED_THRESHOLD);
+      const speech = weight(weight(mouth) / SPEECH_ENVELOPE_PEAK);
+      const amount = speech * speech * (3 - 2 * speech) * MAX_TALK_BLEND;
       const seconds = Number.isFinite(time) ? time : 0;
       const phase = duration ? ((seconds % duration) + duration) % duration : 0;
 
@@ -154,7 +172,7 @@ export function createFaceLayer(model: Object3D, clips: readonly AnimationClip[]
           const base = target.baseline[index];
           values[index] = pose
             ? base + (weight(pose[index], base) - base) * amount
-            : base + (1 - base) * closure;
+            : base + ((target.blinkIndices?.has(index) ? 1 : 0) - base) * closure;
         }
         for (let index = 0; index < values.length; index += 1) target.applied[index] = values[index];
         target.hasApplied = true;

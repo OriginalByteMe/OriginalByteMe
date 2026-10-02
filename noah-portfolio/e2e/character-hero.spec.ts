@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('character loads, chases, pauses, resets and yields to the original portrait', async ({ page }) => {
+test('character loads, responds to clicks, pauses, resets and yields to the original portrait', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/');
   const hero = page.getByTestId('character-hero');
@@ -59,6 +59,7 @@ test('idle greetings stay quiet until sound is explicitly enabled', async ({ pag
   await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
   const sound = page.getByRole('button', { name: 'Enable character sound' });
   await expect(sound).toHaveAttribute('aria-pressed', 'false');
+  await page.getByRole('button', { name: 'Skip intro' }).click();
   await expect(page.getByRole('status')).toContainText('Hey, my name is Noah. Ask me a question down here.', { timeout: 15_000 });
   await expect(sound).toHaveAttribute('aria-pressed', 'false');
   await sound.click();
@@ -71,23 +72,43 @@ test('idle greetings stay quiet until sound is explicitly enabled', async ({ pag
   await expect(sound).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('full hero scroll sequence reverses safely and Skip intro stays skipped', async ({ page }) => {
+test('timed startup runs without scrolling and hover never issues movement commands', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
   const world = page.getByTestId('character-playground');
-  for (const [progress, phase] of [[.2, 'approach'], [.42, 'bonk'], [.57, 'invitation'], [.73, 'roam'], [.3, 'approach'], [.55, 'invitation']] as const) {
-    await page.evaluate((fraction) => window.scrollTo(0, (document.getElementById('hero')!.offsetHeight - innerHeight) * fraction), progress);
-    await expect(world).toHaveAttribute('data-phase', phase);
-  }
-  await page.getByRole('button', { name: 'Skip intro' }).click();
-  await expect(world).toHaveAttribute('data-phase', 'roam');
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await expect(world).toHaveAttribute('data-phase', 'roam');
+  await expect(world).toHaveAttribute('data-phase', 'approach', { timeout: 8_000 });
+  expect(await page.evaluate(() => scrollY)).toBe(0);
   await page.getByRole('button', { name: 'Pause', exact: true }).click();
+  const time = await world.getAttribute('data-intro-time');
+  await page.waitForTimeout(400);
+  await expect(world).toHaveAttribute('data-intro-time', time!);
+  await page.getByRole('button', { name: 'Resume', exact: true }).click();
+  await expect(world).toHaveAttribute('data-phase', 'recoil', { timeout: 6_000 });
+  await expect(world).toHaveAttribute('data-phase', 'roam', { timeout: 8_000 });
   const position = await world.getAttribute('data-position');
+  await page.mouse.move(1100, 600);
+  await page.waitForTimeout(450);
+  await expect(world).toHaveAttribute('data-position', position!);
+  await page.mouse.click(1180, 530);
+  await expect.poll(() => world.getAttribute('data-position')).not.toBe(position);
+  await page.mouse.click(720, 530);
+  await expect(world).toHaveAttribute('data-activity', 'idle');
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
   await page.setViewportSize({ width: 809, height: 1024 });
   await expect(world).toHaveAttribute('data-paused', 'true');
-  expect(position).toBeTruthy();
   await expect(page.getByRole('button', { name: 'Open Ask-Me composer' })).toBeVisible();
+});
+
+test('uncommanded character plays with the ball and reads, then a click interrupts', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto('/');
+  await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+  await page.getByRole('button', { name: 'Skip intro' }).click();
+  const world = page.getByTestId('character-playground');
+  await expect.poll(() => world.getAttribute('data-activity'), { timeout: 30_000 }).toMatch(/toss/);
+  await expect.poll(() => world.getAttribute('data-activity'), { timeout: 30_000 }).toMatch(/read/);
+  await world.focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect(world).toHaveAttribute('data-activity', 'idle');
 });

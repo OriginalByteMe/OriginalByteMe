@@ -8,12 +8,12 @@ export default function HeroCharacter({ fallback }: { fallback: ReactNode }) {
   const host = useRef<HTMLDivElement>(null);
   const api = useRef<CharacterScene | null>(null);
   const [status, setStatus] = useState<'waiting' | 'loading' | 'ready' | 'fallback'>('waiting');
-  const [phase, setPhase] = useState('intro');
+  const [phase, setPhase] = useState('opening');
   const [portrait, setPortrait] = useState(false);
   const [paused, setPaused] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [greeting, setGreeting] = useState<string | null>(null);
-  const [message, setMessage] = useState('Move your cursor. I’ll follow.');
+  const [message, setMessage] = useState('Click the floor to send me exploring.');
 
   useEffect(() => {
     const element = host.current;
@@ -74,13 +74,14 @@ export default function HeroCharacter({ fallback }: { fallback: ReactNode }) {
       {(!ready || showPortrait) && <div className="character-hero__fallback">{fallback}</div>}
       <figure className={`character-stage ${ready ? 'character-stage--ready' : ''}`} data-testid={ready ? 'hero-world' : undefined} data-phase={phase} aria-label="Interactive Good Vibes character" aria-hidden={!ready}>
         <div className="character-stage__eyebrow" aria-hidden="true"><span>Good vibes only</span><span>{phase === 'roam' ? 'Free to wander' : 'A tiny adventure'}</span></div>
-        <div ref={host} className="character-stage__canvas" data-testid="character-playground" tabIndex={ready ? 0 : -1} role="group" aria-label="Character world. Scroll for a short introduction or skip it. Then move the pointer or tap the floor to guide Noah. Use arrow keys to move, space to wave, and Escape to stop." onKeyDown={(event) => {
+        <div ref={host} className="character-stage__canvas" data-testid="character-playground" tabIndex={ready ? 0 : -1} role="group" aria-label="Character world. A short introduction plays automatically; you can skip it. Then click or tap the floor to guide Noah. Use arrow keys to move, space to wave, and Escape to stop." onKeyDown={(event) => {
           if (api.current?.key(event.key)) event.preventDefault();
         }} />
         {greeting && ready && <p className="character-stage__speech" role="status" aria-live="polite">{greeting}<span aria-hidden="true">↓</span></p>}
         <div className="character-stage__note" aria-hidden="true"><span className="character-stage__dot" /><span>{paused ? 'Taking a breather' : message}</span></div>
-        <figcaption className="character-stage__caption">{phase === 'roam' ? 'Your cursor. My curiosity.' : 'Keep scrolling. I have something to tell you.'}</figcaption>
+        <figcaption className="character-stage__caption">{phase === 'roam' ? 'Click to explore. I’ll play while you browse.' : 'A little hello, then a world to explore.'}</figcaption>
       </figure>
+      {ready && <div className="character-hero__opening" aria-hidden="true"><p>Hi, I’m<br /><em>Noah Rijkaard.</em></p></div>}
       {status === 'loading' && !showPortrait && <p className="character-hero__loading" role="status">Waking up the good vibes…</p>}
       {ready && <div className="character-hero__controls" aria-label="Character controls">
         {phase !== 'roam' && <button type="button" onClick={() => api.current?.skipIntro()}>Skip intro</button>}

@@ -2406,8 +2406,8 @@ body {
 @media (max-width: 36rem) { .character-stage__speech { font-size: .56rem; padding: .55rem .6rem; top: 2.7rem; } }
 
 /* Full-viewport hero world: the stage surrounds content rather than living in a card. */
-.immersive-hero { position: relative; min-height: 220svh; color: #37304a; }
-.immersive-hero__sticky { position: sticky; top: 0; min-height: 100svh; height: 100svh; isolation: isolate; overflow: clip; background: #eee6dd; }
+.immersive-hero { position: relative; min-height: 100svh; color: #37304a; }
+.immersive-hero__sticky { position: relative; top: 0; min-height: 100svh; height: 100svh; isolation: isolate; overflow: clip; background: #eee6dd; }
 .dark .immersive-hero__sticky { background: #282330; color: #eee6f3; }
 .immersive-hero__sticky::after { content: ''; position: absolute; z-index: 1; inset: 0; background: linear-gradient(100deg, #f5eee2e6 0%, #f5eee278 28%, transparent 57%); pointer-events: none; }
 .dark .immersive-hero__sticky::after { background: linear-gradient(100deg, #282330e6 0%, #28233066 30%, transparent 60%); }
@@ -2484,3 +2484,19 @@ body {
   .immersive-hero { min-height: 720px; }
   .immersive-hero__sticky { position: relative; height: 720px; min-height: 720px; }
 }
+
+/* Timed opening, independent of scroll. The page itself always scrolls normally. */
+.character-hero__opening { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; background: #09080b; opacity: var(--intro-black, 1); pointer-events: none; }
+.character-hero__opening p { opacity: var(--intro-title, 1); padding: 2rem; color: #fff; text-align: center; font: clamp(2.5rem, 7vw, 7rem)/1.03 Georgia, serif; letter-spacing: -.045em; }
+.character-hero__opening em { color: #e8daf5; font-weight: 400; }
+.immersive-hero:has(.character-hero[data-status="ready"][data-phase="opening"]) .immersive-hero__copy,
+.immersive-hero:has(.character-hero[data-status="ready"][data-phase="opening"]) .immersive-hero__ask,
+.immersive-hero:has(.character-hero[data-status="ready"][data-phase="opening"]) .immersive-hero__scroll { visibility: hidden; }
+/* Keep website controls readable over the intentionally white 3D scene in either theme. */
+.dark .immersive-hero:has(.character-hero[data-status="ready"]) { color: #37304a; }
+.dark .immersive-hero:has(.character-hero[data-status="ready"]) .immersive-hero__identity h1 em { color: #72509c; }
+.dark .immersive-hero:has(.character-hero[data-status="ready"]) .immersive-hero__intro { color: #6a5977; }
+.dark .immersive-hero:has(.character-hero[data-status="ready"]) .immersive-hero__sticky::after { background: linear-gradient(100deg, #ffffffb0 0%, #ffffff55 28%, transparent 57%); }
+.character-hero--immersive .character-stage { background: #fff; }
+.character-hero--immersive .character-stage__canvas { pointer-events: none; }
+.character-hero--immersive .character-hero__controls { z-index: 6; }

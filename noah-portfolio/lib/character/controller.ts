@@ -154,22 +154,26 @@ function moveVelocity(velocity: Vec2, desired: Vec2, maximumChange: number): voi
   velocity.z += dz * scale;
 }
 
+/** Store this reachable destination so arrival can release a click command. */
+export function resolveCharacterTarget(position: Vec2, target: Vec2, obstacles: readonly CircleObstacle[], bounds: WorldBounds): Vec2 {
+  let goal = { ...target };
+  confine(goal, bounds);
+  // A pointer can land inside a solid prop. Seek its reachable near surface.
+  for (const obstacle of obstacles) {
+    if (distance(goal, obstacle) < obstacle.radius + CHARACTER_CONFIG.radius) {
+      const normal = unit(position.x - obstacle.x, position.z - obstacle.z);
+      goal = { x: obstacle.x + normal.x * (obstacle.radius + CHARACTER_CONFIG.radius + EPSILON), z: obstacle.z + normal.z * (obstacle.radius + CHARACTER_CONFIG.radius + EPSILON) };
+    }
+  }
+  depenetrate(goal, obstacles, bounds);
+  return goal;
+}
+
 function substep(state: CharacterState, target: Vec2 | null, dt: number, obstacles: readonly CircleObstacle[], bounds: WorldBounds): void {
   const config = CHARACTER_CONFIG;
   state.bumpRemaining = Math.max(0, state.bumpRemaining - dt);
   state.bumpCooldown = Math.max(0, state.bumpCooldown - dt);
-  let goal: Vec2 | null = target ? { ...target } : null;
-  if (goal) {
-    confine(goal, bounds);
-    // A pointer can land inside a solid prop. Seek its reachable near surface.
-    for (const obstacle of obstacles) {
-      if (distance(goal, obstacle) < obstacle.radius + config.radius) {
-        const normal = unit(state.position.x - obstacle.x, state.position.z - obstacle.z);
-        goal = { x: obstacle.x + normal.x * (obstacle.radius + config.radius + EPSILON), z: obstacle.z + normal.z * (obstacle.radius + config.radius + EPSILON) };
-      }
-    }
-    depenetrate(goal, obstacles, bounds);
-  }
+  const goal = target ? resolveCharacterTarget(state.position, target, obstacles, bounds) : null;
 
   let direction = goal ? unit(goal.x - state.position.x, goal.z - state.position.z) : { x: 0, z: 0 };
   const remaining = goal ? distance(state.position, goal) : 0;
