@@ -2358,3 +2358,29 @@ body {
     transition: none;
   }
 }
+
+/* Isolated Three.js hero experiment. Existing portrait is the no-motion fallback. */
+.character-hero { position: relative; width: 100%; max-width: 34rem; margin-inline: auto; }
+.character-stage { position: relative; aspect-ratio: 4 / 5; width: 100%; min-height: 300px; overflow: hidden; border-radius: 2.6rem; border: 1px solid #84749830; background: radial-gradient(ellipse at 40% 20%, #fffaf0 0%, #f1e8dc 54%, #d2c4e0 100%); box-shadow: 0 28px 80px -40px #3a334580; }
+.character-stage:not(.character-stage--ready) { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+.dark .character-stage { background: radial-gradient(ellipse at 40% 20%, #4b3e55 0%, #302937 54%, #24202d 100%); border-color: #bba6d830; }
+.character-stage__eyebrow { position: absolute; z-index: 2; top: 1.6rem; inset-inline: 1.6rem; display: flex; justify-content: space-between; gap: 1rem; font-family: ui-monospace, monospace; font-size: .53rem; letter-spacing: .13em; text-transform: uppercase; color: #655378; pointer-events: none; }
+.dark .character-stage__eyebrow { color: #c5b3d3; }
+.character-stage__canvas { position: absolute; inset: 0; touch-action: pan-y; outline-offset: -5px; border-radius: inherit; }
+.character-stage__canvas:focus-visible { outline: 3px solid #8b6cc1; }
+.character-stage__canvas canvas { width: 100%; height: 100%; display: block; }
+.character-stage__note { position: absolute; z-index: 2; left: 50%; bottom: 4.9rem; transform: translateX(-50%); display: flex; gap: .5rem; align-items: center; width: max-content; max-width: calc(100% - 1.5rem); border: 1px solid #78688820; border-radius: 999px; background: #fffbf0d9; color: #655378; padding: .48rem .7rem; font-size: .61rem; pointer-events: none; }
+.dark .character-stage__note { background: #302936de; color: #dac8e8; }
+.character-stage__dot { width: 5px; height: 5px; border-radius: 100%; background: #dd8971; flex: 0 0 auto; }
+.character-stage__caption { position: absolute; z-index: 2; bottom: 1.25rem; inset-inline: .7rem; text-align: center; font-family: Georgia, serif; color: #544064; font-size: clamp(.8rem, 1.25vw, 1.1rem); pointer-events: none; }
+.character-stage__caption span { display: block; margin-top: .25rem; font: .55rem ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; color: #84718f; }
+.dark .character-stage__caption { color: #ddcbe8; }
+.dark .character-stage__caption span { color: #b3a0c2; }
+.character-hero__controls { display: flex; justify-content: center; flex-wrap: wrap; gap: .2rem; margin-top: .55rem; }
+.character-hero__controls button, .character-hero__restore { min-height: 44px; padding: .5rem .65rem; border-radius: 999px; font: .64rem ui-monospace, monospace; color: #655378; }
+.dark .character-hero__controls button, .dark .character-hero__restore { color: #c5b3d3; }
+.character-hero__controls button:hover, .character-hero__restore:hover { background: #9479b81a; }
+.character-hero__controls button:focus-visible, .character-hero__restore:focus-visible { outline: 3px solid #8b6cc1; outline-offset: 1px; }
+.character-hero__loading { position: absolute; bottom: 2.5rem; left: 50%; transform: translateX(-50%); width: max-content; max-width: 90%; padding: .5rem .8rem; background: #fffbf0; border-radius: 1rem; font: .65rem ui-monospace, monospace; color: #655378; }
+.character-hero__restore { display: block; margin-inline: auto; }
+@media (max-width: 36rem) { .character-stage__eyebrow { inset-inline: 1rem; font-size: .44rem; gap: .3rem; } .character-stage__note { font-size: .5rem; bottom: 4.8rem; } .character-hero__controls button { padding-inline: .48rem; font-size: .6rem; } }

@@ -7,6 +7,7 @@ import { motion, useAnimationFrame, useMotionValue, useReducedMotion, useSpring 
 import { useSelector } from 'react-redux';
 import { Github, Linkedin, Mail, X } from 'lucide-react';
 import ChatBox from './ChatBox';
+import HeroCharacter from './character/HeroCharacter';
 import { AskLauncherButton } from './AskDock';
 import { useTheme } from './ThemeProvider';
 import { ditherPaletteFromTrack, type DitherPalette } from '@/lib/dither-palette';
@@ -223,7 +224,7 @@ export default function Hero() {
 
         <div className="profile-portrait-cell">
           <div className="profile-portrait-shell">
-            <HeroPortrait />
+            <HeroCharacter fallback={<HeroPortrait />} />
             <nav aria-label="Contact destinations" className="profile-contact-actions">
               <a
                 className="profile-contact-action"

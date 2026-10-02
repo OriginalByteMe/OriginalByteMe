@@ -150,7 +150,7 @@ test("site and hero actions are labelled, touch-sized, focus-visible, and follow
   const semanticOrder = await page.locator("button, a[href]").evaluateAll((elements) =>
     elements
       .map((element) => element.getAttribute("aria-label"))
-      .filter((label): label is string => Boolean(label)),
+      .filter((label): label is string => Boolean(label) && !label?.startsWith("Character")),
   );
   expect(semanticOrder.slice(0, actions.length - 1)).toEqual([
     "Read Noah's story",

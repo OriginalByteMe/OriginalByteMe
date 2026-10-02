@@ -1,0 +1,18 @@
+{
+  "asset": "good-vibes-hero.glb",
+  "source": "User-provided Good Vibes V5 repaired character",
+  "sha256": "345f34c6bbbfcc28948ed63a0b679ab092264153f878b5d635a6b45287b4d8be",
+  "bytes": 3776512,
+  "triangles": 172813,
+  "vertices": 101105,
+  "uniqueJoints": 54,
+  "skinBindRecords": 37,
+  "morphTargets": 84,
+  "animationClips": 10,
+  "requiredExtensions": [
+    "EXT_meshopt_compression",
+    "EXT_texture_webp",
+    "KHR_mesh_quantization"
+  ],
+  "validation": "Compressed and decoded GLB: zero errors; all vertices finite in 40 sampled animation poses; original/optimized Idle and Wave renders visually compared"
+}
