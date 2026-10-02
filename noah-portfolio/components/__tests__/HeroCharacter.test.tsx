@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import HeroCharacter from '@/components/character/HeroCharacter';
 
 const { createScene, api } = vi.hoisted(() => ({
-  api: { dispose: vi.fn(), wave: vi.fn(), reset: vi.fn(), key: vi.fn(() => true), setPaused: vi.fn() },
+  api: { dispose: vi.fn(), wave: vi.fn(), skipIntro: vi.fn(), reset: vi.fn(), key: vi.fn(() => true), setPaused: vi.fn(), setSoundEnabled: vi.fn(async (enabled: boolean) => enabled) },
   createScene: vi.fn(),
 }));
 vi.mock('@/components/character/create-character-scene', () => ({ createCharacterScene: createScene }));
@@ -59,6 +59,25 @@ describe('HeroCharacter progressive enhancement', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Back to playground' }));
     await act(async () => intersect([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver));
     await waitFor(() => expect(createScene).toHaveBeenCalledTimes(2));
+  });
+  it('keeps sound off until a deliberate click and exposes mute', async () => {
+    await load();
+    const sound = screen.getByRole('button', { name: 'Enable character sound' });
+    expect(sound).toHaveAttribute('aria-pressed', 'false');
+    expect(api.setSoundEnabled).not.toHaveBeenCalled();
+    fireEvent.click(sound);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Mute character sound' })).toHaveAttribute('aria-pressed', 'true'));
+    expect(api.setSoundEnabled).toHaveBeenCalledWith(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Mute character sound' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Enable character sound' })).toHaveAttribute('aria-pressed', 'false'));
+    expect(api.setSoundEnabled).toHaveBeenLastCalledWith(false);
+  });
+  it('shows greeting text in a polite, non-blocking speech bubble', async () => {
+    await load();
+    act(() => createScene.mock.calls[0][1].onGreeting('Hey, my name is Noah. Ask me a question down here.'));
+    expect(screen.getByRole('status')).toHaveTextContent('Hey, my name is Noah. Ask me a question down here.');
+    act(() => createScene.mock.calls[0][1].onGreeting(null));
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
   it('disposes a scene when preference changes to reduced motion', async () => {
     await load(); reduce = true; act(() => preferenceChanged());

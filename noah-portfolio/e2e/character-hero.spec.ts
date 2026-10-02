@@ -7,6 +7,7 @@ test('character loads, chases, pauses, resets and yields to the original portrai
   await expect(hero).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
   const playground = page.getByTestId('character-playground');
   const initial = await playground.getAttribute('data-position');
+  await page.getByRole('button', { name: 'Skip intro' }).click();
   await playground.focus();
   await page.keyboard.press('ArrowRight');
   await expect.poll(() => playground.getAttribute('data-position')).not.toBe(initial);
@@ -44,10 +45,49 @@ test('touch stage preserves page scrolling and fits a narrow viewport', async ({
   const playground = page.getByTestId('character-playground');
   await playground.scrollIntoViewIfNeeded();
   await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+  await page.getByRole('button', { name: 'Skip intro' }).click();
   await expect(playground).toHaveCSS('touch-action', 'pan-y');
   const box = (await playground.boundingBox())!;
   await page.touchscreen.tap(box.x + box.width * .75, box.y + box.height * .6);
   await expect.poll(() => playground.getAttribute('data-motion')).toMatch(/walk|run|bump/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await context.close();
+});
+
+test('idle greetings stay quiet until sound is explicitly enabled', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+  const sound = page.getByRole('button', { name: 'Enable character sound' });
+  await expect(sound).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('status')).toContainText('Hey, my name is Noah. Ask me a question down here.', { timeout: 15_000 });
+  await expect(sound).toHaveAttribute('aria-pressed', 'false');
+  await sound.click();
+  await expect(page.getByRole('button', { name: 'Mute character sound' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Say hi' }).click();
+  await expect(page.getByRole('status')).toContainText('Hi, you see me? Do you see me? Oh, hello.');
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
+  await expect(page.locator('.character-stage__speech')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Mute character sound' }).click();
+  await expect(sound).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('full hero scroll sequence reverses safely and Skip intro stays skipped', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+  const world = page.getByTestId('character-playground');
+  for (const [progress, phase] of [[.2, 'approach'], [.42, 'bonk'], [.57, 'invitation'], [.73, 'roam'], [.3, 'approach'], [.55, 'invitation']] as const) {
+    await page.evaluate((fraction) => window.scrollTo(0, (document.getElementById('hero')!.offsetHeight - innerHeight) * fraction), progress);
+    await expect(world).toHaveAttribute('data-phase', phase);
+  }
+  await page.getByRole('button', { name: 'Skip intro' }).click();
+  await expect(world).toHaveAttribute('data-phase', 'roam');
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(world).toHaveAttribute('data-phase', 'roam');
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
+  const position = await world.getAttribute('data-position');
+  await page.setViewportSize({ width: 809, height: 1024 });
+  await expect(world).toHaveAttribute('data-paused', 'true');
+  expect(position).toBeTruthy();
+  await expect(page.getByRole('button', { name: 'Open Ask-Me composer' })).toBeVisible();
 });

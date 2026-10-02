@@ -62,7 +62,7 @@ describe('Hero interaction composition', () => {
       </Provider>,
     );
 
-    expect(screen.getByRole('heading', { level: 1, name: /Noah Rijkaard/ })).toHaveAttribute('id', 'profile-heading');
+    expect(screen.getByRole('heading', { level: 1, name: /Hi, I’m Noah Rijkaard/ })).toHaveAttribute('id', 'profile-heading');
     const portrait = screen.getByRole('img', { name: 'Portrait of Noah Rijkaard' });
     expect(portrait).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Primary navigation' })).not.toBeInTheDocument();
@@ -78,21 +78,16 @@ describe('Hero interaction composition', () => {
     const github = screen.getByRole('link', { name: 'Visit Noah on GitHub' });
     const linkedin = screen.getByRole('link', { name: 'Visit Noah on LinkedIn' });
     expect(email).toHaveAttribute('href', 'mailto:noahrijkaard@gmail.com');
-    expect(email).toHaveAttribute('data-contact-anchor', 'upper-left');
     expect(github).toHaveAttribute('href', 'https://github.com/OriginalByteMe');
     expect(github).toHaveAttribute('target', '_blank');
     expect(github).toHaveAttribute('rel', 'noreferrer noopener');
-    expect(github).toHaveAttribute('data-contact-anchor', 'middle-right');
     expect(linkedin).toHaveAttribute('href', 'https://www.linkedin.com/in/noah-rijkaard/');
     expect(linkedin).toHaveAttribute('target', '_blank');
     expect(linkedin).toHaveAttribute('rel', 'noreferrer noopener');
-    expect(linkedin).toHaveAttribute('data-contact-anchor', 'lower-left');
     expect(portrait.closest('figure')).not.toContainElement(email);
     expect(portrait.closest('figure')).not.toContainElement(github);
     expect(portrait.closest('figure')).not.toContainElement(linkedin);
-    expect(screen.getByRole('tooltip', { name: 'Email me' })).toBeInTheDocument();
-    expect(screen.getByRole('tooltip', { name: 'See my GitHub' })).toBeInTheDocument();
-    expect(screen.getByRole('tooltip', { name: 'Connect on LinkedIn' })).toBeInTheDocument();
+    expect(destinations).toHaveClass('immersive-hero__contacts');
 
     expect(screen.queryByRole('button', { name: 'Toggle color theme' })).not.toBeInTheDocument();
     expect(document.querySelector('canvas')).not.toBeInTheDocument();

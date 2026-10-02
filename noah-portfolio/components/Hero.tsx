@@ -204,67 +204,23 @@ function HeroAskLauncher() {
 
 export default function Hero() {
   return (
-    <section
-      id="hero"
-      aria-labelledby="profile-heading"
-      className="relative isolate overflow-hidden px-5 pb-20 pt-7 text-[#37304a] dark:text-[#eae6f2] sm:px-8 lg:min-h-screen lg:px-10 lg:py-10"
-    >
-      <div className="profile-hero-grid mx-auto w-full max-w-[92rem]">
-        <header className="profile-identity self-end text-center lg:text-left">
-          <p className="font-mono text-xs uppercase tracking-[0.3em] text-[#6f6885] dark:text-[#a9a2bd]">
-            Ask-Me portfolio
-          </p>
-          <h1 id="profile-heading" className="mt-3 text-balance font-serif text-[clamp(3.2rem,7vw,7rem)] leading-[0.9] tracking-tight">
-            Noah <em className="block italic text-[#5646a8] dark:text-[#9d8ff2]">Rijkaard</em>
-          </h1>
-          <p className="mx-auto mt-5 max-w-md text-pretty text-lg leading-relaxed text-[#5d5673] dark:text-[#bdb6d0] lg:mx-0">
-            Full-stack developer building calm interfaces, self-hosted systems, and portfolio pages that answer back.
-          </p>
-        </header>
-
-        <div className="profile-portrait-cell">
-          <div className="profile-portrait-shell">
-            <HeroCharacter fallback={<HeroPortrait />} />
-            <nav aria-label="Contact destinations" className="profile-contact-actions">
-              <a
-                className="profile-contact-action"
-                data-contact-anchor="upper-left"
-                href="mailto:noahrijkaard@gmail.com"
-                aria-label="Email Noah"
-                aria-describedby="contact-tooltip-email"
-              >
-                <Mail {...ICON} aria-hidden />
-                <span id="contact-tooltip-email" role="tooltip">Email me</span>
-              </a>
-              <a
-                className="profile-contact-action"
-                data-contact-anchor="middle-right"
-                href="https://github.com/OriginalByteMe"
-                target="_blank"
-                rel="noreferrer noopener"
-                aria-label="Visit Noah on GitHub"
-                aria-describedby="contact-tooltip-github"
-              >
-                <Github {...ICON} aria-hidden />
-                <span id="contact-tooltip-github" role="tooltip">See my GitHub</span>
-              </a>
-              <a
-                className="profile-contact-action"
-                data-contact-anchor="lower-left"
-                href="https://www.linkedin.com/in/noah-rijkaard/"
-                target="_blank"
-                rel="noreferrer noopener"
-                aria-label="Visit Noah on LinkedIn"
-                aria-describedby="contact-tooltip-linkedin"
-              >
-                <Linkedin {...ICON} aria-hidden />
-                <span id="contact-tooltip-linkedin" role="tooltip">Connect on LinkedIn</span>
-              </a>
-            </nav>
-          </div>
+    <section id="hero" aria-labelledby="profile-heading" className="immersive-hero">
+      <div className="immersive-hero__sticky">
+        <HeroCharacter fallback={<HeroPortrait />} />
+        <div className="immersive-hero__copy">
+          <header className="immersive-hero__identity">
+            <p className="immersive-hero__eyebrow">Welcome to my little world</p>
+            <h1 id="profile-heading" aria-label="Hi, I’m Noah Rijkaard">Hi, I’m Noah<br /><em>Rijkaard.</em></h1>
+            <p className="immersive-hero__intro">Full-stack developer building calm interfaces, self-hosted systems, and portfolio pages that answer back.</p>
+          </header>
+          <nav className="immersive-hero__contacts" aria-label="Contact destinations">
+            <a href="mailto:noahrijkaard@gmail.com" aria-label="Email Noah"><Mail {...ICON} aria-hidden /><span>Email</span></a>
+            <a href="https://github.com/OriginalByteMe" target="_blank" rel="noreferrer noopener" aria-label="Visit Noah on GitHub"><Github {...ICON} aria-hidden /><span>GitHub</span></a>
+            <a href="https://www.linkedin.com/in/noah-rijkaard/" target="_blank" rel="noreferrer noopener" aria-label="Visit Noah on LinkedIn"><Linkedin {...ICON} aria-hidden /><span>LinkedIn</span></a>
+          </nav>
         </div>
-
-        <HeroAskLauncher />
+        <div className="immersive-hero__ask"><HeroAskLauncher /></div>
+        <p className="immersive-hero__scroll" aria-hidden="true">Scroll into the story <span>↓</span></p>
       </div>
     </section>
   );

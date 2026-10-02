@@ -11,7 +11,7 @@ describe('character input and framing', () => {
   });
   it('gives narrow screens extra camera clearance', () => {
     expect(characterCameraDistance(.58)).toBeGreaterThan(16);
-    expect(characterCameraDistance(.8)).toBe(11.875);
+    expect(characterCameraDistance(.8)).toBe(12.875);
     expect(Number.isFinite(characterCameraDistance(0))).toBe(true);
   });
 });

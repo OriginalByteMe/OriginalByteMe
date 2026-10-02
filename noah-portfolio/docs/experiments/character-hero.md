@@ -1,8 +1,8 @@
-# Good Vibes hero experiment
+# Full-viewport Good Vibes hero experiment
 
-Branch: `experiment/threejs-character-hero`. The Next.js app lives in `noah-portfolio/`.
+Branch: `experiment/threejs-character-hero` · Draft PR #76
 
-## Try it
+## Run locally
 
 ```sh
 cd noah-portfolio
@@ -10,26 +10,49 @@ npm ci
 npm run dev
 ```
 
-Visit localhost:3000. The character playground progressively replaces the portrait, keeping the existing identity, contact links, Ask-Me, Story, themes and listening controls. On the stage, move the mouse or tap the floor to guide the character. Focus the stage and use arrow keys for keyboard movement, Space to wave, Escape to stop. Pause, Reset and Portrait controls remain outside the canvas. Portrait mode is reversible.
+Open localhost:3000. No live AI key is needed to view the hero. Real Ask-Me generation still needs the existing environment setup in `.env.local.example`.
 
-Scrolling while the pointer is outside the playground guides the character across its little stage and subtly changes the camera. Scroll gestures on touch remain native. The character does not chase across page text or obscure the real pointer.
+## The experience
 
-## Implementation
+The entire hero is a small 3D world, with readable identity/contact/Ask-Me content layered over it. Scroll normally through the full-height hero:
 
-- Three.js and GLTFLoader are dynamically imported only near the viewport. No GLB or Three.js download for reduced-motion or Save-Data visitors; original portrait stays intact.
-- Original repaired V5 character, 54 joints, all 84 facial/shoulder morph targets and all ten animation clips. Idle/Walk/Run/Wave blend through AnimationMixer; root travel stays separate from the in-place clips.
-- Pure movement controller: acceleration, braking, shortest-angle turns, fixed substeps, bounded frame delta, circle collision resolution and one bump before wall-aware routing around a prop.
-- Pointer ray casts to the ground plane. Touch taps set a destination; vertical dragging still scrolls. Keyboard movement is optional and leaves the rest of the page alone.
-- Render cap: 30fps, DPR ≤1.5, no dynamic shadow pass. Offscreen/hidden/paused scenes stop rendering. Meshes, textures, skeleton and WebGL context are disposed on teardown. Failed loading/WebGL creation/context loss restores the original portrait.
-- Three compact sculptures have collision footprints and a small wobble response. This is lightweight character steering, not a general physics/navigation engine.
+1. Meet the idle character below “Hi, I’m Noah Rijkaard”
+2. He runs toward the camera: “Hi hi hi hi”
+3. A lens bonk, recoil and “Ow”
+4. “Hey, is there anything you’d like to know about me? I’m just gonna follow you around for a little bit.”
+5. Roaming: he chases the cursor or a tapped ground destination, turns, brakes and bumps into the little sculptures
 
-## Asset budget
+The introduction uses native page scrolling, without scroll locking. Pose progress is reversible; dialogue/audio does not replay when repeatedly crossing the same phase. Skip intro enters roaming immediately and stays skipped for that page visit. Focus the world and use arrow keys to roam, Space to say hi, or Escape to stop. Pause, Reset and reversible Portrait mode are available. Real links/forms remain clickable because the transparent canvas does not intercept pointer input.
 
-`public/models/good-vibes-hero.glb` is a derived runtime copy; original editing files are unchanged. Source V5: 23,100,220 bytes / 388,427 triangles. Runtime copy: 3,776,512 bytes / 172,813 triangles. All morph-bearing topology is unchanged. Dense non-morph meshes only were simplified with locked borders; textures reduced to 1024px WebP; Meshopt compression is decoded by the bundled Three.js decoder. No external asset host or decoder CDN.
+The existing public Story, Ask-Me, listening controls and other site sections remain. The character pauses when its hero world leaves view. This is a hero-world experiment, not a character covering every later Story section.
 
-This is still a relatively detailed character. Low-end phones should be profiled before a production decision. Use the portrait toggle or reduced-motion/data-saving fallback where appropriate.
+## Personality and audio
 
-## Checks
+Natural seeded blinks, a tiny bob and subtle mouth motion add idle life. Two occasional idle lines are capped per session:
+
+- “Hey, my name is Noah. Ask me a question down here.”
+- “Hi, you see me? Do you see me? Oh, hello.”
+
+A separate three-fact cap and 25-second quiet gaps apply to playful facts while stationary in roaming mode. Facts are sourced only from the public portfolio corpus, with source paths stored alongside each line: CAD/3D printing, Proxmox/Unraid, marketplace analytics and the LLM Comparison project. No private user context is included.
+
+Sound starts off. The explicit Sound button unlocks original quiet WebAudio meeps after a user gesture. The voice is synthesized nonverbal sound, with readable captions, not a sampled game voice or a clone. Mute, movement, pause, hidden tabs, offscreen state and teardown cancel scheduled tones. Say hi can request another greeting manually.
+
+The face layer samples the original baked Talk clip’s complete 20-weight mouth vectors, including all face-surface correctives. It never drives the Talk target alone or overwrites shoulder corrections; stale overlays are removed without fighting mixer caching.
+
+## Performance and fallback
+
+- Lazy Three.js/GLB loading near the viewport
+- Reduced-motion and Save-Data visitors retain a static original portrait and usable content; no Three.js/model/audio download
+- 30fps render cap, DPR ≤1.5, cheap contact shadow, no extra skinned shadow pass
+- Explicit texture/geometry/skeleton/context/audio disposal
+- WebGL/load/context-loss fallback to the portrait
+- Original repaired V5 character, all 54 unique joints, 84 morphs and 10 animation clips
+
+`public/models/good-vibes-hero.glb` is a derived runtime copy: 3,776,512 bytes / 172,813 triangles, down from 23,100,220 bytes / 388,427 triangles. Morph-bearing topology is unchanged. Only dense non-morph meshes were simplified with locked borders; textures use 1024px WebP and geometry uses Meshopt. The original editing files are unchanged. Reproduction tools are in `scripts/character-assets/`.
+
+The character remains detailed enough that low-end device profiling is still needed before any production decision.
+
+## Verification and known limits
 
 ```sh
 npm run lint
@@ -39,8 +62,8 @@ PLAYWRIGHT_TEST_MODE=1 OPENROUTER_API_KEY=test-key-not-used npm run build
 npm run e2e -- e2e/character-hero.spec.ts e2e/profile-first-hero.spec.ts
 ```
 
-The test-mode build key is a placeholder and does not call a live model. Existing generation E2E fixtures intercept requests. Real Ask-Me generation requires the existing environment setup documented in `.env.local.example`.
+The test build uses a placeholder key and does not call a live model. Unit/component coverage includes movement/collisions, full-world routes, scroll reversal and skipped phases, repeated entry, pause/reduced motion, resize progress, public-source facts, greeting caps, audio gesture gating/cancellation/cleanup, actual GLB face binding, and portrait fallback.
 
-Movement tests include convergence, 30/60/120fps agreement, pause-like zero deltas, speed limits, arrival, overlapping spawns, prop contact/cooldown, frame spikes, world boundaries and near-wall obstacle routing. Component tests cover progressive loading, reduced motion, loading failure, pause/resume, keyboard/wave/reset, portrait/remount, changed motion preference and late asset completion.
+Browser E2E and actual visual QA were not completed in this task. Local Chromium fails at `socket() failed: Operation not permitted`; cloud browser loopback navigation returns `net::ERR_BLOCKED_BY_CLIENT`. The Vercel preview is protected and redirects to login. Authentication was stopped at the user’s request without entering an identifier or credentials. Protection remains unchanged. Tests and geometry checks do not prove the final in-browser appearance; the draft is ready for the user’s visual review.
 
-Local browser execution in this cloud task is restricted: Chromium fails at `socket() failed: Operation not permitted`; the cloud browser blocks loopback navigation. Unit/model/build results are not a substitute for in-browser visual QA. Hosted preview testing is recorded separately when available. No merge or production deployment is part of this experiment.
+No main merge, production deployment or security-setting change is part of this experiment.
