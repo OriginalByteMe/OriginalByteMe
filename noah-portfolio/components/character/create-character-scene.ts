@@ -1,0 +1,364 @@
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { CharacterIdleController } from '@/lib/character/idle';
+import { NarrativeFactController } from '@/lib/character/narrative';
+import { CharacterIntroController, type IntroPhase } from '@/lib/character/intro';
+import { CharacterActivityController } from '@/lib/character/activities';
+import { createActivityProps, ACTIVITY_PROP_LAYOUT } from '@/lib/character/activity-props';
+import { CharacterMeepAudio } from '@/lib/character/audio';
+import { createFaceLayer } from '@/lib/character/face';
+import { characterCameraDistance, CharacterClickInput, CHARACTER_UI_SELECTOR } from '@/lib/character/input';
+import { createCharacterState, stepCharacter, resolveCharacterTarget, type Vec2 } from '@/lib/character/controller';
+
+export interface CharacterScene {
+  dispose: () => void;
+  setPaused: (paused: boolean) => void;
+  setSoundEnabled: (enabled: boolean) => Promise<boolean>;
+  skipIntro: () => void;
+  wave: () => void;
+  reset: () => void;
+  key: (key: string) => boolean;
+}
+let sessionFactCount = 0;
+let sessionGreetingCount = 0;
+let sessionSkippedIntro = false;
+const OBSTACLES = [
+  { id: 'coral', x: -1.35, z: -.45, radius: .34 },
+  { id: 'violet', x: 1.3, z: -1.15, radius: .38 },
+  { id: 'sage', x: .65, z: 1.4, radius: .25 },
+  { id: 'peach', x: -3.4, z: 1.1, radius: .42 },
+  { id: 'lilac', x: 3.6, z: -.25, radius: .46 },
+];
+const NAV_OBSTACLES = [...OBSTACLES,
+  { id: 'ball-rest', ...ACTIVITY_PROP_LAYOUT.ball, radius: .23 },
+  { id: 'book-rest', ...ACTIVITY_PROP_LAYOUT.book, radius: .22 },
+];
+const clamp = THREE.MathUtils.clamp;
+
+/** An imperative, disposable scene keeps the animation loop outside React. */
+export async function createCharacterScene(host: HTMLElement, callbacks: { onMessage: (message: string) => void; onGreeting: (line: string | null) => void; onPhase: (phase: IntroPhase) => void; onError: () => void }): Promise<CharacterScene> {
+  const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  renderer.setClearColor(0xffffff, 1);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
+  renderer.domElement.setAttribute('aria-hidden', 'true');
+  host.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(37, 1, .1, 40);
+  const cameraLook = new THREE.Vector3(0, 1.05, 0);
+  const light = new THREE.HemisphereLight(0xfff5e6, 0x95809f, 2.8);
+  scene.add(light);
+  const keyLight = new THREE.DirectionalLight(0xffedd7, 3.4);
+  keyLight.position.set(-3, 6, 4);
+  scene.add(keyLight);
+  const rim = new THREE.DirectionalLight(0xa995dc, 2.2);
+  rim.position.set(4, 3, -3);
+  scene.add(rim);
+
+  const world = new THREE.Group();
+  scene.add(world);
+  const floor = new THREE.Mesh(new THREE.CylinderGeometry(8.25, 8.1, .18, 96), new THREE.MeshStandardMaterial({ color: 0xd9cbdc, roughness: .88 }));
+  floor.position.y = -.1;
+  floor.scale.z = .64;
+  world.add(floor);
+  const floorRing = new THREE.Mesh(new THREE.RingGeometry(6.85, 6.875, 96), new THREE.MeshBasicMaterial({ color: 0xb39bc3, transparent: true, opacity: .5, side: THREE.DoubleSide }));
+  floorRing.rotation.x = -Math.PI / 2;
+  floorRing.scale.y = .62;
+  floorRing.position.y = -.033;
+  world.add(floorRing);
+  const props: THREE.Group[] = [];
+  OBSTACLES.forEach((obstacle, index) => {
+    const group = new THREE.Group();
+    group.position.set(obstacle.x, 0, obstacle.z);
+    const colors = [0xeb9a84, 0x9681b8, 0xa6b4a0, 0xe8b38b, 0xa58cc8];
+    const mesh = new THREE.Mesh(
+      index === 1 ? new THREE.CylinderGeometry(.31, .36, .6, 8) : new THREE.BoxGeometry(obstacle.radius * 1.4, index === 2 ? .25 : .42, obstacle.radius * 1.4),
+      new THREE.MeshStandardMaterial({ color: colors[index], roughness: .7 }),
+    );
+    mesh.position.y = index === 1 ? .3 : index === 2 ? .125 : .21;
+    mesh.rotation.y = index === 1 ? .2 : -.2;
+    group.add(mesh);
+    if (index === 1) {
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(.18, 16, 12), new THREE.MeshStandardMaterial({ color: 0xe4cbb1, roughness: .55 }));
+      orb.position.y = .79;
+      group.add(orb);
+    }
+    world.add(group); props.push(group);
+  });
+  // Cheap soft contact shadow: no second skinned/morph rendering pass.
+  const shadowCanvas = document.createElement('canvas');
+  shadowCanvas.width = shadowCanvas.height = 64;
+  const context = shadowCanvas.getContext('2d')!;
+  const gradient = context.createRadialGradient(32, 32, 3, 32, 32, 31);
+  gradient.addColorStop(0, 'rgba(63,40,73,0.35)'); gradient.addColorStop(1, 'rgba(63,40,73,0)');
+  context.fillStyle = gradient; context.fillRect(0, 0, 64, 64);
+  const shadowTexture = new THREE.CanvasTexture(shadowCanvas);
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(1.1, .75), new THREE.MeshBasicMaterial({ map: shadowTexture, transparent: true, depthWrite: false }));
+  shadow.rotation.x = -Math.PI / 2; shadow.position.y = -.025;
+  world.add(shadow);
+  const targetRing = new THREE.Mesh(new THREE.RingGeometry(.10, .13, 32), new THREE.MeshBasicMaterial({ color: 0x8964b4, transparent: true, opacity: .7, side: THREE.DoubleSide, depthWrite: false }));
+  targetRing.rotation.x = -Math.PI / 2; targetRing.position.y = -.01; targetRing.visible = false;
+  world.add(targetRing);
+
+  let disposed = false;
+  let raf = 0;
+  const disposeObject = (object: THREE.Object3D) => {
+    object.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return;
+      node.geometry.dispose();
+      const materials = Array.isArray(node.material) ? node.material : [node.material];
+      for (const material of materials) {
+        for (const value of Object.values(material)) if (value instanceof THREE.Texture) { value.dispose(); const data = value.source?.data; if (typeof ImageBitmap !== 'undefined' && data instanceof ImageBitmap) data.close(); }
+        material.dispose();
+      }
+      if (node instanceof THREE.SkinnedMesh) node.skeleton.dispose();
+    });
+  };
+  let gltf;
+  try {
+    gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync('/models/good-vibes-hero.glb');
+  } catch (error) {
+    disposeObject(scene); renderer.dispose(); renderer.domElement.remove(); throw error;
+  }
+  const actor = new THREE.Group();
+  const model = gltf.scene;
+  // Normalize once in bind pose; outer actor owns travel so clips stay in place.
+  const box = new THREE.Box3().setFromObject(model);
+  const size = box.getSize(new THREE.Vector3());
+  const scale = 2.45 / size.y;
+  model.scale.multiplyScalar(scale);
+  model.position.set(-(box.min.x + box.max.x) * .5 * scale, -box.min.y * scale, -(box.min.z + box.max.z) * .5 * scale);
+  actor.add(model); world.add(actor);
+  const mixer = new THREE.AnimationMixer(model);
+  const actions = new Map(gltf.animations.map((clip) => [clip.name, mixer!.clipAction(clip)]));
+  const clips = { idle: '01_Idle_Breathe', walk: '06_Walk_InPlace', run: '07_Run_InPlace', wave: '02_Wave_Hello', sit: '08_Sit_Relaxed' };
+  let current: THREE.AnimationAction | undefined;
+  const play = (name: keyof typeof clips) => {
+    const next = actions.get(clips[name]);
+    if (!next || current === next) return;
+    next.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).fadeIn(.22).play();
+    current?.fadeOut(.22); current = next;
+  };
+  play('idle');
+  const bounds = { minX: -4.8, maxX: 4.8, minZ: -2.0, maxZ: 2.2 };
+  const restPosition = () => ({ x: Math.min(2.6, bounds.maxX * .65) * .55, z: .42 });
+  let state = createCharacterState(restPosition());
+  let target: Vec2 | null = null;
+  let paused = false;
+  let visible = true;
+  let last = 0;
+  let lastRender = 0;
+  let waveUntil = 0;
+  let elapsed = 0;
+  let lastBump = 0;
+  let phase: IntroPhase = 'opening';
+  let speechUntil = 0;
+  let speechActive = false;
+  let speechKind: 'greeting' | 'bonk' | 'fact' | 'idle' | null = null;
+  let pendingManualGreeting = false;
+  try { sessionGreetingCount = Math.max(sessionGreetingCount, Number(window.sessionStorage.getItem('good-vibes-greetings-v1')) || 0); } catch { /* In-memory cap remains. */ }
+  const idle = new CharacterIdleController({ greetingsShown: sessionGreetingCount });
+  const audio = new CharacterMeepAudio();
+  const face = createFaceLayer(model, gltf.animations);
+  try { sessionFactCount = Math.max(sessionFactCount, Number(window.sessionStorage.getItem('good-vibes-facts-v1')) || 0); } catch { /* In-memory cap remains. */ }
+  const facts = new NarrativeFactController({ factsShown: sessionFactCount });
+  const intro = new CharacterIntroController();
+  if (sessionSkippedIntro) intro.skip();
+  const activities = new CharacterActivityController();
+  const activityProps = createActivityProps(world, actor, model);
+  const cancelSpeech = () => {
+    pendingManualGreeting = false;
+    idle.cancelGreeting(); facts.cancel(); audio.cancel(); speechUntil = 0;
+    if (speechActive) callbacks.onGreeting(null);
+    speechActive = false; speechKind = null;
+  };
+  const speak = (line: string, duration: number, kind: 'greeting' | 'bonk' | 'fact' = 'greeting') => {
+    audio.cancel(); callbacks.onGreeting(line); speechActive = true; speechKind = kind; speechUntil = elapsed + duration;
+    audio.playUtterance(line, kind);
+  };
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+  const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const hit = new THREE.Vector3();
+  const hero = host.closest('#hero') as HTMLElement | null;
+  const inputSurface = hero ?? host;
+  const wrapper = host.closest('.character-hero') as HTMLElement;
+  wrapper.style.setProperty('--intro-black', sessionSkippedIntro ? '0' : '1');
+  wrapper.style.setProperty('--intro-title', '0');
+  let canvasWidth = 0;
+  let canvasHeight = 0;
+  let cameraDepth = 0;
+  let cameraShake = 0;
+  const updateCamera = (depth = 0, shake = 0) => {
+    cameraDepth = depth; cameraShake = shake;
+    const distance = characterCameraDistance(camera.aspect);
+    // The lens meets the character's face, then returns to the world camera.
+    const focus = clamp((depth - .45) / .55, 0, 1);
+    camera.position.set(Math.sin(elapsed * 75) * shake * .065, THREE.MathUtils.lerp(4.7, 2.25, focus) + Math.cos(elapsed * 90) * shake * .045, THREE.MathUtils.lerp(distance, 7.15, focus));
+    camera.lookAt(0, THREE.MathUtils.lerp(cameraLook.y, 1.98, focus), focus * 5.6);
+    camera.updateProjectionMatrix();
+  };
+  const resizeScene = () => {
+    const rect = host.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    if (rect.width !== canvasWidth || rect.height !== canvasHeight) {
+      canvasWidth = rect.width; canvasHeight = rect.height;
+      renderer.setSize(rect.width, rect.height, false);
+    }
+    camera.aspect = rect.width / rect.height;
+    cameraLook.y = camera.aspect < .85 ? 2.25 : 1.05;
+    const halfWidth = clamp(2.3 + Math.max(0, camera.aspect - .8) * 1.8, 2.3, 5.4);
+    bounds.minX = -halfWidth; bounds.maxX = halfWidth;
+    state.position.x = clamp(state.position.x, bounds.minX + .22, bounds.maxX - .22);
+    state.position.z = clamp(state.position.z, bounds.minZ + .22, bounds.maxZ - .22);
+    if (target) { target = resolveCharacterTarget(state.position, target, NAV_OBSTACLES, bounds); targetRing.position.set(target.x, -.01, target.z); }
+    if (phase === 'roam') { actor.position.x = state.position.x; actor.position.z = state.position.z; }
+    updateCamera(cameraDepth, cameraShake); renderer.render(scene, camera);
+  };
+  const resize = new ResizeObserver(resizeScene); resize.observe(host); resizeScene();
+  const visibility = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; last = 0; if (!visible) cancelSpeech(); }, { threshold: .01 }); visibility.observe(host);
+  const cancelActivity = () => { activities.cancel(); activityProps.beforeMixer(); };
+  const command = (destination: Vec2) => {
+    target = resolveCharacterTarget(state.position, destination, NAV_OBSTACLES, bounds); cancelActivity(); cancelSpeech(); waveUntil = 0;
+    targetRing.visible = true; targetRing.position.set(target.x, -.01, target.z);
+    callbacks.onMessage('On my way. Click another spot to change course.');
+  };
+  const setTarget = (event: PointerEvent) => {
+    if (paused || phase !== 'roam') return;
+    const rect = host.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) return;
+    pointer.set((event.clientX - rect.left) / rect.width * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+    raycaster.setFromCamera(pointer, camera);
+    if (!raycaster.ray.intersectPlane(ground, hit)) return;
+    command({ x: clamp(hit.x, bounds.minX + .22, bounds.maxX - .22), z: clamp(hit.z, bounds.minZ + .22, bounds.maxZ - .22) });
+  };
+  const clicks = new CharacterClickInput();
+  const interactive = (event: PointerEvent) => !!(event.target as HTMLElement)?.closest?.(CHARACTER_UI_SELECTOR);
+  const pointerDown = (event: PointerEvent) => clicks.down(event, interactive(event));
+  const pointerUp = (event: PointerEvent) => { if (clicks.up(event, interactive(event))) setTarget(event); };
+  const pointerCancel = () => clicks.cancel();
+  const stopMovement = () => { target = null; targetRing.visible = false; cancelActivity(); callbacks.onMessage('Click the floor to send me exploring.'); };
+  const onDocumentVisibility = () => { if (document.hidden) { cancelSpeech(); clicks.cancel(); } last = 0; };
+  document.addEventListener('visibilitychange', onDocumentVisibility);
+  const contextLost = (event: Event) => { event.preventDefault(); callbacks.onError(); };
+  inputSurface.addEventListener('pointerdown', pointerDown as EventListener);
+  inputSurface.addEventListener('pointerup', pointerUp as EventListener);
+  inputSurface.addEventListener('pointercancel', pointerCancel);
+  inputSurface.addEventListener('pointerleave', pointerCancel);
+  renderer.domElement.addEventListener('webglcontextlost', contextLost);
+  const tick = (now: number) => {
+    if (disposed) return;
+    raf = requestAnimationFrame(tick);
+    if (!visible || document.hidden || paused) { last = 0; return; }
+    if (now - lastRender < 1000 / 30) return;
+    const dt = last ? Math.min((now - last) / 1000, .1) : 1 / 30;
+    last = lastRender = now; elapsed += dt;
+    const story = intro.tick(dt);
+    if (phase !== story.phase) {
+      if (story.dialogueEnded) cancelSpeech();
+      phase = story.phase;
+      if (phase === 'roam') { state = createCharacterState(restPosition()); lastBump = 0; sessionSkippedIntro = true; }
+      callbacks.onPhase(phase);
+    }
+    if (story.dialogueStarted) speak(story.dialogueStarted.line, story.dialogueStarted.duration, phase === 'recoil' ? 'bonk' : 'greeting');
+    wrapper.style.setProperty('--intro-black', String(story.blackOpacity));
+    wrapper.style.setProperty('--intro-title', String(story.titleOpacity));
+    const roaming = phase === 'roam';
+    updateCamera(roaming ? 0 : story.pose.depth, story.cameraShake);
+    const manual = !!target || elapsed < waveUntil || pendingManualGreeting;
+    const activityFrame = activities.tick(dt, { position: state.position, speed: state.speed, commanded: !roaming || manual, paused: !manual && speechActive });
+    activityProps.beforeMixer();
+    if (roaming) {
+      stepCharacter(state, elapsed < waveUntil ? null : target ?? activityFrame.target, dt, NAV_OBSTACLES, bounds);
+      if (target && Math.hypot(target.x - state.position.x, target.z - state.position.z) < .13 && state.speed < .08) { target = null; targetRing.visible = false; callbacks.onMessage('A little play, a little reading. Click to explore.'); }
+      actor.position.set(state.position.x, state.bumpRemaining > 0 ? Math.sin(state.bumpRemaining * 16) * .05 : 0, state.position.z);
+      if (activityFrame.heading !== null && state.speed < .08 && !target) state.heading = THREE.MathUtils.damp(state.heading, activityFrame.heading, 8, dt);
+      actor.rotation.set(0, state.heading, state.bumpRemaining > 0 ? Math.sin(state.bumpRemaining * 25) * .06 : 0);
+      actor.scale.set(1, 1, 1);
+      if (state.bumpCount !== lastBump) { lastBump = state.bumpCount; cancelSpeech(); speak('Ow. Excuse me, tiny sculpture.', 2, 'bonk'); }
+      play(elapsed < waveUntil ? 'wave' : activityFrame.animation === 'sit' && !target ? 'sit' : state.motion === 'run' ? 'run' : state.motion === 'walk' ? 'walk' : 'idle');
+      if (current && (state.motion === 'walk' || state.motion === 'run')) current.timeScale = clamp(state.speed / (state.motion === 'run' ? 2.4 : 1), .6, 1.6);
+      if (current && activityFrame.animation === 'sit' && !target) { current.paused = true; current.time = activityFrame.sitProgress * 1.5; }
+      mixer.update(dt);
+      activityProps.apply(activityFrame);
+    } else {
+      const depth = story.pose.depth;
+      const side = Math.min(2.6, bounds.maxX * .65);
+      const z = depth <= .45 ? THREE.MathUtils.lerp(-3, .42, depth / .45) : THREE.MathUtils.lerp(.42, 5.6, (depth - .45) / .55);
+      actor.position.set(side * (1 - depth), story.pose.lift, z);
+      actor.rotation.set(story.pose.lean, story.pose.turn, 0);
+      actor.scale.set(1, story.pose.squash, 1);
+      play(phase === 'approach' ? 'run' : phase === 'recover' ? 'wave' : 'idle');
+      // Real elapsed time drives the authored run, independent of page scrolling.
+      mixer.update(dt);
+      activityProps.apply(activityFrame);
+    }
+    shadow.position.x = actor.position.x; shadow.position.z = actor.position.z;
+    const stationary = roaming && state.motion === 'idle' && state.speed < .05;
+    const freeIdle = stationary && !activityFrame.active;
+    if (freeIdle && pendingManualGreeting) { idle.greetNow(); pendingManualGreeting = false; }
+    const idleFrame = idle.tick(dt, freeIdle && (!speechActive || speechKind === 'idle'));
+    if (freeIdle) actor.position.y += idleFrame.bob;
+    const factFrame = facts.tick(dt, { phase: roaming ? 'roam' : 'intro', stationary: freeIdle && !idleFrame.greeting && (!speechActive || speechKind === 'fact') && elapsed >= waveUntil });
+    if (factFrame.factStarted) {
+      speak(factFrame.factStarted.line, factFrame.factStarted.duration, 'fact');
+      sessionFactCount = factFrame.count;
+      try { window.sessionStorage.setItem('good-vibes-facts-v1', String(sessionFactCount)); } catch { /* In-memory cap remains. */ }
+    }
+    if (idleFrame.greetingStarted) { callbacks.onGreeting(idleFrame.greetingStarted.line); speechActive = true; speechKind = 'idle'; speechUntil = elapsed + idleFrame.greetingStarted.duration; audio.playGreeting(idleFrame.greetingStarted); sessionGreetingCount = idleFrame.greetingsShown; try { window.sessionStorage.setItem('good-vibes-greetings-v1', String(sessionGreetingCount)); } catch { /* In-memory cap remains. */ } }
+    if ((factFrame.factEnded && speechKind === 'fact') || (idleFrame.greetingEnded && speechKind === 'idle')) cancelSpeech();
+    if (speechActive && elapsed > speechUntil) cancelSpeech();
+    const talking = speechActive && elapsed < speechUntil;
+    const mouth = talking ? Math.max(idleFrame.mouthOpen, .35 + .65 * Math.max(0, Math.sin(elapsed * 18))) : idleFrame.mouthOpen;
+    // The face stays alive during locomotion and prop play, not only when idle.
+    face.apply({ active: true, blink: idleFrame.blink, mouth, time: elapsed });
+    props.forEach((prop, index) => {
+      const distance = Math.hypot(prop.position.x - actor.position.x, prop.position.z - actor.position.z);
+      prop.rotation.z = roaming && state.bumpRemaining > 0 && distance < OBSTACLES[index].radius + .5 ? Math.sin(state.bumpRemaining * 28) * .1 : 0;
+    });
+    host.dataset.phase = phase; host.dataset.motion = roaming ? state.motion : phase === 'approach' ? 'run' : 'idle';
+    host.dataset.activity = activityFrame.phase;
+    host.dataset.position = `${actor.position.x.toFixed(3)},${actor.position.z.toFixed(3)}`;
+    host.dataset.bumps = String(state.bumpCount); host.dataset.introTime = story.elapsed.toFixed(3);
+    host.dataset.blink = idleFrame.blink.toFixed(3); host.dataset.mouth = mouth.toFixed(3);
+    renderer.render(scene, camera);
+  };
+  // Loaded model, resources, and event handlers are all ready before intro time starts.
+  callbacks.onPhase(phase); renderer.render(scene, camera); raf = requestAnimationFrame(tick);
+  const skipIntro = () => {
+    intro.skip(); sessionSkippedIntro = true; cancelSpeech();
+    wrapper.style.setProperty('--intro-black', '0'); wrapper.style.setProperty('--intro-title', '0');
+    if (phase === 'roam') return;
+    state = createCharacterState(restPosition()); lastBump = 0;
+    target = null; targetRing.visible = false; phase = 'roam'; callbacks.onPhase('roam');
+    actor.position.set(state.position.x, 0, state.position.z); actor.rotation.set(0, 0, 0); actor.scale.set(1, 1, 1);
+    play('idle'); mixer.update(0); updateCamera(); renderer.render(scene, camera);
+  };
+  const wave = () => { if (paused) return; skipIntro(); stopMovement(); waveUntil = elapsed + 2; pendingManualGreeting = true; };
+  return {
+    skipIntro,
+    setSoundEnabled: async (enabled) => { if (!enabled) { audio.mute(); return false; } return audio.enableFromGesture(); },
+    setPaused: (value) => { paused = value; last = 0; clicks.cancel(); if (value) { intro.tick(0, { paused: true }); cancelSpeech(); } host.dataset.paused = String(value); },
+    wave,
+    reset: () => { skipIntro(); stopMovement(); state = createCharacterState(restPosition()); paused = false; host.dataset.paused = 'false'; lastBump = 0; activities.reset(); activityProps.reset(); },
+    key: (key) => {
+      if (key === ' ') { wave(); return true; }
+      if (key === 'Escape') { cancelSpeech(); stopMovement(); return true; }
+      const deltas: Record<string, Vec2> = { ArrowLeft: { x: -.65, z: 0 }, ArrowRight: { x: .65, z: 0 }, ArrowUp: { x: 0, z: -.65 }, ArrowDown: { x: 0, z: .65 } };
+      const delta = deltas[key]; if (!delta || paused) return false;
+      if (phase !== 'roam') skipIntro();
+      command({ x: clamp(state.position.x + delta.x, bounds.minX + .22, bounds.maxX - .22), z: clamp(state.position.z + delta.z, bounds.minZ + .22, bounds.maxZ - .22) }); return true;
+    },
+    dispose: () => {
+      if (disposed) return; disposed = true; cancelAnimationFrame(raf);
+      resize.disconnect(); visibility.disconnect(); document.removeEventListener('visibilitychange', onDocumentVisibility);
+      cancelSpeech(); void audio.dispose(); activityProps.dispose();
+      inputSurface.removeEventListener('pointerdown', pointerDown as EventListener); inputSurface.removeEventListener('pointerup', pointerUp as EventListener); inputSurface.removeEventListener('pointercancel', pointerCancel); inputSurface.removeEventListener('pointerleave', pointerCancel);
+      renderer.domElement.removeEventListener('webglcontextlost', contextLost);
+      mixer.stopAllAction(); mixer.uncacheRoot(model); disposeObject(scene); shadowTexture.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove();
+    },
+  };
+}

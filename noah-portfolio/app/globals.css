@@ -2358,3 +2358,145 @@ body {
     transition: none;
   }
 }
+
+/* Isolated Three.js hero experiment. Existing portrait is the no-motion fallback. */
+.character-hero { position: relative; width: 100%; max-width: 34rem; margin-inline: auto; }
+.character-stage { position: relative; aspect-ratio: 4 / 5; width: 100%; min-height: 300px; overflow: hidden; border-radius: 2.6rem; border: 1px solid #84749830; background: radial-gradient(ellipse at 40% 20%, #fffaf0 0%, #f1e8dc 54%, #d2c4e0 100%); box-shadow: 0 28px 80px -40px #3a334580; }
+.character-stage:not(.character-stage--ready) { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+.dark .character-stage { background: radial-gradient(ellipse at 40% 20%, #4b3e55 0%, #302937 54%, #24202d 100%); border-color: #bba6d830; }
+.character-stage__eyebrow { position: absolute; z-index: 2; top: 1.6rem; inset-inline: 1.6rem; display: flex; justify-content: space-between; gap: 1rem; font-family: ui-monospace, monospace; font-size: .53rem; letter-spacing: .13em; text-transform: uppercase; color: #655378; pointer-events: none; }
+.dark .character-stage__eyebrow { color: #c5b3d3; }
+.character-stage__canvas { position: absolute; inset: 0; touch-action: pan-y; outline-offset: -5px; border-radius: inherit; }
+.character-stage__canvas:focus-visible { outline: 3px solid #8b6cc1; }
+.character-stage__canvas canvas { width: 100%; height: 100%; display: block; }
+.character-stage__note { position: absolute; z-index: 2; left: 50%; bottom: 4.9rem; transform: translateX(-50%); display: flex; gap: .5rem; align-items: center; width: max-content; max-width: calc(100% - 1.5rem); border: 1px solid #78688820; border-radius: 999px; background: #fffbf0d9; color: #655378; padding: .48rem .7rem; font-size: .61rem; pointer-events: none; }
+.dark .character-stage__note { background: #302936de; color: #dac8e8; }
+.character-stage__dot { width: 5px; height: 5px; border-radius: 100%; background: #dd8971; flex: 0 0 auto; }
+.character-stage__caption { position: absolute; z-index: 2; bottom: 1.25rem; inset-inline: .7rem; text-align: center; font-family: Georgia, serif; color: #544064; font-size: clamp(.8rem, 1.25vw, 1.1rem); pointer-events: none; }
+.character-stage__caption span { display: block; margin-top: .25rem; font: .55rem ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; color: #84718f; }
+.dark .character-stage__caption { color: #ddcbe8; }
+.dark .character-stage__caption span { color: #b3a0c2; }
+.character-hero__controls { display: flex; justify-content: center; flex-wrap: wrap; gap: .2rem; margin-top: .55rem; }
+.character-hero__controls button, .character-hero__restore { min-height: 44px; padding: .5rem .65rem; border-radius: 999px; font: .64rem ui-monospace, monospace; color: #655378; }
+.dark .character-hero__controls button, .dark .character-hero__restore { color: #c5b3d3; }
+.character-hero__controls button:hover, .character-hero__restore:hover { background: #9479b81a; }
+.character-hero__controls button:focus-visible, .character-hero__restore:focus-visible { outline: 3px solid #8b6cc1; outline-offset: 1px; }
+.character-hero__loading { position: absolute; bottom: 2.5rem; left: 50%; transform: translateX(-50%); width: max-content; max-width: 90%; padding: .5rem .8rem; background: #fffbf0; border-radius: 1rem; font: .65rem ui-monospace, monospace; color: #655378; }
+.character-hero__restore { display: block; margin-inline: auto; }
+@media (max-width: 36rem) { .character-stage__eyebrow { inset-inline: 1rem; font-size: .44rem; gap: .3rem; } .character-stage__note { font-size: .5rem; bottom: 4.8rem; } .character-hero__controls button { padding-inline: .48rem; font-size: .6rem; } }
+.character-stage__speech {
+  position: absolute;
+  z-index: 3;
+  top: 3.35rem;
+  left: 50%;
+  width: min(15rem, calc(100% - 2rem));
+  transform: translateX(-50%);
+  border: 1px solid #ad91bc55;
+  border-radius: 1.15rem 1.15rem 1.15rem .25rem;
+  padding: .7rem .85rem;
+  background: #fffaf3f2;
+  color: #564065;
+  box-shadow: 0 8px 24px -12px #4c385845;
+  font: .7rem/1.5 ui-monospace, monospace;
+  text-align: center;
+  pointer-events: none;
+}
+.character-stage__speech span { display: block; font-size: 1rem; line-height: 1; margin-top: .25rem; color: #a46fba; }
+.dark .character-stage__speech { background: #3a2d46f2; color: #eee1f4; border-color: #a886c455; }
+@media (max-width: 36rem) { .character-stage__speech { font-size: .56rem; padding: .55rem .6rem; top: 2.7rem; } }
+
+/* Full-viewport hero world: the stage surrounds content rather than living in a card. */
+.immersive-hero { position: relative; min-height: 100svh; color: #37304a; }
+.immersive-hero__sticky { position: relative; top: 0; min-height: 100svh; height: 100svh; isolation: isolate; overflow: clip; background: #eee6dd; }
+.dark .immersive-hero__sticky { background: #282330; color: #eee6f3; }
+.immersive-hero__sticky::after { content: ''; position: absolute; z-index: 1; inset: 0; background: linear-gradient(100deg, #f5eee2e6 0%, #f5eee278 28%, transparent 57%); pointer-events: none; }
+.dark .immersive-hero__sticky::after { background: linear-gradient(100deg, #282330e6 0%, #28233066 30%, transparent 60%); }
+.immersive-hero__copy { position: absolute; z-index: 2; top: clamp(6.5rem, 15vh, 10rem); left: clamp(1.5rem, 6vw, 7rem); max-width: min(47vw, 39rem); pointer-events: none; }
+.immersive-hero__eyebrow { font: .65rem ui-monospace, monospace; letter-spacing: .23em; text-transform: uppercase; color: #7a658a; }
+.immersive-hero__identity h1 { margin-top: 1rem; font-family: Georgia, serif; font-size: clamp(3rem, 6.7vw, 7rem); line-height: .98; letter-spacing: -.055em; }
+.immersive-hero__identity h1 em { color: #72509c; font-weight: 400; }
+.dark .immersive-hero__identity h1 em { color: #bc9ee1; }
+.immersive-hero__intro { max-width: 24rem; margin-top: 1.25rem; font-size: .96rem; line-height: 1.7; color: #6a5977; }
+.dark .immersive-hero__intro { color: #bdaecd; }
+.immersive-hero__contacts { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.3rem; pointer-events: auto; }
+.immersive-hero__contacts a { display: inline-flex; min-height: 44px; align-items: center; gap: .45rem; padding: .5rem .8rem; border: 1px solid #9c80b638; background: #fffaf2a3; border-radius: 999px; font-size: .72rem; color: #654c7b; }
+.immersive-hero__contacts svg { width: 14px; height: 14px; }
+.dark .immersive-hero__contacts a { background: #332c3ba3; color: #cfb9e3; }
+.immersive-hero__contacts a:focus-visible { outline: 3px solid #9976bd; outline-offset: 3px; }
+.immersive-hero__ask { position: absolute; z-index: 5; bottom: 3.5rem; left: clamp(1.5rem, 6vw, 7rem); width: min(26rem, calc(100% - 3rem)); }
+.immersive-hero__ask .profile-ask-launcher__entry { align-items: flex-start; }
+.immersive-hero__ask .profile-ask-launcher__composer { max-height: 58svh; overflow-y: auto; background: #fffaf4f7; }
+.dark .immersive-hero__ask .profile-ask-launcher__composer { background: #302735f7; }
+.immersive-hero__scroll { position: absolute; z-index: 2; bottom: 1.2rem; left: 50%; transform: translateX(-50%); font: .58rem ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; pointer-events: none; color: #927b9f; }
+.immersive-hero__scroll span { display: inline-block; margin-left: .5rem; }
+.character-hero--immersive { position: absolute; inset: 0; max-width: none; width: 100%; margin: 0; }
+.character-hero--immersive .character-stage { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; aspect-ratio: auto; border: 0; border-radius: 0; box-shadow: none; background: radial-gradient(ellipse at 65% 25%, #fff6e7 0%, #ece1dc 58%, #cbb9d8 100%); }
+.dark .character-hero--immersive .character-stage { background: radial-gradient(ellipse at 65% 25%, #56435d 0%, #342b3d 58%, #241f30 100%); }
+.character-hero--immersive .character-stage__canvas { pointer-events: none; }
+.character-hero--immersive .character-stage__eyebrow { left: auto; right: 5vw; top: 6rem; width: min(25rem, 42vw); font-size: .6rem; }
+.character-hero--immersive .character-stage__caption { bottom: 7.5rem; left: auto; right: 4vw; width: min(24rem, 45vw); font-size: .85rem; }
+.character-hero--immersive .character-stage__note { bottom: 10rem; left: auto; right: 4vw; transform: none; }
+.character-hero--immersive .character-stage__speech { top: auto; bottom: 12.8rem; left: auto; right: 4vw; transform: none; width: min(22rem, 42vw); font-size: .8rem; line-height: 1.6; padding: 1rem 1.15rem; }
+.character-hero--immersive .character-hero__controls { position: absolute; z-index: 6; right: 4vw; bottom: 3.5rem; width: min(27rem, 46vw); margin: 0; padding: .25rem; border: 1px solid #9c80b638; border-radius: 1.8rem; background: #fffaf2c9; }
+.dark .character-hero--immersive .character-hero__controls { background: #302735d9; }
+.character-hero--immersive .character-hero__fallback { position: absolute; right: 7vw; top: 17vh; width: min(33vw, 26rem); z-index: 0; }
+.character-hero--immersive .character-hero__restore { position: absolute; z-index: 6; right: 10vw; bottom: 5rem; }
+.character-hero--immersive .character-hero__loading { z-index: 2; left: auto; right: 10vw; transform: none; bottom: 5rem; }
+.immersive-hero:has(.character-hero[data-status="fallback"]) { min-height: 100svh; }
+.character-stage[data-phase="bonk"]::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 8rem #af7d9466; pointer-events: none; border: 2px solid #ffffff55; border-radius: 5%; }
+@media (max-width: 700px) {
+  .immersive-hero__copy { top: 6.5rem; left: 1.5rem; max-width: calc(100% - 3rem); }
+  .immersive-hero__identity h1 { font-size: clamp(2.5rem, 10vw, 4.3rem); }
+  .immersive-hero__intro { max-width: 20rem; font-size: .74rem; line-height: 1.6; margin-top: .8rem; }
+  .immersive-hero__eyebrow { font-size: .5rem; }
+  .immersive-hero__contacts { gap: .25rem; margin-top: .6rem; }
+  .immersive-hero__contacts a { padding: .35rem .6rem; font-size: .64rem; }
+  .immersive-hero__sticky::after { background: linear-gradient(180deg, #f5eee2d9 0%, #f5eee299 28%, transparent 50%); }
+  .dark .immersive-hero__sticky::after { background: linear-gradient(180deg, #282330e6 0%, #28233088 28%, transparent 50%); }
+  .immersive-hero__ask { bottom: 6.5rem; left: 1.25rem; width: calc(100% - 2.5rem); }
+  .immersive-hero__ask .profile-ask-launcher__entry { align-items: flex-start; }
+  .character-hero--immersive .character-stage__eyebrow { top: auto; bottom: 16rem; right: 1.4rem; font-size: .45rem; width: 45vw; }
+  .character-hero--immersive .character-stage__speech { bottom: 17.5rem; right: 1.3rem; width: min(18rem, 65vw); font-size: .65rem; padding: .65rem .85rem; }
+  .character-hero--immersive .character-stage__note { bottom: 14rem; right: 1.3rem; font-size: .5rem; }
+  .character-hero--immersive .character-stage__caption { display: none; }
+  .character-hero--immersive .character-hero__controls { bottom: 2.6rem; right: 1.2rem; width: calc(100% - 2.4rem); }
+  .character-hero--immersive .character-hero__fallback { top: 43vh; right: 8vw; width: 40vw; max-width: 14rem; }
+  .character-hero--immersive .character-hero__restore { bottom: 2.6rem; right: 1.2rem; }
+  .immersive-hero__scroll { bottom: .65rem; font-size: .5rem; }
+}
+@media (max-height: 680px) and (min-width: 701px) {
+  .immersive-hero__copy { top: 6rem; }
+  .immersive-hero__identity h1 { font-size: 4rem; }
+  .immersive-hero__intro { font-size: .8rem; }
+  .immersive-hero__ask { bottom: 2.5rem; }
+}
+@media (prefers-reduced-motion: reduce) { .immersive-hero { min-height: 100svh; } }
+@media (max-width: 700px) {
+  .immersive-hero__copy { top: 5.5rem; }
+  .immersive-hero__ask { bottom: 9rem; }
+  .character-hero--immersive .character-hero__controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); bottom: 1.8rem; padding: .25rem; gap: 0; }
+  .character-hero--immersive .character-hero__controls button { min-height: 44px; }
+  .character-hero--immersive .character-stage__speech { left: 1.2rem; right: auto; bottom: 16.5rem; width: min(15rem, 54vw); font-size: .62rem; }
+  .character-hero--immersive .character-stage__note { bottom: 14.9rem; right: 1.2rem; }
+  .character-hero--immersive .character-stage__eyebrow { display: none; }
+}
+@media (max-height: 520px) and (max-width: 700px) {
+  .immersive-hero { min-height: 720px; }
+  .immersive-hero__sticky { position: relative; height: 720px; min-height: 720px; }
+}
+
+/* Timed opening, independent of scroll. The page itself always scrolls normally. */
+.character-hero__opening { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; background: #09080b; opacity: var(--intro-black, 1); pointer-events: none; }
+.character-hero__opening p { opacity: var(--intro-title, 1); padding: 2rem; color: #fff; text-align: center; font: clamp(2.5rem, 7vw, 7rem)/1.03 Georgia, serif; letter-spacing: -.045em; }
+.character-hero__opening em { color: #e8daf5; font-weight: 400; }
+.immersive-hero:has(.character-hero[data-status="ready"][data-phase="opening"]) .immersive-hero__copy,
+.immersive-hero:has(.character-hero[data-status="ready"][data-phase="opening"]) .immersive-hero__ask,
+.immersive-hero:has(.character-hero[data-status="ready"][data-phase="opening"]) .immersive-hero__scroll { visibility: hidden; }
+/* Keep website controls readable over the intentionally white 3D scene in either theme. */
+.dark .immersive-hero:has(.character-hero[data-status="ready"]) { color: #37304a; }
+.dark .immersive-hero:has(.character-hero[data-status="ready"]) .immersive-hero__identity h1 em { color: #72509c; }
+.dark .immersive-hero:has(.character-hero[data-status="ready"]) .immersive-hero__intro { color: #6a5977; }
+.dark .immersive-hero:has(.character-hero[data-status="ready"]) .immersive-hero__sticky::after { background: linear-gradient(100deg, #ffffffb0 0%, #ffffff55 28%, transparent 57%); }
+.character-hero--immersive .character-stage { background: #fff; }
+.character-hero--immersive .character-stage__canvas { pointer-events: none; }
+.character-hero--immersive .character-hero__controls { z-index: 6; }
