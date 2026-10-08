@@ -36,9 +36,10 @@ async function load(props: Partial<Parameters<typeof HeroCharacter>[0]> = {}) {
   await waitFor(() => expect(screen.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready'));
 }
 describe('HeroCharacter progressive enhancement', () => {
-  it('keeps the portrait until visible and replaces it only after loading the world content', async () => {
+  it('opens on the black title card, never the portrait, while the world loads', async () => {
     render(<HeroCharacter fallback={fallback} content={content} />);
-    expect(screen.getByTestId('fallback')).toBeVisible(); expect(createScene).not.toHaveBeenCalled();
+    expect(screen.getByText('Noah Rijkaard.')).toBeInTheDocument();
+    expect(screen.queryByTestId('fallback')).not.toBeInTheDocument(); expect(createScene).not.toHaveBeenCalled();
     await visibleNow();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Pause' })).toBeVisible());
     expect(screen.queryByTestId('fallback')).not.toBeInTheDocument();
@@ -58,6 +59,7 @@ describe('HeroCharacter progressive enhancement', () => {
     await visibleNow();
     expect(screen.getByTestId('character-hero')).toHaveAttribute('data-status', 'fallback');
     expect(screen.getByTestId('fallback')).toBeVisible();
+    expect(screen.queryByText('Noah Rijkaard.')).not.toBeInTheDocument();
   });
   it('shares the live scene with the world panels and reports readiness', async () => {
     const sceneRef = createRef<CharacterScene>() as MutableRefObject<CharacterScene | null>;
@@ -82,20 +84,15 @@ describe('HeroCharacter progressive enhancement', () => {
     await visibleNow();
     await waitFor(() => expect(createScene).toHaveBeenCalledTimes(2));
   });
-  it('keeps sound and music off until their own deliberate clicks', async () => {
+  it('starts sound and music at the first click or key press anywhere, and the toggles still mute them', async () => {
     await load();
-    const sound = screen.getByRole('button', { name: 'Enable character sound' });
-    const music = screen.getByRole('button', { name: 'Play music' });
-    expect(sound).toHaveAttribute('aria-pressed', 'false'); expect(music).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Mute character sound' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Stop music' })).toHaveAttribute('aria-pressed', 'true');
     expect(api.setSoundEnabled).not.toHaveBeenCalled(); expect(api.setMusicEnabled).not.toHaveBeenCalled();
-    fireEvent.click(music);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Stop music' })).toHaveAttribute('aria-pressed', 'true'));
-    expect(api.setMusicEnabled).toHaveBeenCalledWith(true);
-    expect(api.setSoundEnabled).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Enable character sound' })).toHaveAttribute('aria-pressed', 'false');
-    fireEvent.click(sound);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Mute character sound' })).toHaveAttribute('aria-pressed', 'true'));
-    expect(api.setSoundEnabled).toHaveBeenCalledWith(true);
+    await act(async () => { fireEvent.keyDown(document.body, { key: 'a' }); });
+    expect(api.setSoundEnabled).toHaveBeenCalledWith(true); expect(api.setMusicEnabled).toHaveBeenCalledWith(true);
+    await act(async () => { fireEvent.click(document.body); });
+    expect(api.setSoundEnabled).toHaveBeenCalledOnce(); expect(api.setMusicEnabled).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole('button', { name: 'Mute character sound' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Enable character sound' })).toHaveAttribute('aria-pressed', 'false'));
     expect(api.setSoundEnabled).toHaveBeenLastCalledWith(false);
@@ -103,11 +100,18 @@ describe('HeroCharacter progressive enhancement', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Play music' })).toHaveAttribute('aria-pressed', 'false'));
     expect(api.setMusicEnabled).toHaveBeenLastCalledWith(false);
   });
-  it('leaves music off when the browser refuses audio', async () => {
-    api.setMusicEnabled.mockResolvedValueOnce(false);
+  it('retries on the next gesture when the browser refuses audio, and a refused toggle stays off', async () => {
+    api.setSoundEnabled.mockResolvedValueOnce(false); api.setMusicEnabled.mockResolvedValueOnce(false);
     await load();
+    await act(async () => { fireEvent.keyDown(document.body, { key: 'Escape' }); });
+    expect(api.setMusicEnabled).toHaveBeenCalledOnce();
+    await act(async () => { fireEvent.click(document.body); });
+    expect(api.setMusicEnabled).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Stop music' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Play music' })).toHaveAttribute('aria-pressed', 'false'));
+    api.setMusicEnabled.mockResolvedValueOnce(false);
     fireEvent.click(screen.getByRole('button', { name: 'Play music' }));
-    await waitFor(() => expect(api.setMusicEnabled).toHaveBeenCalledWith(true));
+    await waitFor(() => expect(api.setMusicEnabled).toHaveBeenLastCalledWith(true));
     expect(screen.getByRole('button', { name: 'Play music' })).toHaveAttribute('aria-pressed', 'false');
   });
   it('shows greeting text in a polite, non-blocking speech bubble', async () => {

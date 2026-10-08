@@ -154,7 +154,7 @@ export function sampleTimedIntro(elapsedSeconds: number, options: IntroSampleOpt
     recoverProgress,
     cameraProgress: smooth(range(elapsed, starts.reveal, starts.roam)),
     blackOpacity: 1 - smooth(revealProgress),
-    titleOpacity: smooth(range(elapsed, 0.15, 0.75)) * (1 - smooth(range(elapsed, starts.reveal, 2.9))),
+    titleOpacity: 1 - smooth(range(elapsed, starts.reveal, 2.9)),
     pose: { depth, lift, lean, turn, squash },
     runBlend,
     stridePhase,

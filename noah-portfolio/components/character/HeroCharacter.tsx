@@ -21,8 +21,9 @@ export default function HeroCharacter({ fallback, content, sceneRef, onStatus }:
   const [phase, setPhase] = useState('opening');
   const [portrait, setPortrait] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(false);
-  const [musicEnabled, setMusicEnabled] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [musicEnabled, setMusicEnabled] = useState(true);
+  const [audioStarted, setAudioStarted] = useState(false);
   const [greeting, setGreeting] = useState<string | null>(null);
   const [message, setMessage] = useState('Click the floor to send me exploring.');
 
@@ -75,8 +76,7 @@ export default function HeroCharacter({ fallback, content, sceneRef, onStatus }:
       preference.removeEventListener('change', stopForPreference);
       cleanup?.();
       setGreeting(null);
-      setSoundEnabled(false);
-      setMusicEnabled(false);
+      setAudioStarted(false);
       api.current = null;
     };
   }, [portrait, content, api]);
@@ -85,6 +85,18 @@ export default function HeroCharacter({ fallback, content, sceneRef, onStatus }:
   const ready = status === 'ready' && !showPortrait;
   const reported = showPortrait ? 'fallback' : status;
   useEffect(() => { onStatus?.(reported); }, [reported, onStatus]);
+  // Browsers refuse audio before a gesture, so default-on sound and music start at the first click or key press anywhere.
+  useEffect(() => {
+    const scene = api.current;
+    if (!ready || audioStarted || !scene || (!soundEnabled && !musicEnabled)) return;
+    const start = async () => {
+      const started = await Promise.all([soundEnabled && scene.setSoundEnabled(true), musicEnabled && scene.setMusicEnabled(true)]);
+      if (api.current === scene && started.some(Boolean)) setAudioStarted(true);
+    };
+    window.addEventListener('click', start, true);
+    window.addEventListener('keydown', start, true);
+    return () => { window.removeEventListener('click', start, true); window.removeEventListener('keydown', start, true); };
+  }, [ready, audioStarted, soundEnabled, musicEnabled, api]);
   /** Both toggles ask the scene for the real state: a browser can refuse audio. */
   const toggle = async (next: boolean, request: (scene: CharacterScene) => Promise<boolean>, apply: (on: boolean) => void) => {
     const scene = api.current;
@@ -95,7 +107,7 @@ export default function HeroCharacter({ fallback, content, sceneRef, onStatus }:
   };
   return (
     <div className="character-hero character-hero--immersive" data-phase={phase} data-testid="character-hero" data-status={reported}>
-      {(!ready || showPortrait) && <div className="character-hero__fallback">{fallback}</div>}
+      {showPortrait && <div className="character-hero__fallback">{fallback}</div>}
       <figure className={`character-stage ${ready ? 'character-stage--ready' : ''}`} data-testid={ready ? 'hero-world' : undefined} data-phase={phase} aria-label="Interactive Good Vibes character" aria-hidden={!ready}>
         <div className="character-stage__eyebrow" aria-hidden="true"><span>Good vibes only</span><span>{phase === 'roam' ? 'Free to wander' : 'A tiny adventure'}</span></div>
         <div ref={host} className="character-stage__canvas" data-testid="character-playground" tabIndex={ready ? 0 : -1} role="group" aria-label="Character world. A short introduction plays automatically; you can skip it. Scroll down and Noah follows you into his lab and about room. Click or tap the floor to guide him, his things to watch him play with them, or his afro if you dare. Use arrow keys to move, space to wave, and Escape to stop." onKeyDown={(event) => {
@@ -105,7 +117,7 @@ export default function HeroCharacter({ fallback, content, sceneRef, onStatus }:
         <div className="character-stage__note" aria-hidden="true"><span className="character-stage__dot" /><span>{paused ? 'Taking a breather' : message}</span></div>
         <figcaption className="character-stage__caption">{phase === 'roam' ? 'Click to explore. Scroll and I’ll follow.' : 'A little hello, then a world to explore.'}</figcaption>
       </figure>
-      {ready && <div className="character-hero__opening" aria-hidden="true"><p>Hi, I’m<br /><em>Noah Rijkaard.</em></p></div>}
+      {!showPortrait && <div className="character-hero__opening" aria-hidden="true"><p>Hi, I’m<br /><em>Noah Rijkaard.</em></p></div>}
       {status === 'loading' && !showPortrait && <p className="character-hero__loading" role="status">Waking up the good vibes…</p>}
       {ready && <div className="character-hero__controls" aria-label="Character controls">
         {phase !== 'roam' && <button type="button" onClick={() => api.current?.skipIntro()}>Skip intro</button>}

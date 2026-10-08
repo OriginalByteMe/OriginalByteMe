@@ -137,13 +137,13 @@ function pulseWave(context: AudioContext, duty: number): PeriodicWave {
 }
 
 function browserAudioContext(): AudioContext | null {
-  // Browser globals are consulted only from a click (enableFromGesture/setMusic), never at import or mount.
+  // Browser globals are consulted only from a gesture (enableFromGesture/setMusic), never at import or mount.
   const scope = globalThis as typeof globalThis & { webkitAudioContext?: typeof AudioContext };
   const Context = scope.AudioContext ?? scope.webkitAudioContext;
   return Context ? new Context() : null;
 }
 
-/** Opt-in synthesized babble voice, sound effects and chiptune loop; no samples, speech synthesis or network. */
+/** Synthesized babble voice, sound effects and chiptune loop; no samples, speech synthesis or network. */
 export class CharacterAudio {
   private context: AudioContext | null = null;
   private graph: Graph | null = null;
@@ -164,7 +164,7 @@ export class CharacterAudio {
   get enabled(): boolean { return this.soundOn && !this.disposed; }
   get musicEnabled(): boolean { return this.musicOn && !this.disposed; }
 
-  /** Voice + sfx on. Call only from a Sound button click. */
+  /** Voice + sfx on. Call only from a click or key press. */
   async enableFromGesture(): Promise<boolean> {
     const revision = ++this.soundRevision;
     const running = await this.open();
@@ -173,7 +173,7 @@ export class CharacterAudio {
     return running;
   }
 
-  /** Music on/off, independent of voice + sfx. Call only from a Music button click; returns the actual state. */
+  /** Music on/off, independent of voice + sfx. Call only from a click or key press; returns the actual state. */
   async setMusic(on: boolean): Promise<boolean> {
     const revision = ++this.musicRevision;
     if (!on) {

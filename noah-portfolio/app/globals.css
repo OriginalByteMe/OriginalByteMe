@@ -2487,7 +2487,7 @@ body {
 .dark .character-hero--immersive .character-hero__controls { background: #302735d9; }
 .character-hero--immersive .character-hero__fallback { position: absolute; right: 7vw; top: 17vh; width: min(33vw, 26rem); z-index: 0; }
 .character-hero--immersive .character-hero__restore { position: absolute; z-index: 6; right: 10vw; bottom: 5rem; }
-.character-hero--immersive .character-hero__loading { z-index: 2; left: auto; right: 10vw; transform: none; bottom: 5rem; }
+.character-hero--immersive .character-hero__loading { z-index: 5; left: auto; right: 10vw; transform: none; bottom: 5rem; }
 .character-stage[data-phase="bonk"]::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 8rem #af7d9466; pointer-events: none; border: 2px solid #ffffff55; border-radius: 5%; }
 @media (max-width: 700px) {
   .immersive-hero__copy { top: 6.5rem; left: 1.5rem; max-width: calc(100% - 3rem); }
@@ -2538,6 +2538,6 @@ body {
 .character-hero__opening { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; background: #09080b; opacity: var(--intro-black, 1); pointer-events: none; }
 .character-hero__opening p { opacity: var(--intro-title, 1); padding: 2rem; color: #fff; text-align: center; font: clamp(2.5rem, 7vw, 7rem)/1.03 Georgia, serif; letter-spacing: -.045em; }
 .character-hero__opening em { color: #e8daf5; font-weight: 400; }
-.character-world:has(.character-hero[data-status="ready"][data-phase="opening"]) .immersive-hero__copy,
-.character-world:has(.character-hero[data-status="ready"][data-phase="opening"]) .immersive-hero__ask,
-.character-world:has(.character-hero[data-status="ready"][data-phase="opening"]) .immersive-hero__scroll { visibility: hidden; }
+.character-world:has(.character-hero[data-phase="opening"]:not([data-status="fallback"])) .immersive-hero__copy,
+.character-world:has(.character-hero[data-phase="opening"]:not([data-status="fallback"])) .immersive-hero__ask,
+.character-world:has(.character-hero[data-phase="opening"]:not([data-status="fallback"])) .immersive-hero__scroll { visibility: hidden; }

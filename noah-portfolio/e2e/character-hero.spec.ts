@@ -65,29 +65,30 @@ test('touch stage preserves page scrolling and fits a narrow viewport', async ({
   await context.close();
 });
 
-test('voice, effects and music stay off until their own explicit toggles', async ({ page }) => {
+test('voice, effects and music are on by default, start at the first click and mute from their toggles', async ({ page }) => {
+  await page.addInitScript(() => {
+    const Native = window.AudioContext;
+    window.AudioContext = class extends Native {
+      constructor(options?: AudioContextOptions) { super(options); Object.assign(window, { characterAudio: this }); }
+    };
+  });
   await page.goto('/');
   await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
-  const sound = page.getByRole('button', { name: 'Enable character sound' });
-  const music = page.getByRole('button', { name: 'Play music' });
-  await expect(sound).toHaveAttribute('aria-pressed', 'false');
-  await expect(music).toHaveAttribute('aria-pressed', 'false');
+  const sound = page.getByRole('button', { name: 'Mute character sound' });
+  const music = page.getByRole('button', { name: 'Stop music' });
+  await expect(sound).toHaveAttribute('aria-pressed', 'true');
+  await expect(music).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Skip intro' }).click();
+  await expect.poll(() => page.evaluate(() => (window as Window & { characterAudio?: AudioContext }).characterAudio?.state)).toBe('running');
   await expect(page.getByRole('status')).toContainText('Hey, my name is Noah. Ask me a question down here.', { timeout: 15_000 });
-  await expect(sound).toHaveAttribute('aria-pressed', 'false');
-  await sound.click();
-  await expect(page.getByRole('button', { name: 'Mute character sound' })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByRole('button', { name: 'Play music' })).toHaveAttribute('aria-pressed', 'false');
-  await music.click();
-  await expect(page.getByRole('button', { name: 'Stop music' })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Say hi' }).click();
   await expect(page.getByRole('status')).toContainText('Hi, you see me? Do you see me? Oh, hello.');
   await page.getByRole('button', { name: 'Pause', exact: true }).click();
   await expect(page.locator('.character-stage__speech')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Mute character sound' }).click();
-  await page.getByRole('button', { name: 'Stop music' }).click();
-  await expect(sound).toHaveAttribute('aria-pressed', 'false');
-  await expect(music).toHaveAttribute('aria-pressed', 'false');
+  await sound.click();
+  await music.click();
+  await expect(page.getByRole('button', { name: 'Enable character sound' })).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('button', { name: 'Play music' })).toHaveAttribute('aria-pressed', 'false');
 });
 
 test('timed startup runs without scrolling and hover never issues movement commands', async ({ page }) => {

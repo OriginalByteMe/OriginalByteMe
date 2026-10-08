@@ -13,7 +13,8 @@ const VIEWPORTS = [
 async function gotoHero(page: Page, viewport: { width: number; height: number } = VIEWPORTS[0]) {
   await page.setViewportSize(viewport);
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1, name: /Hi, I’m Noah Rijkaard/ })).toBeVisible();
+  // The black title card hides the hero copy until the model loads and the intro reveals the room.
+  await expect(page.getByRole("heading", { level: 1, name: /Hi, I’m Noah Rijkaard/ })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId("listening-easter-egg")).toBeVisible();
 }
 

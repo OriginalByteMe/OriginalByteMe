@@ -234,7 +234,6 @@ export async function createCharacterScene(host: HTMLElement, options: Character
   const inputSurface = worldRoot ?? host;
   const wrapper = host.closest('.character-hero') as HTMLElement;
   wrapper.style.setProperty('--intro-black', introSkipped ? '0' : '1');
-  wrapper.style.setProperty('--intro-title', '0');
 
   // Camera framings per area: wide screens keep the diorama in the right ~60% beside the DOM panels.
   const framings = areas.map(() => ({ position: new THREE.Vector3(), target: new THREE.Vector3() }));
