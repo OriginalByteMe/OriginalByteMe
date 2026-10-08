@@ -1,78 +1,107 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import Image from 'next/image';
+import { useState } from 'react';
 import Hero, { HeroPortrait } from '../Hero';
 import HeroCharacter, { type CharacterStatus } from './HeroCharacter';
-import type { CharacterScene } from './create-character-scene';
 import type { WorldContent } from '@/lib/character/world-content';
 
+const NEW_TAB = { target: '_blank', rel: 'noreferrer noopener' } as const;
+
 /**
- * One sticky 3D viewport behind three scrolling sections. The bedroom, lab and
- * about dioramas sit under #hero, #lab and #about; the panels stay plain,
- * readable DOM whether or not the scene loads.
+ * One sticky 3D viewport over a street of seven lots, one scrolling section per lot
+ * (ids from LOTS in world/types.ts). The town shows each chapter as pictures and icons;
+ * the sections carry its facts as screen-reader text, revealed when a keyboard user
+ * tabs to one of their links. Without the scene the page's 2D Story tells them instead.
  */
 export default function CharacterWorld({ content }: { content: WorldContent }) {
-  const scene = useRef<CharacterScene | null>(null);
   const [status, setStatus] = useState<CharacterStatus>('waiting');
-  const live = status === 'ready';
-  const showMe = (stationId: string, name: string) => live && (
-    <button type="button" className="character-world__show" onClick={() => scene.current?.visit(stationId)}>
-      Show me <span className="sr-only">{name}</span> <span aria-hidden="true">↗</span>
-    </button>
-  );
+  const facts = 'character-world__facts sr-only';
   return (
     <div className="character-world" data-status={status} data-testid="character-world">
       <div className="character-world__viewport">
-        <HeroCharacter fallback={<HeroPortrait />} content={content} sceneRef={scene} onStatus={setStatus} />
+        <HeroCharacter fallback={<HeroPortrait />} content={content} onStatus={setStatus} />
       </div>
       <Hero />
-      <section id="lab" aria-labelledby="lab-heading" className="character-world__area">
-        <div className="character-world__panel" data-character-ui>
-          <p className="character-world__eyebrow">Tech lab</p>
-          <h2 id="lab-heading">Things I’ve built</h2>
-          <p className="character-world__intro">Every project has an exhibit in my lab. Press Show me and I’ll go play with it.</p>
-          <ul className="character-world__projects">
+      <section id="brief" aria-labelledby="brief-heading" className="character-world__area">
+        <div className={facts}>
+          <h2 id="brief-heading">Noah, in brief</h2>
+          <p>{content.headline} in {content.location}.</p>
+          <p>{content.brief}</p>
+          <p>{content.summary}</p>
+          <ul>{content.stats.map((stat) => <li key={stat.caption}>{stat.value}{stat.suffix} {stat.caption}</li>)}</ul>
+        </div>
+      </section>
+      <section id="built" aria-labelledby="built-heading" className="character-world__area">
+        <div className={facts}>
+          <h2 id="built-heading">Things I’ve built</h2>
+          <ul>
             {content.projects.map((project) => (
               <li key={project.slug}>
                 <h3>{project.title}</h3>
                 <p>{project.description}</p>
-                <p className="character-world__tech"><span className="sr-only">Built with: </span>{project.tech.join(' · ')}</p>
-                <div className="character-world__actions">
-                  {project.url && <a href={project.url} target="_blank" rel="noreferrer noopener">Visit <span className="sr-only">{project.title}</span> <span aria-hidden="true">↗</span></a>}
-                  {showMe(`project:${project.slug}`, project.title)}
-                </div>
+                <p>Built with {project.tech.map((tech) => tech.name).join(', ')}.</p>
+                {project.url && <a href={project.url} {...NEW_TAB}>Visit {project.title}</a>}
               </li>
             ))}
           </ul>
-          <h3 className="character-world__subheading">Skills</h3>
-          <dl className="character-world__skills">
+        </div>
+      </section>
+      <section id="toolbox" aria-labelledby="toolbox-heading" className="character-world__area">
+        <div className={facts}>
+          <h2 id="toolbox-heading">The toolbox</h2>
+          <dl>
             {content.skills.map((group) => (
-              <div key={group.category}><dt>{group.category}</dt><dd>{group.skills.join(', ')}</dd></div>
+              <div key={group.category}><dt>{group.category}</dt><dd>{group.skills.map((skill) => skill.name).join(', ')}</dd></div>
             ))}
           </dl>
-          <div className="character-world__actions">{showMe('skills', 'the skills wall')}</div>
         </div>
       </section>
       <section id="about" aria-labelledby="about-heading" className="character-world__area">
-        <div className="character-world__panel" data-character-ui>
-          <p className="character-world__eyebrow">Room three</p>
-          <h2 id="about-heading">About me</h2>
-          <p className="character-world__intro">{content.headline}, based in {content.location}.</p>
-          <h3 className="character-world__subheading">Career</h3>
-          <ol className="character-world__career">
+        <div className={facts}>
+          <h2 id="about-heading">About me and where I’ve been</h2>
+          <ol>
             {content.career.map((job) => (
-              <li key={`${job.company}-${job.period}`}><strong>{job.role}</strong> at {job.company} <span>{job.period}</span></li>
+              <li key={`${job.company}-${job.period}`}>
+                <h3>{job.role} at {job.company}</h3>
+                <p>{job.period}</p>
+                <ul>{job.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}</ul>
+                {job.url && <a href={job.url} {...NEW_TAB}>Visit {job.company}</a>}
+              </li>
             ))}
           </ol>
-          <h3 className="character-world__subheading">Fun facts</h3>
-          <ul className="character-world__facts">
-            {content.funFacts.map((fact) => <li key={fact}>{fact}</li>)}
+          <h3>Fun facts</h3>
+          <ul>{content.funFacts.map((fact) => <li key={fact}>{fact}</li>)}</ul>
+        </div>
+      </section>
+      <section id="rig" aria-labelledby="rig-heading" className="character-world__area">
+        <div className={facts}>
+          <h2 id="rig-heading">The rig</h2>
+          <dl>
+            {content.operatingSystems.map((group) => (
+              <div key={group.name}><dt>{group.name}</dt><dd>{group.systems.map((system) => system.name).join(', ')}</dd></div>
+            ))}
+          </dl>
+          <h3>Side projects</h3>
+          <ul>
+            {content.sideProjects.map((side) => (
+              <li key={side.title}>
+                <h4>{side.title}</h4>
+                <p>{side.description}</p>
+                {side.url && <a href={side.url} {...NEW_TAB}>Visit {side.title}</a>}
+              </li>
+            ))}
           </ul>
-          <figure className="character-world__portrait">
-            <Image src="/hero.png" alt="Framed hero portrait of Noah Rijkaard" width={1408} height={1926} sizes="(max-width: 700px) 40vw, 12rem" />
-            <figcaption>The portrait on my wall. Huh. Maybe that’s what I’d look like.</figcaption>
-          </figure>
+        </div>
+      </section>
+      <section id="say-hi" aria-labelledby="say-hi-heading" className="character-world__area">
+        <div className={facts}>
+          <h2 id="say-hi-heading">Say hi</h2>
+          <ul>
+            <li><a href={`mailto:${content.contact.email}`}>Email {content.contact.email}</a></li>
+            <li><a href={content.contact.github} {...NEW_TAB}>GitHub</a></li>
+            <li><a href={content.contact.linkedin} {...NEW_TAB}>LinkedIn</a></li>
+            {content.contact.blog && <li><a href={content.contact.blog} {...NEW_TAB}>Blog</a></li>}
+          </ul>
         </div>
       </section>
     </div>

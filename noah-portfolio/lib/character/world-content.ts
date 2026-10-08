@@ -1,21 +1,64 @@
 import type { Corpus } from '@/lib/corpus/types';
+import { homeSpec } from '@/lib/jsonui/homeSpec';
+import vendoredIcons from '@/public/icons/manifest.json';
 
-export type WorldProject = { slug: string; title: string; description: string; url: string; image: string; tech: string[] };
-export type WorldSkillGroup = { category: string; skills: string[] };
-export type WorldJob = { company: string; role: string; period: string; logo: string };
+/** A named thing and its same-origin icon path under /icons/, vendored by scripts/vendor-icons.mjs so WebGL can load it. */
+export type WorldIcon = { name: string; icon: string };
+export type WorldProject = { slug: string; title: string; description: string; url: string; image: string; tech: WorldIcon[] };
+export type WorldSkillGroup = { category: string; skills: WorldIcon[] };
+export type WorldJob = { company: string; role: string; period: string; logo: string; url: string; highlights: string[] };
+export type WorldStat = { value: number; suffix: string; caption: string };
+export type WorldSystemGroup = { name: string; systems: WorldIcon[] };
+export type WorldSideProject = { title: string; description: string; icon: string | null; tags: string[]; url: string | null };
 
-/** The public corpus slice the 3D world shows. Serializable so the server page can pass it to client components. */
+/** Every Story chapter's public facts, for the town's buildings and section text. Plain JSON so the server page can pass it to client components. */
 export type WorldContent = {
-  projects: WorldProject[];
-  skills: WorldSkillGroup[];
   headline: string;
   location: string;
+  /** The bio paragraph from content/about-me/bio.md. */
+  summary: string;
+  /** Chapter 01 ("Noah, in brief"): its narrative beat and stat from the home Story spec. */
+  brief: string;
+  stats: WorldStat[];
+  projects: WorldProject[];
+  skills: WorldSkillGroup[];
   career: WorldJob[];
   funFacts: string[];
+  operatingSystems: WorldSystemGroup[];
+  sideProjects: WorldSideProject[];
+  contact: { email: string; github: string; linkedin: string; blog: string | null };
 };
 
+/** The Story's side projects are static copy in lib/jsonui/components/extras.tsx (`SideProjects`); same facts here. */
+const SIDE_PROJECTS: WorldSideProject[] = [
+  {
+    title: '3D Printing',
+    description: 'I have learned CAD design and use a variety of 3D printing methods and techniques to make my products work for different use cases. Namely in FDM printing at the moment, but with very high end materials and machines.',
+    icon: '/Noah Icon FA.svg', tags: ['CAD', 'FDM', 'Materials'], url: null,
+  },
+  {
+    title: 'My blog!',
+    description: 'The tech diary of Noah Rijkaard, a Full-stack software engineer working out of Kuala Lumpur Malaysia, it comprises of tutorials, thoughts and existential crises.',
+    icon: null, tags: ['Read notes'], url: 'https://blog.noahrijkaard.com',
+  },
+];
+
+const VENDORED: Readonly<Record<string, string>> = vendoredIcons;
+/** The local copy of a corpus icon URL; an icon nobody vendored fails the build instead of reaching WebGL cross-origin. */
+function vendored(url: string) {
+  const local = VENDORED[url];
+  if (!local) throw new Error(`Icon ${url} is not in public/icons: run node scripts/vendor-icons.mjs and commit the result`);
+  return local;
+}
+
 export function worldContent(corpus: Corpus): WorldContent {
+  const { introBeat, introStat } = homeSpec.elements;
   return {
+    headline: corpus.bio.headline,
+    location: corpus.bio.location,
+    summary: corpus.bio.summary,
+    brief: String(introBeat.props.text),
+    stats: [{ value: Number(introStat.props.value), suffix: String(introStat.props.suffix), caption: String(introStat.props.caption) }],
     projects: corpus.projects.map((project) => ({
       slug: project.slug,
       // Untitled corpus projects (ai-image-cutout) fall back to their slug words; short words read as acronyms.
@@ -23,12 +66,13 @@ export function worldContent(corpus: Corpus): WorldContent {
       description: project.description,
       url: project.url,
       image: project.image,
-      tech: project.technologies.map((tech) => tech.name),
+      tech: project.technologies.map((tech) => ({ name: tech.name, icon: vendored(tech.lightIcon) })),
     })),
-    skills: corpus.skills.map((group) => ({ category: group.category, skills: group.skills.map((skill) => skill.name) })),
-    headline: corpus.bio.headline,
-    location: corpus.bio.location,
-    career: corpus.careerTimeline.map(({ company, role, period, logo }) => ({ company, role, period, logo })),
+    skills: corpus.skills.map((group) => ({ category: group.category, skills: group.skills.map((skill) => ({ name: skill.name, icon: vendored(skill.lightImage) })) })),
+    career: corpus.careerTimeline.map(({ company, role, period, logo, url, highlights }) => ({ company, role, period, logo, url, highlights: highlights ?? [] })),
     funFacts: corpus.funFacts.map((fact) => fact.text),
+    operatingSystems: corpus.operatingSystems.map((group) => ({ name: group.name, systems: group.systems.map((system) => ({ name: system.name, icon: vendored(system.lightImage) })) })),
+    sideProjects: SIDE_PROJECTS.map((side) => ({ ...side, tags: [...side.tags] })),
+    contact: { email: corpus.contact.email, github: corpus.contact.github, linkedin: corpus.contact.linkedin, blog: corpus.contact.blog ?? null },
   };
 }

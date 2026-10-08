@@ -1,28 +1,31 @@
 /**
- * Which area the character belongs to as the visitor scrolls, and the timed
- * transition that carries him there: down is chase, trip, fall, land, recover;
- * up is jump, land, recover. One area per transition. Active time only.
+ * Which lot the character belongs to as the visitor scrolls along the street, and when
+ * his walk there starts, turns and ends. One trip may pass several lots; a new view that
+ * holds through the debounce starts a trip, or turns the current one toward it from
+ * wherever he has got to. The scene walks him along the street at its own pace and
+ * reports `arrived` when he reaches the trip's lot. Active time only.
  */
-export type TourPhase = 'settled' | 'chase' | 'trip' | 'fall' | 'land' | 'recover' | 'jump';
+export type TourPhase = 'settled' | 'travel';
 export type TourFrame = {
-  /** Area the character belongs to; becomes `to` when 'fall' or 'jump' ends. */
+  /** Lot the character belongs to; becomes `to` when the walk ends. */
   area: number;
-  /** Equal when settled. */
+  /** Street position, in lots, where this leg started (fractional after a turn mid-walk), and the lot it heads to. Equal when settled. */
   from: number; to: number;
-  /** 0..1 within the phase; 0 while settled. */
-  phase: TourPhase; progress: number;
-  /** Phase entered on this tick, one-shot (speech and sfx hooks). */
+  phase: TourPhase;
+  /** Phase entered on this tick, one-shot (speech and path hooks); 'travel' again when a leg turns. */
   started: TourPhase | null;
 };
-export type TourInput = { viewArea: number };
+export type TourInput = {
+  viewArea: number;
+  /** His street position in lots (0 at the first lot); a leg that turns mid-walk starts from here. */
+  at?: number;
+  /** The scene has walked him to `to`: the trip ends on this tick. */
+  arrived?: boolean;
+};
 
-export const TOUR_PHASE_DURATION = { chase: .9, trip: .45, fall: 1.3, land: .55, recover: 1.1, jump: 1.2 } as const;
-/** Seconds a new viewArea must hold before a transition starts. */
+/** Seconds a new viewArea must hold before a leg starts or turns. */
 export const TOUR_DEBOUNCE = .35;
 export const TOUR_MAX_DELTA = .1;
-const NEXT: Record<Exclude<TourPhase, 'settled'>, TourPhase> = {
-  chase: 'trip', trip: 'fall', fall: 'land', jump: 'land', land: 'recover', recover: 'settled',
-};
 
 export class CharacterTourController {
   private readonly areas: number;
@@ -30,7 +33,6 @@ export class CharacterTourController {
   private from: number;
   private to: number;
   private phase: TourPhase = 'settled';
-  private phaseTime = 0;
   private pending = 0;
 
   constructor(options: { areas: number; start?: number }) {
@@ -42,59 +44,38 @@ export class CharacterTourController {
     return Math.max(0, Math.min(this.areas - 1, Math.round(area)));
   }
 
-  /** Instant, for reduced paths, reset and initial load mid-page. */
+  /** Instant, for reset and initial load mid-page. */
   jumpTo(area: number): void {
     this.area = this.from = this.to = Number.isFinite(area) ? this.clampArea(area) : this.area;
     this.phase = 'settled';
-    this.phaseTime = this.pending = 0;
+    this.pending = 0;
   }
 
   tick(deltaSeconds: number, input: TourInput): TourFrame {
-    const view = Number.isFinite(input.viewArea) ? this.clampArea(input.viewArea) : this.area;
-    let remaining = Number.isFinite(deltaSeconds) ? Math.max(0, Math.min(TOUR_MAX_DELTA, deltaSeconds)) : 0;
     let started: TourPhase | null = null;
-    // Carry overshoot through phase changes so timing does not depend on frame rate.
-    for (let transitions = 0; remaining > 1e-10 && transitions < 8; transitions += 1) {
-      if (this.phase === 'settled') {
-        if (view === this.area) { this.pending = 0; break; }
-        const wait = Math.min(remaining, TOUR_DEBOUNCE - this.pending);
-        this.pending += wait; remaining -= wait;
-        if (this.pending + 1e-9 < TOUR_DEBOUNCE) break;
-        started = this.begin(view);
-        continue;
-      }
-      const duration = TOUR_PHASE_DURATION[this.phase];
-      const consumed = Math.min(remaining, duration - this.phaseTime);
-      this.phaseTime += consumed; remaining -= consumed;
-      if (this.phaseTime + 1e-9 < duration) break;
-      if (this.phase === 'fall' || this.phase === 'jump') this.area = this.to;
-      this.phase = NEXT[this.phase];
-      this.phaseTime = 0;
-      started = this.phase;
-      if (this.phase === 'settled') {
-        this.from = this.area;
-        // The visitor already held the new view through the transition: follow without a second debounce.
-        if (view !== this.area) started = this.begin(view);
-      }
+    if (this.phase === 'travel' && input.arrived) {
+      this.area = this.from = this.to;
+      this.phase = 'settled';
+      started = 'settled';
     }
-    return this.frame(started);
+    // Settled, `to` equals `area`: either way it is where he is headed.
+    const view = Number.isFinite(input.viewArea) ? this.clampArea(input.viewArea) : this.to;
+    if (view === this.to) this.pending = 0;
+    else {
+      this.pending += Number.isFinite(deltaSeconds) ? Math.max(0, Math.min(TOUR_MAX_DELTA, deltaSeconds)) : 0;
+      if (this.pending + 1e-9 >= TOUR_DEBOUNCE) started = this.begin(view, input.at);
+    }
+    return { area: this.area, from: this.from, to: this.to, phase: this.phase, started };
   }
 
-  private begin(view: number): TourPhase {
-    this.from = this.area;
-    this.to = this.area + Math.sign(view - this.area);
-    this.phase = this.to > this.area ? 'chase' : 'jump';
-    this.phaseTime = this.pending = 0;
+  /** A new leg toward `view`, from his lot when settled or from his street position mid-walk. */
+  private begin(view: number, at: number | undefined): TourPhase {
+    if (this.phase === 'travel' && at !== undefined && Number.isFinite(at)) this.from = Math.max(0, Math.min(this.areas - 1, at));
+    else if (this.phase === 'settled') this.from = this.area;
+    this.to = view;
+    this.phase = 'travel';
+    this.pending = 0;
     return this.phase;
-  }
-
-  private frame(started: TourPhase | null): TourFrame {
-    const phase = this.phase;
-    return {
-      area: this.area, from: this.from, to: this.to,
-      phase, progress: phase === 'settled' ? 0 : Math.min(1, this.phaseTime / TOUR_PHASE_DURATION[phase]),
-      started,
-    };
   }
 }
 

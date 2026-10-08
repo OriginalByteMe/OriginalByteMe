@@ -2,11 +2,12 @@ import * as THREE from 'three';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { stubCanvas2d } from '@/lib/character/__tests__/canvas-stub';
 import { CHARACTER_CONFIG } from '@/lib/character/controller';
-import type { WorldContent } from '@/lib/character/world-content';
+import { corpus } from '@/lib/corpus';
+import { worldContent } from '@/lib/character/world-content';
 import { createBedroom } from '../bedroom';
 import type { Vec3, WorldArea } from '../types';
 
-const content: WorldContent = { projects: [], skills: [], headline: '', location: '', career: [], funFacts: [] };
+const content = worldContent(corpus);
 const R = CHARACTER_CONFIG.radius;
 // The scene's default camera: high and in front of the open edge.
 const camera = new THREE.Vector3(0, 4.7, 11.5);
@@ -28,6 +29,9 @@ const run = (stationId: string | null, read: (area: WorldArea) => number, second
   area.dispose();
   return states;
 };
+const changes = (states: number[]) => states.slice(1).filter((value, i) => value !== states[i]).length;
+const colours = (name: string) => (a: WorldArea) => Array.from(named<THREE.InstancedMesh>(a, name).instanceColor!.array)
+  .reduce((hash, value) => (hash * 31 + Math.round(value * 255)) | 0, 7);
 
 describe('createBedroom', () => {
   let area: WorldArea;
@@ -46,15 +50,20 @@ describe('createBedroom', () => {
       const geometry = node.geometry as THREE.BufferGeometry;
       draws++; triangles += (geometry.index ? geometry.index.count : geometry.attributes.position.count) / 3 * (node instanceof THREE.InstancedMesh ? node.count : 1);
     });
-    expect(triangles).toBeLessThanOrEqual(25_000);
-    expect(draws).toBeLessThanOrEqual(120);
-    const lower = createBedroom(new THREE.Vector3(0, -18, 0), content);
-    expect(lower.group.position.toArray()).toEqual([0, -18, 0]);
-    lower.dispose();
+    expect(triangles).toBeLessThanOrEqual(45_000);
+    expect(draws).toBeLessThanOrEqual(40);
+    const next = createBedroom(new THREE.Vector3(16, 0, 0), content);
+    expect(next.group.position.toArray()).toEqual([16, 0, 0]);
+    next.dispose();
   });
 
-  it('places every bedroom station where the character can arrive and face its object', () => {
-    expect(area.id).toBe('bedroom');
+  it('is a house with about twice the wave-1 bedroom floor (9.5 by 5.4)', () => {
+    const { minX, maxX, minZ, maxZ } = area.bounds;
+    expect((maxX - minX) * (maxZ - minZ)).toBeGreaterThanOrEqual(1.8 * 9.5 * 5.4);
+  });
+
+  it('places every home station where the character can arrive and face its object', () => {
+    expect(area.id).toBe('home');
     expect(Object.fromEntries(area.stations.map((s) => [s.id, s.kind]))).toEqual({ desk: 'type', printer: 'watch', rack: 'tinker', ball: 'ball', bed: 'read' });
     for (const s of area.stations) {
       expect(insideInset(area, s.stand), s.id).toBe(true);
@@ -67,29 +76,43 @@ describe('createBedroom', () => {
       expect(s.reach.y, s.id).toBeGreaterThanOrEqual(0.75); expect(s.reach.y, s.id).toBeLessThanOrEqual(1.65);
       expect((Math.sin(s.heading) * dx + Math.cos(s.heading) * dz) / distance, s.id).toBeGreaterThan(0.9);
     }
-    expect(insideInset(area, area.exit)).toBe(true);
-    expect(clearance(area, area.exit)).toBeGreaterThanOrEqual(R);
-    expect(area.exit.z).toBeGreaterThan(area.bounds.maxZ - 0.8);
+    expect(insideInset(area, area.entry)).toBe(true);
+    expect(clearance(area, area.entry)).toBeGreaterThanOrEqual(R);
+    expect(area.entry.z).toBeGreaterThan(area.bounds.maxZ - 0.8);
   });
 
-  it('trips him over the network cable that runs past the exit', () => {
-    const cable = named<THREE.Mesh>(area, 'network-cable');
-    const position = cable.geometry.attributes.position;
-    let nearest = Infinity;
-    for (let i = 0; i < position.count; i++) nearest = Math.min(nearest, Math.hypot(position.getX(i) - area.exit.x, position.getZ(i) - area.exit.z));
-    expect(nearest).toBeLessThan(0.35);
+  it('leaves a clear run from the back door to the front centre', () => {
+    // Only the floor, rugs and the doormat lie in the corridor the intro runs him down.
+    for (let z = area.bounds.minZ; z <= area.bounds.maxZ + 0.3; z += 0.25) {
+      for (const x of [-0.6, -0.3, 0, 0.3, 0.6]) expect(hitBelow(area, { x, y: 6, z }).point.y, `${x},${z}`).toBeLessThanOrEqual(0.06);
+    }
+    for (const o of area.obstacles) expect(Math.abs(o.x) - o.radius, o.id).toBeGreaterThanOrEqual(R);
+  });
+
+  it('hinges a back door that swings out toward -z and frames the town behind it', () => {
+    const door = named<THREE.Group>(area, 'back-door');
+    expect(door.rotation.y).toBe(0);
+    const through = () => { area.group.updateMatrixWorld(true); return new THREE.Raycaster(new THREE.Vector3(0, 1.5, 0), new THREE.Vector3(0, 0, -1)).intersectObject(area.group, true)[0]; };
+    expect(through()?.object.parent).toBe(door);
+    expect(through()!.point.z).toBeLessThan(-3.9);
+    door.rotation.y = Math.PI / 2;
+    expect(through()).toBeUndefined();
+    area.group.updateMatrixWorld(true);
+    const open = new THREE.Box3().setFromObject(door);
+    expect(open.max.z).toBeLessThanOrEqual(-3.95);
+    expect(area.pick(new THREE.Raycaster(camera.clone(), new THREE.Vector3(0.2, 1.5, -4.1).sub(camera).normalize()))).toBeNull();
   });
 
   it.each([
-    ['desk', { x: -4.16, y: 1.08, z: -1.96 }], // MacBook keyboard
-    ['printer', { x: 1.5, y: 0.35, z: -2.35 }], // printer cabinet door
-    ['printer', { x: 1.62, y: 0.8, z: -2.36 }], // printer status screen
-    ['rack', { x: 4.15, y: 1.2, z: -2.15 }], // a rack unit
-    ['bed', { x: -1.95, y: 0.66, z: -2.3 }], // blanket
-    ['ball', { x: -0.3, y: 0.25, z: 1.2 }], // toy basket
-    [null, { x: 2.2, y: 0, z: 0.6 }], // open floor
-    [null, { x: -0.4, y: 3, z: -2.95 }], // back wall
-    [null, { x: -5.15, y: 2.5, z: 1 }], // side wall
+    ['desk', { x: -5.46, y: 0.8, z: -2.98 }], // MacBook keyboard
+    ['printer', { x: 2.9, y: 0.35, z: -3.35 }], // printer cabinet door
+    ['printer', { x: 3.02, y: 0.8, z: -3.36 }], // printer status screen
+    ['rack', { x: 5.75, y: 1.2, z: -3.15 }], // a rack unit
+    ['bed', { x: -3, y: 0.33, z: -3.1 }], // blanket
+    ['ball', { x: -2.5, y: 0.25, z: 1.6 }], // toy basket
+    [null, { x: 1.4, y: 0, z: 2.6 }], // open floor
+    [null, { x: -1.6, y: 3.2, z: -3.95 }], // back wall
+    [null, { x: -6.47, y: 3, z: 2 }], // side wall
   ])('picks %s for a ray at %o', (id, target) => {
     const at = new THREE.Vector3(target.x, target.y, target.z);
     expect(area.pick(new THREE.Raycaster(camera.clone(), at.sub(camera).normalize()))).toBe(id);
@@ -111,21 +134,16 @@ describe('createBedroom', () => {
     }
   });
 
-  it('puts a seat under the seated pelvis and lands him on top of the bed', () => {
+  it('puts a seat at sitting height (his hip is 0.59) under the seated pelvis', () => {
     for (let frame = 1; frame <= 60; frame++) area.update(1 / 30, frame / 30, { stationId: 'desk', progress: frame / 60 });
-    expect(station(area, 'desk').seat).toBeCloseTo(0.62, 2);
-    expect(station(area, 'bed').seat).toBeCloseTo(0.66, 2);
     for (const id of ['desk', 'bed']) {
       const s = station(area, id);
+      expect(s.seat, id).toBeGreaterThanOrEqual(0.3); expect(s.seat, id).toBeLessThanOrEqual(0.35);
       // 08_Sit_Relaxed puts the pelvis 0.15 behind the stand point.
       const pelvis = { x: s.stand.x - Math.sin(s.heading) * 0.15, y: s.seat! + 0.5, z: s.stand.z - Math.cos(s.heading) * 0.15 };
       expect(hitBelow(area, pelvis).point.y, id).toBeCloseTo(s.seat!, 2);
       expect(area.pick(down(pelvis)), id).toBe(id);
     }
-    expect(area.landing.y).toBeGreaterThan(0.4);
-    const above = { ...area.landing, y: area.landing.y + 0.5 };
-    expect(hitBelow(area, above).point.y).toBeCloseTo(area.landing.y, 2);
-    expect(area.pick(down(above))).toBe('bed');
   });
 
   it.each([
@@ -140,16 +158,21 @@ describe('createBedroom', () => {
     expect(activeAdvance).toBeGreaterThan(2.5 * ambientAdvance);
   });
 
-  it('blinks the rack LEDs deterministically, faster while he tinkers, and drifts the cloud', () => {
-    const changes = (states: number[]) => states.slice(1).filter((value, i) => value !== states[i]).length;
-    const pattern = (a: WorldArea) => Array.from(named<THREE.InstancedMesh>(a, 'rack-leds').instanceColor!.array)
-      .reduce((hash, value) => (hash * 31 + Math.round(value * 255)) | 0, 7);
+  it('switches the reading lamp on over the bed while he reads', () => {
+    const glow = (a: WorldArea) => (named<THREE.Mesh>(a, 'bed-lamp-light').material as THREE.MeshBasicMaterial).opacity;
+    expect(run(null, glow).at(-1)).toBeLessThan(0.05);
+    expect(run('bed', glow).at(-1)).toBeGreaterThan(0.3);
+  });
+
+  it('blinks the rack LEDs deterministically, faster while he tinkers, and keeps the house alive', () => {
+    const pattern = colours('rack-leds');
     const ambient = run(null, pattern); const again = run(null, pattern); const active = run('rack', pattern);
     expect(again).toEqual(ambient);
     expect(changes(ambient)).toBeGreaterThan(0);
     expect(changes(active)).toBeGreaterThan(2 * changes(ambient));
-    const cloud = run(null, (a) => named(a, 'window-cloud').position.x, 3);
-    expect(new Set(cloud).size).toBeGreaterThan(10);
+    expect(new Set(run(null, (a) => named(a, 'window-cloud').position.x, 3)).size).toBeGreaterThan(10);
+    expect(changes(run(null, colours('string-lights'), 3))).toBeGreaterThan(0);
+    expect(new Set(run(null, (a) => named(a, 'clock-hand').rotation.x, 3)).size).toBeGreaterThan(10);
   });
 
   it('disposes every geometry, material, texture and instanced buffer it created', () => {

@@ -26,7 +26,7 @@ test("the character world surrounds readable, independent content at each viewpo
     const layout = await page.evaluate(() => {
       const sticky = document.querySelector<HTMLElement>(".character-world__viewport")!.getBoundingClientRect();
       const world = document.querySelector<HTMLElement>(".character-stage")!.getBoundingClientRect();
-      const ask = document.querySelector<HTMLElement>(".immersive-hero__ask")!.getBoundingClientRect();
+      const ask = document.querySelector<HTMLElement>(".ask-bar")!.getBoundingClientRect();
       const controls = document.querySelector<HTMLElement>(".character-hero__controls")!.getBoundingClientRect();
       const overlap = !(ask.right <= controls.left || ask.left >= controls.right || ask.bottom <= controls.top || ask.top >= controls.bottom);
       return { documentWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth, worldWidth: world.width, stickyWidth: sticky.width, worldHeight: world.height, stickyHeight: sticky.height, overlap, pointerEvents: getComputedStyle(document.querySelector(".character-stage__canvas")!).pointerEvents };
@@ -37,7 +37,7 @@ test("the character world surrounds readable, independent content at each viewpo
     expect(layout.overlap).toBe(false);
     expect(layout.pointerEvents).toBe("none");
     await expect(page.getByRole("link", { name: "Email Noah" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Open Ask-Me composer" })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Ask a question about Noah" })).toBeVisible();
   }
 });
 
@@ -52,7 +52,7 @@ test("hero destinations and controls remain touch-sized and keyboard-accessible"
     page.getByRole("link", { name: "Visit Noah on GitHub" }),
     page.getByRole("link", { name: "Visit Noah on LinkedIn" }),
     page.getByRole("button", { name: "Skip intro" }),
-    page.getByRole("button", { name: "Open Ask-Me composer" }),
+    page.getByRole("textbox", { name: "Ask a question about Noah" }),
   ]) {
     expect((await action.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await action.focus(); await expect(action).toBeFocused();
@@ -61,19 +61,14 @@ test("hero destinations and controls remain touch-sized and keyboard-accessible"
   await expect(page.getByRole("link", { name: "Email Noah" })).toHaveAttribute("href", "mailto:noahrijkaard@gmail.com");
 });
 
-test("Ask-Me expands in place at 809px and restores keyboard focus", async ({ page }) => {
+test("the Ask bar is open at 809px and fits the viewport without a launcher", async ({ page }) => {
   await gotoHero(page, { width: 809, height: 1024 });
   const ask = page.getByRole("region", { name: "Ask-Me" });
-  const launcher = ask.getByRole("button", { name: "Open Ask-Me composer" });
 
-  await expect(ask).toHaveAttribute("data-state", "collapsed");
-  await expect(ask.getByRole("textbox", { name: "Ask a question about Noah" })).toHaveCount(0);
-  await expect(ask.getByRole("button", { name: "What does Noah do for a living?" })).toHaveCount(0);
-  await launcher.focus();
-  await page.keyboard.press("Enter");
-
-  await expect(ask).toHaveAttribute("data-state", "expanded");
-  await expect(ask.getByRole("textbox", { name: "Ask a question about Noah" })).toBeFocused();
+  await expect(ask.getByRole("button", { name: /Open Ask-Me/ })).toHaveCount(0);
+  const input = ask.getByRole("textbox", { name: "Ask a question about Noah" });
+  await input.focus();
+  await expect(input).toBeFocused();
   await expect(ask.getByRole("button", { name: "What does Noah do for a living?" })).toBeVisible();
   await expect(ask.getByRole("button", { name: "How does the AI cutout tool work?" })).toBeVisible();
   await expect(ask.getByRole("button", { name: "What is Noah good at?" })).toBeVisible();
@@ -82,10 +77,6 @@ test("Ask-Me expands in place at 809px and restores keyboard focus", async ({ pa
   expect(panelBounds).not.toBeNull();
   expect(panelBounds!.x).toBeGreaterThanOrEqual(0);
   expect(panelBounds!.x + panelBounds!.width).toBeLessThanOrEqual(809);
-
-  await ask.getByRole("button", { name: "Collapse Ask-Me" }).click();
-  await expect(launcher).toBeFocused();
-  await expect(ask).toHaveAttribute("data-state", "collapsed");
 });
 
 test("theme and site-wide listening controls expose predictable state without blocking story content", async ({ page }) => {
@@ -122,9 +113,7 @@ test("theme and site-wide listening controls expose predictable state without bl
     const story = document.querySelector<HTMLElement>("#story")!.getBoundingClientRect();
     const section = document.querySelector<HTMLElement>(".listening-easter-egg-layer")?.closest("section")?.getBoundingClientRect();
     const anchor = document.querySelector<HTMLElement>(".site-listening-section-anchor");
-    const dock = Array.from(document.querySelectorAll<HTMLButtonElement>("button"))
-      .find((button) => button.getAttribute("aria-label") === "Ask this portfolio a question")
-      ?.getBoundingClientRect();
+    const dock = document.querySelector<HTMLElement>(".ask-bar")?.getBoundingClientRect();
     const overlapsDock = dock ? !(
       archive.right <= dock.left || archive.left >= dock.right || archive.bottom <= dock.top || archive.top >= dock.bottom
     ) : false;
