@@ -347,4 +347,69 @@ describe("Good Vibes face layer", () => {
     mixer.stopAllAction();
   });
 
+  it("poses brows, eyes and mouth for an expression, keeps talk and blinks on top, and hands every weight back when it ends", () => {
+    const { model, mouths, eyes, brow, clips } = fixture();
+    const mixerPose = [...mouths, ...eyes, brow].map((mesh) => [...influences(mesh)]);
+    const face = createFaceLayer(model, clips);
+    face.apply({ active: true, blink: 0, mouth: 0, time: 0, expressions: { angry: 1 } });
+    // Brows pulled down toward the nose, narrowed eyes without the happy squint, a frown instead of the grin.
+    expect(influences(brow)[0]).toBeLessThan(-0.5);
+    expect(influences(brow)[1]).toBeLessThan(-0.5);
+    for (const eye of eyes) {
+      expect(influences(eye)[0]).toBeGreaterThan(0.2);
+      expect(influences(eye)[0]).toBeLessThan(0.6);
+      expect(influences(eye)[1]).toBe(0);
+    }
+    const angry = [...influences(mouths[0])];
+    expect(angry[0]).toBe(0);
+    expect(angry[4]).toBeGreaterThan(1);
+
+    // Talking angry: the authored talk vector blends from the frown, the brows stay down.
+    face.apply({ active: true, blink: 0.8, mouth: 0.6, time: 0, expressions: { angry: 1 } });
+    for (const mesh of mouths) {
+      influences(mesh).forEach((value, index) => expect(value).toBeCloseTo(angry[index] + (talkStart[index] - angry[index]) * talkAmount(0.6)));
+    }
+    expect(influences(brow)[1]).toBeLessThan(-0.5);
+    for (const eye of eyes) expect(influences(eye)).toEqual([1, 0]);
+
+    // Lower priorities only show through what anger leaves: surprise at full weight under anger changes nothing.
+    face.apply({ active: true, blink: 0, mouth: 0, time: 0, expressions: { surprised: 1, angry: 1 } });
+    expect(influences(mouths[0])).toEqual(angry);
+
+    face.apply({ active: true, blink: 0, mouth: 0, time: 0, expressions: { angry: 0 } });
+    [...mouths, ...eyes, brow].forEach((mesh, index) => expect(influences(mesh)).toEqual(mixerPose[index]));
+  });
+
+  it("poses the shipped face from the authored laugh and wink weights and returns it to the mixer", async () => {
+    const gltf = await loadCharacter();
+    const mixer = new AnimationMixer(gltf.scene);
+    mixer.clipAction(gltf.animations.find((clip) => clip.name === "01_Idle_Breathe")!).play();
+    mixer.update(0.63);
+    const face = /^FACE2_(brow|eye_white|eyelid|pupil|mouth)_/;
+    const meshes: Mesh[] = [];
+    gltf.scene.traverse((node) => { if ((node as Mesh).morphTargetInfluences && face.test(node.name)) meshes.push(node as Mesh); });
+    const mixerPose = meshes.map((mesh) => [...influences(mesh)]);
+    const byName = (name: string) => meshes.find((mesh) => mesh.name === name)!;
+    const layer = createFaceLayer(gltf.scene, gltf.animations);
+
+    layer.apply({ active: true, blink: 0, mouth: 0, time: 1.2, expressions: { laugh: 1 } });
+    const laugh = gltf.animations.find((clip) => clip.name === "04_Laugh")!;
+    for (const part of ["mouth_cavity", "mouth_teeth", "mouth_tongue", "eyelid_L", "pupil_R", "brow_L"]) {
+      const mesh = byName(`FACE2_${part}`);
+      const track = laugh.tracks.find((track) => track.name === `${mesh.name}.morphTargetInfluences`)!;
+      // The ha-ha section, 0.5 to 2.5 s, loops; every corrective weight comes along.
+      const sample = track.InterpolantFactoryMethodLinear().evaluate(1.7);
+      influences(mesh).forEach((value, index) => expect(value).toBeCloseTo(sample[index], 6));
+    }
+    expect(influences(byName("FACE2_eyelid_L"))[1]).toBe(1);
+
+    layer.apply({ active: true, blink: 0, mouth: 0, time: 1.2, expressions: { wink: 1 } });
+    expect(influences(byName("FACE2_eyelid_L"))).toEqual([1, 0]);
+    expect(influences(byName("FACE2_eyelid_R"))).toEqual([0, 0]);
+
+    mixer.update(0); // Constant morph tracks skip this write.
+    layer.apply({ active: true, blink: 0, mouth: 0, time: 1.2 });
+    meshes.forEach((mesh, index) => expect(influences(mesh)).toEqual(mixerPose[index]));
+    mixer.stopAllAction();
+  });
 });

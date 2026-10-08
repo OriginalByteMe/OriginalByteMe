@@ -6,7 +6,7 @@ import { CharacterIntroController, type IntroPhase } from '@/lib/character/intro
 import { CharacterActivityController, type ActivityFrame } from '@/lib/character/activities';
 import { createActivityProps } from '@/lib/character/activity-props';
 import { CharacterAudio, utteranceDuration, type SfxName, type VoiceKind } from '@/lib/character/audio';
-import { createFaceLayer } from '@/lib/character/face';
+import { createFaceLayer, EXPRESSIONS, type ExpressionName } from '@/lib/character/face';
 import { CharacterClickInput, CHARACTER_UI_SELECTOR, rayHitsSphere } from '@/lib/character/input';
 import { createCharacterState, stepCharacter, resolveCharacterTarget, type Vec2 } from '@/lib/character/controller';
 import { CharacterTourController, areaScrollPosition, type TourFrame, type TourPhase } from '@/lib/character/tour';
@@ -53,6 +53,8 @@ const CAMERA_DIRECTION = new THREE.Vector3(0, .42, 1).normalize();
 /** Sound and seconds between repeats while performing at a station; each `type` call is itself a burst of clicks. */
 const STATION_LOOPS: Record<string, [SfxName, number]> = { desk: ['type', .3], printer: ['printer', 2.2], rack: ['rack', 3], skills: ['poke', .9] };
 const clamp = THREE.MathUtils.clamp;
+/** Skin colour he reddens toward at full anger. */
+const FURY = new THREE.Color(0xe8392b);
 const smooth = (t: number) => THREE.MathUtils.smoothstep(t, 0, 1);
 /** Ease a pose in over the first and out over the last eighth of a perform. */
 const envelope = (progress: number) => smooth(progress / .12) * (1 - smooth((progress - .88) / .12));
@@ -136,6 +138,24 @@ export async function createCharacterScene(host: HTMLElement, options: Character
   const head = model.getObjectByName('head');
   // The afro sphere sits on the head bone and reaches the top of the normalized model.
   const afroRadius = (CHARACTER_HEIGHT - (head?.getWorldPosition(new THREE.Vector3()).y ?? 1.27)) / 2;
+  // His face, ears and neck share one skin material with his arms; a private copy reddens only the face.
+  const meshes: THREE.Mesh[] = [];
+  model.traverse((node) => { if (node instanceof THREE.Mesh) meshes.push(node); });
+  const skin = meshes.find((mesh) => mesh.name.startsWith('Head'))?.material;
+  const blush = skin instanceof THREE.MeshStandardMaterial ? skin.clone() : null;
+  const skinColor = blush?.color.clone() ?? new THREE.Color();
+  for (const mesh of meshes) if (blush && mesh.material === skin && !mesh.name.startsWith('Arm')) mesh.material = blush;
+  // Steam over the afro at the angriest levels: soft puffs drawn like the contact shadow, with a lilac rim so they read on light walls.
+  const steamCanvas = document.createElement('canvas');
+  steamCanvas.width = steamCanvas.height = 64;
+  const steamContext = steamCanvas.getContext('2d')!;
+  const puffGradient = steamContext.createRadialGradient(32, 32, 2, 32, 32, 31);
+  puffGradient.addColorStop(0, 'rgba(255,255,255,1)'); puffGradient.addColorStop(.62, 'rgba(250,247,252,.95)');
+  puffGradient.addColorStop(.82, 'rgba(160,146,182,.75)'); puffGradient.addColorStop(1, 'rgba(160,146,182,0)');
+  steamContext.fillStyle = puffGradient; steamContext.fillRect(0, 0, 64, 64);
+  const steamTexture = new THREE.CanvasTexture(steamCanvas);
+  const steam = Array.from({ length: 6 }, () => new THREE.Sprite(new THREE.SpriteMaterial({ map: steamTexture, transparent: true, depthWrite: false })));
+  for (const puff of steam) { puff.visible = false; scene.add(puff); }
   // Where the held sit frame puts his seat relative to his feet: the clip sits on the floor, chairs raise him by `seat` minus this.
   let seatBase = 0;
   const sitAction = actions.get(clips.sit), pelvis = model.getObjectByName('pelvis');
@@ -178,6 +198,14 @@ export async function createCharacterScene(host: HTMLElement, options: Character
   let waveUntil = 0;
   let afroUntil = 0;
   let afroClicks = 0;
+  /** One level per afro poke, up to one per afro line; cools off gradually after a quiet spell. */
+  let anger = 0;
+  let lastPoke = -Infinity, shakeAt = -Infinity, stompAt = -Infinity;
+  let surprisedUntil = 0, laughUntil = 0, winkAt = -Infinity, yawnAt = 0, lastInput = 0;
+  /** Blend weights for facing the camera while he talks: whole body when standing free, head and neck at a station. */
+  let faceBody = 0, faceHead = 0;
+  const expressionGoals = Object.fromEntries(EXPRESSIONS.map((name) => [name, 0])) as Record<ExpressionName, number>;
+  const expressions = { ...expressionGoals };
   let elapsed = 0;
   let lastBump = 0;
   let phase: IntroPhase = 'opening';
@@ -231,6 +259,7 @@ export async function createCharacterScene(host: HTMLElement, options: Character
   const temp = new THREE.Vector3();
   const localPosition = new THREE.Vector3();
   const afroCenter = new THREE.Vector3();
+  const gaze = new THREE.Vector3();
   const inputSurface = worldRoot ?? host;
   const wrapper = host.closest('.character-hero') as HTMLElement;
   wrapper.style.setProperty('--intro-black', introSkipped ? '0' : '1');
@@ -328,12 +357,16 @@ export async function createCharacterScene(host: HTMLElement, options: Character
     options.onMessage(`Off to the ${stationOf(id)?.label ?? 'next thing'}.`);
     return true;
   };
+  const wake = () => { lastInput = elapsed; };
   const pokeAfro = () => {
     target = null; targetRing.visible = false; cancelActivity(); cancelSpeech(); waveUntil = 0;
     afroUntil = elapsed + 1.5;
     audio.sfx('poke');
     say(AFRO_LINES[Math.min(afroClicks, AFRO_LINES.length - 1)].line, 'annoyed');
     afroClicks += 1;
+    // Each poke is one level angrier: a head shake while annoyed, a stomp at the angriest levels.
+    anger = Math.min(AFRO_LINES.length, Math.floor(anger) + 1); lastPoke = elapsed;
+    if (anger > 2) stompAt = elapsed; else shakeAt = elapsed;
   };
   const settled = () => phase === 'roam' && tourFrame.phase === 'settled';
   const sceneClick = (event: PointerEvent) => {
@@ -354,13 +387,14 @@ export async function createCharacterScene(host: HTMLElement, options: Character
   };
   const clicks = new CharacterClickInput();
   const interactive = (event: PointerEvent) => !!(event.target as HTMLElement)?.closest?.(CHARACTER_UI_SELECTOR);
-  const pointerDown = (event: PointerEvent) => clicks.down(event, interactive(event));
+  const pointerDown = (event: PointerEvent) => { wake(); clicks.down(event, interactive(event)); };
   const pointerUp = (event: PointerEvent) => { if (clicks.up(event, interactive(event))) sceneClick(event); };
   const pointerCancel = () => clicks.cancel();
   const stopMovement = () => { target = null; targetRing.visible = false; cancelActivity(); options.onMessage('Click the floor to send me exploring.'); };
   const onDocumentVisibility = () => { if (document.hidden) { cancelSpeech(); clicks.cancel(); } last = 0; syncAudio(); };
   document.addEventListener('visibilitychange', onDocumentVisibility);
-  window.addEventListener('scroll', measureScroll, { passive: true });
+  const onScroll = () => { measureScroll(); wake(); };
+  window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', measureScroll, { passive: true });
   const contextLost = (event: Event) => { event.preventDefault(); options.onError(); };
   inputSurface.addEventListener('pointerdown', pointerDown as EventListener);
@@ -442,7 +476,9 @@ export async function createCharacterScene(host: HTMLElement, options: Character
     wrapper.style.setProperty('--intro-title', String(story.titleOpacity));
     const roaming = phase === 'roam';
     placeCamera(dt);
-    updateCamera(roaming ? 0 : story.pose.depth, story.cameraShake);
+    // The camera jolts when a stomp lands.
+    const slam = elapsed - stompAt - .48;
+    updateCamera(roaming ? 0 : story.pose.depth, Math.max(story.cameraShake, slam >= 0 && slam < .3 ? 1 - slam / .3 : 0));
 
     if (roaming) {
       tourFrame = tour.tick(dt, { viewArea: viewArea() });
@@ -460,6 +496,10 @@ export async function createCharacterScene(host: HTMLElement, options: Character
       paused: !manual && speechActive && speechKind !== 'event',
     });
     const station = stationOf(activityFrame.stationId);
+    // While he speaks he faces the visitor: his whole body when standing free, only his head and neck at a station or seated.
+    const speaking = roaming && !traveling && speechActive && !target && state.speed < .08;
+    faceBody = THREE.MathUtils.damp(faceBody, speaking && !activityFrame.active ? 1 : 0, 6, dt);
+    faceHead = THREE.MathUtils.damp(faceHead, speaking && activityFrame.active && !activityFrame.phase.startsWith('approach') ? 1 : 0, 6, dt);
     if (activityFrame.started) {
       const requested = requestedStation === activityFrame.started; requestedStation = null;
       if (activityFrame.kind === 'admire' || activityFrame.kind === 'play') audio.sfx('sparkle');
@@ -475,7 +515,7 @@ export async function createCharacterScene(host: HTMLElement, options: Character
     if (activityFrame.phase !== lastActivityPhase) {
       if (activityFrame.phase === 'pickup-ball' || activityFrame.phase === 'pickup-book') audio.sfx('pickup');
       if (activityFrame.phase === 'toss-ball') audio.sfx('toss');
-      if (activityFrame.phase === 'catch-ball') audio.sfx('catch');
+      if (activityFrame.phase === 'catch-ball') { audio.sfx('catch'); laughUntil = elapsed + 1.6; }
       lastActivityPhase = activityFrame.phase;
     }
     activityProps.beforeMixer();
@@ -494,10 +534,12 @@ export async function createCharacterScene(host: HTMLElement, options: Character
         const turn = Math.atan2(Math.sin(activityFrame.heading - state.heading), Math.cos(activityFrame.heading - state.heading));
         state.heading = THREE.MathUtils.damp(state.heading, state.heading + turn, 8, dt);
       }
-      actor.rotation.set(0, state.heading, state.bumpRemaining > 0 ? Math.sin(state.bumpRemaining * 25) * .06 : 0);
+      const toCamera = Math.atan2(camera.position.x - actor.position.x, camera.position.z - actor.position.z) - state.heading;
+      // Rendered only: his own heading, or the station's, comes back as the blend fades.
+      actor.rotation.set(0, state.heading + Math.atan2(Math.sin(toCamera), Math.cos(toCamera)) * faceBody, state.bumpRemaining > 0 ? Math.sin(state.bumpRemaining * 25) * .06 : 0);
       actor.scale.set(1, 1, 1);
       if (state.bumpCount !== lastBump) {
-        lastBump = state.bumpCount; audio.sfx('bonk');
+        lastBump = state.bumpCount; audio.sfx('bonk'); surprisedUntil = elapsed + 1.2;
         // Furniture-dense rooms bump often: the bonk always plays, the apology only now and then and never over another line.
         if (!speechActive && elapsed >= nextBumpLineAt) { say(BUMP_LINE.line, 'bonk'); nextBumpLineAt = elapsed + 45; }
       }
@@ -524,6 +566,18 @@ export async function createCharacterScene(host: HTMLElement, options: Character
       const reach = temp.set(station.reach.x, station.reach.y, station.reach.z).add(origin);
       activityProps.pose({ kind: station.kind, reach, weight: envelope(activityFrame.progress), time: activityFrame.time, progress: activityFrame.progress });
     }
+    // Stomp: knee up, a beat at the top, then a slam that thuds and jolts the camera.
+    const stompTime = elapsed - stompAt;
+    if (roaming && stompTime < .48) activityProps.pose({ kind: 'stomp', reach: temp, weight: Math.min(smooth(stompTime / .3), 1 - (stompTime - .4) / .08), time: elapsed, progress: 0 });
+    if (stompTime >= .48 && stompTime - dt < .48) audio.sfx('land');
+    const shakeTime = elapsed - shakeAt;
+    if (roaming && !traveling && head) {
+      if (faceHead > .001) activityProps.face(camera.position, faceHead);
+      else if (shakeTime < 1.1) {
+        const yaw = actor.rotation.y + Math.sin(shakeTime * 17) * .4 * Math.sin(Math.PI * shakeTime / 1.1);
+        activityProps.face(head.getWorldPosition(gaze).add(temp.set(Math.sin(yaw), 0, Math.cos(yaw))), 1);
+      }
+    }
     const loop = station && activityFrame.phase === 'perform' ? STATION_LOOPS[station.id] : undefined;
     if (loop) {
       const beat = Math.floor(activityFrame.time / loop[1]);
@@ -544,7 +598,8 @@ export async function createCharacterScene(host: HTMLElement, options: Character
     shadow.visible = roaming && (!traveling || tourFrame.phase === 'chase' || tourFrame.phase === 'trip') && local.y < .3;
     shadow.position.set(actor.position.x, origin.y + .012, actor.position.z);
 
-    const free = roaming && !traveling && state.motion === 'idle' && state.speed < .05 && !activityFrame.active && !manual;
+    // A wave and its pending greeting still count as free: Say hi greets right away.
+    const free = roaming && !traveling && state.motion === 'idle' && state.speed < .05 && !activityFrame.active && !target && !afroGuard;
     if (free && pendingManualGreeting) { idle.greetNow(); pendingManualGreeting = false; }
     const idleFrame = idle.tick(dt, free && (!speechActive || speechKind === 'idle'));
     if (free) actor.position.y += idleFrame.bob;
@@ -557,14 +612,39 @@ export async function createCharacterScene(host: HTMLElement, options: Character
     if (tidbit) { say(tidbit.line, 'fact', 'chat'); sessionTidbitCount = tidbits.spoken; writeSession('good-vibes-tidbits-v1', sessionTidbitCount); }
     if (speechActive && elapsed > captionUntil) endCaption();
     const mouth = elapsed < talkUntil ? Math.max(idleFrame.mouthOpen, .35 + .65 * Math.max(0, Math.sin(elapsed * 18))) : idleFrame.mouthOpen;
+    // Expressions blend in priority order (face.ts): anger > surprised > laugh/wink > sleepy > focused > his default happy face.
+    if (anger > 0 && elapsed - lastPoke > 10) { anger = Math.max(0, anger - dt * .8); if (!anger) afroClicks = 0; }
+    if (phase === 'bonk' || phase === 'recoil' || tourFrame.phase === 'trip' || tourFrame.phase === 'fall') surprisedUntil = elapsed + .5;
+    const sleepy = roaming && elapsed - lastInput > 45;
+    if (sleepy && free && !speechActive && elapsed - yawnAt > 12 + 3 * Math.sin(yawnAt)) yawnAt = elapsed;
+    const focused = !!station && activityFrame.phase === 'perform' && (station.kind === 'type' || station.kind === 'watch' || station.kind === 'tinker');
+    expressionGoals.annoyed = clamp(anger, 0, 1); expressionGoals.angry = clamp((anger - 1) / 3, 0, 1);
+    expressionGoals.surprised = +(elapsed < surprisedUntil); expressionGoals.laugh = +(elapsed < laughUntil);
+    expressionGoals.wink = +(elapsed - winkAt > .5 && elapsed - winkAt < 1.1);
+    expressionGoals.sleepy = +sleepy; expressionGoals.yawn = +(sleepy && elapsed - yawnAt < 2.4); expressionGoals.focused = +focused;
+    for (const name of EXPRESSIONS) expressions[name] = THREE.MathUtils.damp(expressions[name], expressionGoals[name], 10, dt);
+    // Red face and steam at the two angriest levels.
+    const fury = clamp(expressions.angry * 2 - 1, 0, 1);
+    blush?.color.copy(skinColor).lerp(FURY, fury * .6);
+    if (head) head.getWorldPosition(afroCenter).addScaledVector(actor.up, afroRadius * 2);
+    steam.forEach((puff, index) => {
+      const rise = (elapsed * .8 + index / steam.length) % 1;
+      puff.visible = fury > 0;
+      puff.position.copy(afroCenter).add(temp.set(Math.sin(index * 2.4) * .3 * (.3 + rise), rise * .9, 0));
+      puff.scale.setScalar(.26 + .4 * rise);
+      puff.material.opacity = fury * smooth(rise / .15) * (1 - smooth((rise - .55) / .45));
+    });
     // The face stays alive during locomotion, tours and station play, not only when idle.
-    face.apply({ active: true, blink: idleFrame.blink, mouth, time: elapsed });
+    face.apply({ active: true, blink: idleFrame.blink, mouth, time: elapsed, expressions });
     host.dataset.phase = phase; host.dataset.motion = roaming ? traveling ? tourFrame.phase === 'chase' ? state.motion : 'tour' : state.motion : phase === 'approach' ? 'run' : 'idle';
     host.dataset.activity = activityFrame.phase;
     host.dataset.area = area.id; host.dataset.tour = tourFrame.phase; host.dataset.station = activityFrame.stationId ?? '';
     host.dataset.position = `${local.x.toFixed(3)},${local.z.toFixed(3)}`;
     host.dataset.bumps = String(state.bumpCount); host.dataset.introTime = story.elapsed.toFixed(3);
     host.dataset.blink = idleFrame.blink.toFixed(3); host.dataset.mouth = mouth.toFixed(3);
+    host.dataset.expression = anger > 0 ? 'angry' : expressionGoals.surprised ? 'surprised' : expressionGoals.laugh ? 'laugh' : expressionGoals.wink ? 'wink'
+      : expressionGoals.yawn ? 'yawn' : sleepy ? 'sleepy' : focused ? 'focused' : 'happy';
+    host.dataset.anger = String(Math.ceil(anger));
     renderer.render(scene, camera);
   };
   const skipIntro = () => {
@@ -581,7 +661,7 @@ export async function createCharacterScene(host: HTMLElement, options: Character
   // Loaded model, areas, and event handlers are all ready before intro time starts.
   if (introSkipped) { phase = 'roam'; enterArea(areaIndex); actor.position.set(state.position.x, 0, state.position.z).add(origins[areaIndex]); }
   options.onPhase(phase); renderer.render(scene, camera); raf = requestAnimationFrame(tick);
-  const wave = () => { if (paused || (phase === 'roam' && !settled())) return; skipIntro(); stopMovement(); waveUntil = elapsed + 2; pendingManualGreeting = true; };
+  const wave = () => { if (paused || (phase === 'roam' && !settled())) return; wake(); skipIntro(); stopMovement(); waveUntil = elapsed + 2; winkAt = elapsed; pendingManualGreeting = true; };
   return {
     skipIntro, wave,
     setSoundEnabled: async (enabled) => { if (!enabled) { audio.mute(); return false; } return audio.enableFromGesture(); },
@@ -595,9 +675,11 @@ export async function createCharacterScene(host: HTMLElement, options: Character
     visit: (id) => {
       if (paused || !areas.some((each) => each.stations.some((station) => station.id === id))) return;
       if (phase !== 'roam') skipIntro();
+      wake();
       pendingVisit = id;
     },
     key: (key) => {
+      wake();
       if (key === ' ') { wave(); return true; }
       if (key === 'Escape') { cancelSpeech(); stopMovement(); return true; }
       const deltas: Record<string, Vec2> = { ArrowLeft: { x: -.65, z: 0 }, ArrowRight: { x: .65, z: 0 }, ArrowUp: { x: 0, z: -.65 }, ArrowDown: { x: 0, z: .65 } };
@@ -610,8 +692,9 @@ export async function createCharacterScene(host: HTMLElement, options: Character
     dispose: () => {
       if (disposed) return; disposed = true; cancelAnimationFrame(raf);
       resize.disconnect(); visibility.disconnect(); document.removeEventListener('visibilitychange', onDocumentVisibility);
-      window.removeEventListener('scroll', measureScroll); window.removeEventListener('resize', measureScroll);
+      window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', measureScroll);
       cancelSpeech(); void audio.dispose(); activityProps.dispose();
+      steamTexture.dispose(); for (const puff of steam) puff.material.dispose();
       inputSurface.removeEventListener('pointerdown', pointerDown as EventListener); inputSurface.removeEventListener('pointerup', pointerUp as EventListener); inputSurface.removeEventListener('pointercancel', pointerCancel); inputSurface.removeEventListener('pointerleave', pointerCancel);
       renderer.domElement.removeEventListener('webglcontextlost', contextLost);
       mixer.stopAllAction(); mixer.uncacheRoot(model); disposeAreas(); disposeObject(scene); shadowTexture.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove();

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Raycaster, Vector2, Vector3, type BufferGeometry, type Mesh, type Object3D, type PerspectiveCamera, type Scene } from 'three';
+import { Quaternion, Raycaster, Vector2, Vector3, type BufferGeometry, type Mesh, type MeshStandardMaterial, type Object3D, type PerspectiveCamera, type Scene, type Sprite } from 'three';
 import type { CharacterScene } from '@/components/character/create-character-scene';
 import { createBedroom } from '@/components/character/world/bedroom';
 import { createLab } from '@/components/character/world/lab';
@@ -138,6 +138,20 @@ function stationPoint(id: string) {
     throw new Error(`no clear screen point picks ${id}`);
   } finally { bedroom.dispose(); }
 }
+/** The meshes of the shipped model, found by name prefix. */
+const modelMesh = (prefix: string) => { let found: Mesh | undefined; capture.scene!.traverse((node) => { if (!found && (node as Mesh).isMesh && node.name.startsWith(prefix)) found = node as Mesh; }); return found!; };
+const skinColor = (prefix: string) => (modelMesh(prefix).material as MeshStandardMaterial).color.clone();
+const steamShowing = () => capture.scene!.children.filter((child) => (child as Sprite).isSprite && child.visible).length;
+const morph = (name: string, target: string) => { const node = mesh(name); return node.morphTargetInfluences![node.morphTargetDictionary![target]]; };
+/** Horizontal angle between where his body faces and the camera, in radians. */
+function angleToCamera() {
+  let actor: Object3D = mesh('head');
+  while (actor.parent && actor.parent !== capture.scene) actor = actor.parent;
+  const facing = new Vector3(0, 0, 1).applyQuaternion(actor.getWorldQuaternion(new Quaternion()));
+  const toCamera = capture.camera!.position.clone().sub(actor.getWorldPosition(new Vector3()));
+  const angle = Math.atan2(toCamera.x, toCamera.z) - Math.atan2(facing.x, facing.z);
+  return Math.abs(Math.atan2(Math.sin(angle), Math.cos(angle)));
+}
 
 describe('shipped character world integration', () => {
   it('builds the bedroom, lab and about areas once and disposes every geometry they created', async () => {
@@ -232,6 +246,81 @@ describe('shipped character world integration', () => {
     expect(position()).toEqual(original);
     advance(2); click(screenOf(afroTop())); advance(.2);
     expect(greeting).toHaveBeenLastCalledWith(AFRO_LINES[1].line);
+  });
+
+  it('gets angrier with every afro poke, cools off after a quiet spell, then starts the lines over', async () => {
+    await create(); api!.skipIntro(); advance(.5);
+    const calm = { brow: morph('FACE2_brow_L', 'BrowSad'), arm: skinColor('Arm') };
+    expect(host.dataset.anger).toBe('0');
+    let brow = calm.brow;
+    for (const [index, { line }] of AFRO_LINES.entries()) {
+      click(screenOf(afroTop())); advance(.6);
+      expect(greeting).toHaveBeenLastCalledWith(line);
+      expect(host.dataset.anger).toBe(String(index + 1));
+      expect(host.dataset.expression).toBe('angry');
+      // Every level pulls his brows further down toward the nose.
+      expect(morph('FACE2_brow_L', 'BrowSad')).toBeLessThan(brow - .1);
+      brow = morph('FACE2_brow_L', 'BrowSad');
+    }
+    // The angriest level: narrowed eyes without the happy squint, a red face (not red arms) and steam.
+    expect(morph('FACE2_eyelid_L', 'HappyEyes')).toBe(0);
+    expect(morph('FACE2_eyelid_L', 'Blink.R')).toBeGreaterThan(.2); // The left eye mesh carries the rig's Blink.R.
+    expect(skinColor('Head').g).toBeLessThan(skinColor('Arm').g - .1);
+    expect(skinColor('Arm').equals(calm.arm)).toBe(true);
+    expect(steamShowing()).toBeGreaterThan(0);
+    advance(9); expect(host.dataset.anger).toBe('4');
+    advance(7);
+    expect(host.dataset.anger).toBe('0');
+    expect(host.dataset.expression).not.toBe('angry');
+    expect(morph('FACE2_brow_L', 'BrowSad')).toBeCloseTo(calm.brow, 2);
+    expect(skinColor('Head').equals(calm.arm)).toBe(true);
+    expect(steamShowing()).toBe(0);
+    click(screenOf(afroTop())); advance(.3);
+    expect(greeting).toHaveBeenLastCalledWith("Stop, don't do that.");
+    expect(host.dataset.anger).toBe('1');
+  });
+
+  it('looks surprised, brows up and mouth round, when he bonks into furniture', async () => {
+    await create(); api!.skipIntro(); advance(.5);
+    // Straight through the toy box from where he stands.
+    const [x, z] = position();
+    const box = layout(createBedroom).obstacles.find((obstacle) => obstacle.id === 'toybox')!;
+    const away = Math.hypot(box.x - x, box.z - z);
+    clickWorld(box.x + (box.x - x) / away * .7, box.z + (box.z - z) / away * .7);
+    until(() => host.dataset.bumps !== '0', 8);
+    expect(host.dataset.bumps).not.toBe('0');
+    expect(host.dataset.expression).toBe('surprised');
+    advance(.3);
+    expect(morph('FACE2_brow_L', 'BrowRaise')).toBeGreaterThan(.8);
+    // Still rounded while his apology flaps the mouth; his resting grin has no O at all.
+    expect(morph('FACE2_mouth_cavity', 'O')).toBeGreaterThan(.25);
+  });
+
+  it('turns his whole body to the camera while he speaks standing free, then back to his own heading', async () => {
+    await create(); api!.skipIntro(); advance(.5);
+    const floor = openFloor();
+    clickWorld(floor.x, floor.z);
+    until(() => message.mock.calls.some(([text]) => text === 'Click my things to see what I get up to.'), 10);
+    advance(.5);
+    const walkedHeading = angleToCamera();
+    expect(walkedHeading).toBeGreaterThan(.6);
+    click(screenOf(afroTop()));
+    expect(greeting).toHaveBeenLastCalledWith("Stop, don't do that.");
+    advance(1.5);
+    expect(angleToCamera()).toBeLessThan(.05);
+    until(() => greeting.mock.calls.at(-1)?.[0] === null, 10);
+    advance(1.5);
+    expect(angleToCamera()).toBeCloseTo(walkedHeading, 1);
+  });
+
+  it('Say hi waves, says hello right away and winks', async () => {
+    await create(); api!.skipIntro(); advance(.5);
+    api!.wave(); advance(.3);
+    expect(greeting).toHaveBeenLastCalledWith('Hi, you see me? Do you see me? Oh, hello.');
+    advance(.5);
+    expect(host.dataset.expression).toBe('wink');
+    expect(morph('FACE2_eyelid_L', 'Blink.R')).toBeGreaterThan(.8);
+    expect(morph('FACE2_eyelid_R', 'Blink.L')).toBeLessThan(.5);
   });
 
   it('a station pick sends him to that station and starts its routine', async () => {

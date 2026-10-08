@@ -4,9 +4,9 @@ import type { StationKind, Vec3 } from '@/components/character/world/types';
 
 const BALL_RADIUS = .15;
 
-/** World-space arm/head overlay for a station kind, or both hands guarding the afro. */
+/** World-space arm/head overlay for a station kind, both hands guarding the afro, or his right knee raised for a stomp. */
 export type StationPose = {
-  kind: StationKind | 'afro';
+  kind: StationKind | 'afro' | 'stomp';
   /** World point the hands or eyes go to (keyboard, rack button, frame corner, afro centre). */
   reach: THREE.Vector3;
   /** 0 leaves the clip untouched, 1 is full contact. */
@@ -21,8 +21,10 @@ export type ActivityProps = {
   beforeMixer(): void;
   /** Call after actor transforms and mixer.update. Never changes the actor root. */
   apply(frame: ActivityFrame): void;
-  /** Call after apply(); layers a station or afro pose onto the same reversible overlay. */
+  /** Call after apply(); layers a station, afro or stomp pose onto the same reversible overlay. */
   pose(pose: StationPose): void;
+  /** Call after pose(); turns neck and head toward a world point within neck limits, taking over from a station look by the same weight. */
+  face(target: THREE.Vector3, weight: number): void;
   reset(): void;
   dispose(): void;
 };
@@ -80,7 +82,9 @@ export function createActivityProps(area: THREE.Object3D, actor: THREE.Object3D,
     if (upper && forearm && hand) arms.push({ upper, forearm, hand, side });
   }
   const head = find('head');
+  const neck = find('neck');
   const spine = find('spine');
+  const thigh = find('thigh.R'), shin = find('shin.R'), foot = find('foot.R');
   let lastTime = 0;
   let disposed = false;
   const localToWorld = (x: number, y: number, z: number) => actor.localToWorld(new THREE.Vector3(x, y, z));
@@ -240,9 +244,38 @@ export function createActivityProps(area: THREE.Object3D, actor: THREE.Object3D,
         look(.9, reach.clone().setY(reach.y + 1.2));
       } else if (kind === 'afro') {
         hands(.2, () => 0);
+      } else if (kind === 'stomp') {
+        // Right knee up and out, so it reads even from the front camera; the scene drops the weight to zero for the slam.
+        if (!thigh || !shin || !foot) return;
+        const down = new THREE.Vector3(0, -1, 0).transformDirection(actor.matrixWorld);
+        const forward = new THREE.Vector3(0, 0, 1).transformDirection(actor.matrixWorld);
+        const hip = thigh.getWorldPosition(new THREE.Vector3()), knee = shin.getWorldPosition(new THREE.Vector3());
+        const thighLength = hip.distanceTo(knee), shinLength = knee.distanceTo(foot.getWorldPosition(new THREE.Vector3()));
+        const raisedKnee = hip.addScaledVector(down, thighLength * .15).addScaledVector(forward, thighLength * .35).addScaledVector(across, -thighLength * .6);
+        rotateToward(thigh, shin, knee.lerp(raisedKnee, weight));
+        const raised = shin.getWorldPosition(new THREE.Vector3()).addScaledVector(down, shinLength);
+        rotateToward(shin, foot, foot.getWorldPosition(new THREE.Vector3()).lerp(raised, weight));
       } else {
         hands(.12, () => .04 * Math.sin(time * 7));
         look(.5);
+      }
+      model.updateWorldMatrix(false, true);
+    },
+    face(target, weight) {
+      if (disposed || weight <= 0 || !head) return;
+      actor.updateWorldMatrix(true, true);
+      const from = head.getWorldPosition(new THREE.Vector3());
+      const facing = actor.getWorldQuaternion(new THREE.Quaternion());
+      const local = target.clone().sub(from).applyQuaternion(facing.clone().invert());
+      // Up to about 85° to either side, split over neck and head; tilting up a little and barely down.
+      const yaw = THREE.MathUtils.clamp(Math.atan2(local.x, local.z), -1.48, 1.48);
+      const pitch = THREE.MathUtils.clamp(Math.atan2(local.y, Math.hypot(local.x, local.z)), -.15, .3);
+      const aim = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)).applyQuaternion(facing).multiplyScalar(10).add(from);
+      for (const [bone, share] of [[neck, .4], [head, .6]] as const) {
+        if (!bone) continue;
+        const earlier = overlays.find((entry) => entry.bone === bone);
+        if (earlier) { bone.quaternion.slerp(earlier.quaternion, weight); bone.updateWorldMatrix(false, true); }
+        turnToward(bone, aim, share * weight);
       }
       model.updateWorldMatrix(false, true);
     },
