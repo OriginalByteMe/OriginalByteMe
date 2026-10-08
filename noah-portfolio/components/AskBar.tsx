@@ -20,7 +20,7 @@ const SUGGESTIONS = [
 export default function AskBar() {
   const { ask, mode, goHome, question, askPromoted } = useAskMe();
   const [value, setValue] = useState("");
-  const input = useRef<HTMLInputElement>(null);
+  const bar = useRef<HTMLElement>(null);
   const loading = mode === "streaming";
 
   function onSubmit(event: React.FormEvent) {
@@ -32,7 +32,7 @@ export default function AskBar() {
   }
 
   return (
-    <section id="ask-me" aria-label="Ask-Me" className="ask-bar">
+    <section ref={bar} tabIndex={-1} id="ask-me" aria-label="Ask-Me" className="ask-bar">
       {askPromoted && (
         <div className="ask-bar__arrow" data-testid="ask-bar-arrow" aria-hidden="true">
           <span>Ask me anything!</span>
@@ -44,7 +44,6 @@ export default function AskBar() {
       )}
       <form onSubmit={onSubmit} className="ask-bar__form" aria-busy={loading}>
         <input
-          ref={input}
           type="text"
           value={value}
           onChange={(event) => setValue(event.target.value)}
@@ -70,8 +69,8 @@ export default function AskBar() {
         )}
         {mode === "home" &&
           SUGGESTIONS.map((suggestion) => (
-            // Asking unmounts the suggestions, so keep focus in the bar instead of dropping it to the page.
-            <button key={suggestion} type="button" onClick={() => { input.current?.focus(); void ask(suggestion); }} className="ask-bar__route">
+            // Asking unmounts the suggestions: keep focus on the bar, not the input, so phones don't pop the keyboard.
+            <button key={suggestion} type="button" onClick={() => { bar.current?.focus(); void ask(suggestion); }} className="ask-bar__route">
               {suggestion}
             </button>
           ))}

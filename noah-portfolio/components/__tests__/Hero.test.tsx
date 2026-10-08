@@ -155,7 +155,10 @@ describe('Character world sections', () => {
     }
     expect(within(lab).getByRole('link', { name: /Visit Moodify/ })).toHaveAttribute('href', 'https://github.com/OriginalByteMe/Moodify');
     expect(within(lab).queryByRole('link', { name: /Visit AI Image Cutout Tool/ })).not.toBeInTheDocument();
-    expect(within(lab).getByText('Databases').nextSibling).toHaveTextContent(/^PostgreSQL, Redis\s*$/);
+    const databases = within(lab).getByText('Databases').nextElementSibling as HTMLElement;
+    expect(within(databases).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['PostgreSQL', 'Redis']);
+    // Each name carries its own vendored icon, hidden from assistive tech.
+    expect([...databases.querySelectorAll('img')].map((img) => [img.getAttribute('src'), img.getAttribute('alt')])).toEqual([['/icons/postgresql.svg', ''], ['/icons/redis.svg', '']]);
     expect(within(lab).getByText('AI & LLM Tooling')).toBeInTheDocument();
     expect(within(lab).queryByRole('button', { name: /Show me/ })).not.toBeInTheDocument();
 

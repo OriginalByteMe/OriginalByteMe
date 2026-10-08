@@ -74,7 +74,8 @@ describe("AskBar", () => {
     askMeState.question = "What is Noah good at?";
     rerender(<AskBar />);
     expect(suggestion).not.toBeInTheDocument();
-    expect(textbox()).toHaveFocus();
+    expect(screen.getByRole("region", { name: "Ask-Me" })).toHaveFocus();
+    expect(textbox()).not.toHaveFocus();
   });
 
   it("accepts a newer question while a Story is still streaming", async () => {

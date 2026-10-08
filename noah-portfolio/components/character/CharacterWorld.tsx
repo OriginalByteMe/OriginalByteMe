@@ -6,6 +6,7 @@ import Hero, { HeroPortrait } from '../Hero';
 import HeroCharacter, { type CharacterStatus } from './HeroCharacter';
 import type { CharacterScene } from './create-character-scene';
 import { skillStationId, type WorldContent } from '@/lib/character/world-content';
+import { isSvgSrc } from '@/lib/utils';
 
 /**
  * One sticky 3D viewport behind three scrolling sections. The bedroom, lab and
@@ -50,7 +51,14 @@ export default function CharacterWorld({ content }: { content: WorldContent }) {
             {content.skills.map((group) => (
               <div key={group.category}>
                 <dt>{group.category}</dt>
-                <dd>{group.skills.map((skill) => skill.name).join(', ')} {showMe(skillStationId(group.category), `the ${group.category} wall`)}</dd>
+                <dd>
+                  <ul className="character-world__skill-list">
+                    {group.skills.map((skill) => (
+                      <li key={skill.name}><Image src={skill.icon} alt="" width={16} height={16} unoptimized={isSvgSrc(skill.icon)} />{skill.name}</li>
+                    ))}
+                  </ul>
+                  {showMe(skillStationId(group.category), `the ${group.category} wall`)}
+                </dd>
               </div>
             ))}
           </dl>
