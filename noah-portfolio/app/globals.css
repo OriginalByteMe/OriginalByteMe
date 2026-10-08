@@ -1143,10 +1143,6 @@ body {
   scrollbar-width: none;
 }
 
-.ask-bar__routes:empty {
-  display: none;
-}
-
 .ask-bar__route {
   min-height: 2.25rem;
   flex: 0 0 auto;
@@ -2252,10 +2248,6 @@ body {
 .character-stage__note { position: absolute; z-index: 2; left: 50%; bottom: 4.9rem; transform: translateX(-50%); display: flex; gap: .5rem; align-items: center; width: max-content; max-width: calc(100% - 1.5rem); border: 1px solid #78688820; border-radius: 999px; background: #fffbf0d9; color: #655378; padding: .48rem .7rem; font-size: .61rem; pointer-events: none; }
 .dark .character-stage__note { background: #302936de; color: #dac8e8; }
 .character-stage__dot { width: 5px; height: 5px; border-radius: 100%; background: #dd8971; flex: 0 0 auto; }
-.character-stage__caption { position: absolute; z-index: 2; bottom: 1.25rem; inset-inline: .7rem; text-align: center; font-family: Georgia, serif; color: #544064; font-size: clamp(.8rem, 1.25vw, 1.1rem); pointer-events: none; }
-.character-stage__caption span { display: block; margin-top: .25rem; font: .55rem ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; color: #84718f; }
-.dark .character-stage__caption { color: #ddcbe8; }
-.dark .character-stage__caption span { color: #b3a0c2; }
 .character-hero__controls { display: flex; justify-content: center; flex-wrap: wrap; gap: .2rem; margin-top: .55rem; }
 .character-hero__controls button, .character-hero__restore { min-height: 44px; padding: .5rem .65rem; border-radius: 999px; font: .64rem ui-monospace, monospace; color: #655378; }
 .dark .character-hero__controls button, .dark .character-hero__restore { color: #c5b3d3; }
@@ -2362,8 +2354,7 @@ body {
 .character-hero--immersive .character-stage { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; aspect-ratio: auto; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
 .character-hero--immersive .character-stage__canvas { pointer-events: none; }
 .character-hero--immersive .character-stage__eyebrow { left: auto; right: 5vw; top: 6rem; width: min(25rem, 42vw); font-size: .6rem; }
-/* Everything on the right stacks above the controls, which sit above the Ask bar. The caption repeats the note, so it gives up its room. */
-.character-hero--immersive .character-stage__caption { display: none; }
+/* Everything on the right stacks above the controls, which sit above the Ask bar. */
 .character-hero--immersive .character-stage__note { bottom: calc(var(--ask-bar-space, 8rem) + 4.2rem); left: auto; right: 4vw; transform: none; }
 .character-hero--immersive .character-stage__speech { top: auto; bottom: calc(var(--ask-bar-space, 8rem) + 6.8rem); left: auto; right: 4vw; transform: none; width: min(22rem, 42vw); font-size: .8rem; line-height: 1.6; padding: 1rem 1.15rem; }
 .character-hero--immersive .character-hero__controls { position: absolute; z-index: 6; right: 4vw; bottom: calc(var(--ask-bar-space, 8rem) + .5rem); width: min(36rem, 58vw); margin: 0; padding: .25rem; border: 1px solid #9c80b638; border-radius: 1.8rem; background: #fffaf2c9; }

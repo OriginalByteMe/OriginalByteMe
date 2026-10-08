@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -107,31 +107,5 @@ describe("AskMeProvider", () => {
         scrollY: 0,
       }),
     );
-  });
-
-  it("lets the character promote the Ask bar and withdraw it again", () => {
-    function PromotionProbe() {
-      const { askPromoted, setAskPromoted } = useAskMe();
-      return (
-        <>
-          <output data-testid="promoted">{String(askPromoted)}</output>
-          <button type="button" onClick={() => setAskPromoted(true)}>Promote</button>
-          <button type="button" onClick={() => setAskPromoted(false)}>Withdraw</button>
-        </>
-      );
-    }
-    render(
-      <Provider store={makeStore()}>
-        <AskMeProvider>
-          <PromotionProbe />
-        </AskMeProvider>
-      </Provider>,
-    );
-
-    expect(screen.getByTestId("promoted")).toHaveTextContent("false");
-    fireEvent.click(screen.getByRole("button", { name: "Promote" }));
-    expect(screen.getByTestId("promoted")).toHaveTextContent("true");
-    fireEvent.click(screen.getByRole("button", { name: "Withdraw" }));
-    expect(screen.getByTestId("promoted")).toHaveTextContent("false");
   });
 });

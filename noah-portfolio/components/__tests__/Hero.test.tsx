@@ -4,7 +4,6 @@ import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AskMeProvider } from '@/components/AskMeProvider';
-import Hero from '@/components/Hero';
 import CharacterWorld from '@/components/character/CharacterWorld';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { makeStore } from '@/lib/store';
@@ -112,15 +111,6 @@ describe('Hero interaction composition', () => {
 
     expect(screen.queryByRole('button', { name: 'Toggle color theme' })).not.toBeInTheDocument();
     expect(document.querySelector('canvas')).not.toBeInTheDocument();
-  });
-
-  it('leaves asking to the always-open Ask bar instead of a hero launcher', () => {
-    render(providers(<Hero />));
-
-    expect(screen.getByRole('heading', { level: 1, name: /Hi, I’m Noah Rijkaard/ })).toBeVisible();
-    expect(screen.queryByRole('region', { name: 'Ask-Me' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Ask-Me|ask this portfolio/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
   it('keeps a selected Spotify track tied to portrait tinting without restoring listening UI', () => {

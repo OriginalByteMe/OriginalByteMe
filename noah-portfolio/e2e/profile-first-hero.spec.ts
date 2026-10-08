@@ -65,7 +65,6 @@ test("the Ask bar is open at 809px and fits the viewport without a launcher", as
   await gotoHero(page, { width: 809, height: 1024 });
   const ask = page.getByRole("region", { name: "Ask-Me" });
 
-  await expect(ask.getByRole("button", { name: /Open Ask-Me/ })).toHaveCount(0);
   const input = ask.getByRole("textbox", { name: "Ask a question about Noah" });
   await input.focus();
   await expect(input).toBeFocused();

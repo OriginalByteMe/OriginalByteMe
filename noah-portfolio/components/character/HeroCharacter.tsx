@@ -137,7 +137,6 @@ export default function HeroCharacter({ fallback, content, sceneRef, onStatus }:
         {greeting && ready && <p className="character-stage__speech" role="status" aria-live="polite">{greeting}<span aria-hidden="true">↓</span></p>}
         {sign && ready && <a className="character-stage__sign" href={sign.url} target="_blank" rel="noreferrer noopener" style={{ left: sign.x, top: sign.y }}>{sign.label} <span aria-hidden="true">↗</span></a>}
         <div className="character-stage__note" aria-hidden="true"><span className="character-stage__dot" /><span>{paused ? 'Taking a breather' : message}</span></div>
-        <figcaption className="character-stage__caption">{phase === 'roam' ? 'Click to explore. Scroll and I’ll follow.' : 'A little hello, then a world to explore.'}</figcaption>
       </figure>
       {!showPortrait && <div className="character-hero__opening" aria-hidden="true"><p>Hi, I’m<br /><em>Noah Rijkaard.</em></p></div>}
       {status === 'loading' && !showPortrait && <p className="character-hero__loading" role="status">Waking up the good vibes…</p>}

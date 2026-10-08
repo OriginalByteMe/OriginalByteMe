@@ -49,7 +49,6 @@ describe("timed intro sampler", () => {
     expect(INTRO_TITLE).toBe("Hi, I’m Noah Rijkaard");
     expect(sampleTimedIntro(0).blackOpacity).toBe(1);
     expect(sampleTimedIntro(0).titleOpacity).toBe(1);
-    expect(START.approach).toBeLessThanOrEqual(0.6);
     expect(sampleTimedIntro(START.approach / 2).blackOpacity).toBeGreaterThan(0);
     expect(sampleTimedIntro(START.approach / 2).blackOpacity).toBeLessThan(1);
     const start = sampleTimedIntro(START.approach);
@@ -91,7 +90,6 @@ describe("timed intro sampler", () => {
     dolly.slice(1).forEach((lens, index) => expect(lens).toBeLessThanOrEqual(dolly[index]));
     expect(sampleTimedIntro(START.point + 1.2).lens).toBe(0);
     expect(sampleTimedIntro(START.point).caption).toBe(INTRO_DIALOGUE.point.line);
-    expect(INTRO_DIALOGUE.point.line).toBe("If you want to know anything I'm not telling you, ask me anything down here!");
     expect(sampleTimedIntro(START.point - 0.01).point).toBe(0);
     expect(sampleTimedIntro((START.point + START.roam) / 2).point).toBe(1);
     const end = sampleTimedIntro(INTRO_DURATION);

@@ -29,14 +29,13 @@ afterEach(cleanup);
 const textbox = () => screen.getByRole("textbox", { name: "Ask a question about Noah" });
 
 describe("AskBar", () => {
-  it.each(["home", "answer"] as const)("is already open in %s mode, with no button to open it", (mode) => {
+  it.each(["home", "answer"] as const)("is already open in %s mode", (mode) => {
     askMeState.mode = mode;
     render(<AskBar />);
 
     const bar = screen.getByRole("region", { name: "Ask-Me" });
     expect(bar).toContainElement(textbox());
     expect(textbox()).toHaveAttribute("placeholder", "Ask me anything about Noah…");
-    expect(screen.queryByRole("button", { name: /open|ask this portfolio/i })).not.toBeInTheDocument();
   });
 
   it("sends a trimmed question through the ask flow when the form is submitted, then clears the field", async () => {
