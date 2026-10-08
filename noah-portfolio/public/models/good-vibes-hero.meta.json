@@ -1,0 +1,18 @@
+{
+  "asset": "good-vibes-hero.glb",
+  "source": "User-provided Good Vibes V5 repaired character",
+  "sha256": "a87b1b786751ade80dbf75df48c84af9f8bc74de280f7e66596d53a45029432f",
+  "bytes": 3619256,
+  "triangles": 172813,
+  "vertices": 101105,
+  "uniqueJoints": 54,
+  "skinBindRecords": 37,
+  "morphTargets": 84,
+  "animationClips": 10,
+  "requiredExtensions": [
+    "EXT_meshopt_compression",
+    "EXT_texture_webp",
+    "KHR_mesh_quantization"
+  ],
+  "validation": "Compressed and decoded GLB: zero errors; all vertices finite in 40 sampled animation poses; original/optimized Idle and Wave renders visually compared. solid-hair.mjs then gave the afro and beard a solid #221109 material: every other accessor and animation array is byte-identical, the hair's UVs and its now-unused texture were dropped, zero validator errors"
+}

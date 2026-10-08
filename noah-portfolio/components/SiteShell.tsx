@@ -5,13 +5,14 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, MotionConfig, motion, useReducedMotion } from 'framer-motion';
 import { ArrowDown, ArrowUpRight, BarChart3 } from 'lucide-react';
-import Hero from './Hero';
+import CharacterWorld from './character/CharacterWorld';
 import PortfolioCanvas from './PortfolioCanvas';
 import CompactHeader from './CompactHeader';
 import AskDock from './AskDock';
 import { ThemeSwitch } from './ThemeSwitch';
 import SpotifyReveal from './ui/spotify-reveal';
 import { useAskMe } from './AskMeProvider';
+import type { WorldContent } from '@/lib/character/world-content';
 
 const TOP_CHROME_ACTION_CLASS = 'hero-action min-h-11 rounded-full px-4 text-sm font-medium';
 
@@ -126,11 +127,11 @@ function ListeningEasterEgg() {
 }
 
 /**
- * Mode-aware page chrome. Home mode shows the full hero; the moment a
- * generation starts (streaming/answer) the whole hero yields to the compact
+ * Mode-aware page chrome. Home mode shows the full character world; the moment a
+ * generation starts (streaming/answer) the whole world yields to the compact
  * masthead so the streamed spec IS the site. The AskDock floats over both.
  */
-export default function SiteShell() {
+export default function SiteShell({ content }: { content: WorldContent }) {
   const { mode } = useAskMe();
   const reducedMotion = Boolean(useReducedMotion());
   const takeover = mode !== 'home';
@@ -183,7 +184,7 @@ export default function SiteShell() {
               exit={reducedMotion ? { opacity: 1 } : { opacity: 0, y: -24 }}
               transition={{ duration: reducedMotion ? 0 : 0.3 }}
             >
-              <Hero />
+              <CharacterWorld content={content} />
             </motion.div>
           )}
         </AnimatePresence>
