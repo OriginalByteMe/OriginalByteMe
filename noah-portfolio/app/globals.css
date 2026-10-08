@@ -2320,10 +2320,13 @@ body {
 .character-stage__sign:hover { background: #f4ecdf; }
 .character-stage__sign:focus-visible { outline: 3px solid #8b6cc1; outline-offset: 3px; }
 .immersive-hero { position: relative; min-height: 100svh; }
-.immersive-hero__copy { position: absolute; z-index: 2; top: clamp(6.5rem, 15vh, 10rem); left: clamp(1.5rem, 6vw, 7rem); max-width: min(47vw, 39rem); pointer-events: none; }
-/* Over the live town the copy can sit on sky or ground, so a soft blurred wash keeps it legible. */
-.character-world:not([data-status="fallback"]) .immersive-hero__copy::before { content: ''; position: absolute; z-index: -1; inset: -1.5rem -2rem; border-radius: 3rem; background: #f5eee2c7; filter: blur(22px); }
-.dark .character-world:not([data-status="fallback"]) .immersive-hero__copy::before { background: #1f1b28c7; }
+.immersive-hero__copy { position: absolute; z-index: 2; top: clamp(6.5rem, 15vh, 10rem); left: clamp(1.5rem, 6vw, 7rem); max-width: min(47vw, 39rem); pointer-events: none; transition: opacity .6s, visibility .6s; }
+/* Over the live town the copy can sit on sky or ground, so a tight halo in the page colour hugs each glyph: legible on both, and no box. */
+.character-world:not([data-status="fallback"]) .immersive-hero__copy { --hero-halo: #f5eee2; --hero-haze: #f5eee280; text-shadow: 0 0 2px var(--hero-halo), 0 0 .5rem var(--hero-haze), 0 0 1rem var(--hero-haze); }
+.dark .character-world:not([data-status="fallback"]) .immersive-hero__copy { --hero-halo: #1f1b28; --hero-haze: #1f1b2866; }
+/* In dark mode the tagline crosses from the night sky onto the pale ground, where no glyph colour reads on both: give it a crisp card instead. */
+.dark .character-world:not([data-status="fallback"]) .immersive-hero__intro { width: fit-content; margin-left: -.8rem; padding: .55rem .8rem; border-radius: .9rem; background: #1f1b28d9; text-shadow: none; }
+.character-world:not([data-status="fallback"]) .immersive-hero__contacts { text-shadow: none; }
 .immersive-hero__eyebrow { font: .65rem ui-monospace, monospace; letter-spacing: .23em; text-transform: uppercase; color: #7a658a; }
 .immersive-hero__identity h1 { margin-top: 1rem; font-family: Georgia, serif; font-size: clamp(3rem, 6.7vw, 7rem); line-height: .98; letter-spacing: -.055em; }
 .immersive-hero__identity h1 em { color: #72509c; font-weight: 400; }
@@ -2396,5 +2399,5 @@ body {
 .character-hero__opening { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; background: #09080b; opacity: var(--intro-black, 1); pointer-events: none; }
 .character-hero__opening p { opacity: var(--intro-title, 1); padding: 2rem; color: #fff; text-align: center; font: clamp(2.5rem, 7vw, 7rem)/1.03 Georgia, serif; letter-spacing: -.045em; }
 .character-hero__opening em { color: #e8daf5; font-weight: 400; }
-.character-world:has(.character-hero[data-phase="opening"]:not([data-status="fallback"])) .immersive-hero__copy,
-.character-world:has(.character-hero[data-phase="opening"]:not([data-status="fallback"])) .immersive-hero__scroll { visibility: hidden; }
+/* The copy waits out the close-up run, bonk and recoil, then fades in as the camera pulls back. */
+.character-world:has(.character-hero:is([data-phase="opening"], [data-phase="approach"], [data-phase="bonk"], [data-phase="recoil"]):not([data-status="fallback"])) :is(.immersive-hero__copy, .immersive-hero__scroll) { opacity: 0; visibility: hidden; }
