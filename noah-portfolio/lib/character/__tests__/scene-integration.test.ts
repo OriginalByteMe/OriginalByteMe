@@ -1,19 +1,22 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Quaternion, Raycaster, Vector2, Vector3, type BufferGeometry, type Mesh, type MeshStandardMaterial, type Object3D, type PerspectiveCamera, type Scene, type Sprite } from 'three';
+import { Quaternion, Raycaster, Vector2, Vector3, type AnimationAction, type BufferGeometry, type Mesh, type MeshStandardMaterial, type Object3D, type PerspectiveCamera, type Scene, type Sprite } from 'three';
 import type { CharacterScene } from '@/components/character/create-character-scene';
 import { createBedroom } from '@/components/character/world/bedroom';
 import { createLab } from '@/components/character/world/lab';
+import type { AreaBuilder } from '@/components/character/world/types';
 import { corpus } from '@/lib/corpus';
 import { worldContent } from '@/lib/character/world-content';
+import { CLIP_SPEED } from '@/lib/character/controller';
 import { rayHitsSphere } from '@/lib/character/input';
+import { INTRO_DIALOGUE } from '@/lib/character/intro';
 import { AFRO_LINES, AREA_ARRIVAL_LINES, CHASE_LINE } from '@/lib/character/narrative';
 import { stubCanvas2d } from './canvas-stub';
 
 // Real asset, real mixer, real areas, real scene/controller/tour/face/prop code. Only WebGL
 // drawing, embedded image decoding and 2D canvas are replaced. This does not claim browser visual QA.
-const capture = vi.hoisted(() => ({ scene: null as Scene | null, camera: null as PerspectiveCamera | null, renders: 0 }));
+const capture = vi.hoisted(() => ({ scene: null as Scene | null, camera: null as PerspectiveCamera | null, renders: 0, actions: new Map<string, AnimationAction>() }));
 vi.mock('three', async (importOriginal) => {
   const actual = await importOriginal<typeof import('three')>();
   return { ...actual, WebGLRenderer: class {
@@ -22,6 +25,13 @@ vi.mock('three', async (importOriginal) => {
     render(scene: Scene, camera: PerspectiveCamera) {
       scene.updateMatrixWorld(true); camera.updateMatrixWorld(true);
       capture.scene = scene; capture.camera = camera; capture.renders += 1;
+    }
+  }, AnimationMixer: class extends actual.AnimationMixer {
+    // The scene's clip actions, by clip name, so tests can read their weights and time scales.
+    override clipAction(...args: Parameters<InstanceType<typeof actual.AnimationMixer>['clipAction']>): AnimationAction {
+      const action = super.clipAction(...args)!;
+      capture.actions.set(action.getClip().name, action);
+      return action;
     }
   } };
 });
@@ -39,6 +49,9 @@ vi.mock('three/addons/loaders/GLTFLoader.js', async (importOriginal) => {
 });
 
 const content = worldContent(corpus);
+/** The lab exhibit the presentation tests send him to: a project with a page to visit. */
+const project = content.projects.find(({ url }) => url)!;
+const exhibit = `project:${project.slug}`;
 let api: CharacterScene | undefined;
 let host: HTMLDivElement;
 let world: HTMLElement;
@@ -54,13 +67,15 @@ let hidden = false;
 const message = vi.fn();
 const greeting = vi.fn();
 const phase = vi.fn();
+const sign = vi.fn();
+const askPromoted = vi.fn();
 
 beforeEach(() => {
   vi.resetModules();
   now = 100; rafId = 0; width = 1200; height = 800; scrollTop = 0; hidden = false;
   frames = new Map();
-  capture.scene = null; capture.camera = null; capture.renders = 0;
-  message.mockClear(); greeting.mockClear(); phase.mockClear();
+  capture.scene = null; capture.camera = null; capture.renders = 0; capture.actions.clear();
+  message.mockClear(); greeting.mockClear(); phase.mockClear(); sign.mockClear(); askPromoted.mockReset();
   sessionStorage.clear();
   document.body.innerHTML = `<div class="character-world">
     <div class="character-hero"><div id="scene-host"></div></div>
@@ -88,8 +103,9 @@ beforeEach(() => {
 afterEach(() => { api?.dispose(); api = undefined; vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 async function create() {
+  // Imported per test: vi.resetModules and vi.doMock swap the scene's modules between tests.
   const { createCharacterScene } = await import('@/components/character/create-character-scene');
-  api = await createCharacterScene(host, { content, onMessage: message, onGreeting: greeting, onPhase: phase, onError: vi.fn() });
+  api = await createCharacterScene(host, { content, onMessage: message, onGreeting: greeting, onPhase: phase, onSign: sign, onAskPromoted: askPromoted, onError: vi.fn() });
   return api;
 }
 function advance(seconds: number) {
@@ -111,21 +127,43 @@ function click({ x, y }: { x: number; y: number }, target: HTMLElement = world) 
     target.dispatchEvent(event);
   }
 }
-const clickWorld = (x: number, z: number, target?: HTMLElement) => click(screenOf(new Vector3(x, 0, z)), target);
+/** Clicks an area-local floor point; areas stack 18 units apart on y. */
+const clickWorld = (x: number, z: number, target?: HTMLElement, y = 0) => click(screenOf(new Vector3(x, y, z)), target);
 const mesh = (name: string) => capture.scene!.getObjectByName(name) as Mesh;
 const position = () => host.dataset.position!.split(',').map(Number);
 const afroTop = () => mesh('head').getWorldPosition(new Vector3()).add(new Vector3(0, .55, 0));
 const until = (done: () => boolean, seconds = 60) => { for (let frame = 0; !done() && frame < seconds * 30; frame += 1) advance(1 / 30); };
 /** Layout data from a throwaway copy of an area; the scene builds its own. */
-const layout = (build: typeof createBedroom, y = 0) => { const area = build(new Vector3(0, y, 0), content); area.dispose(); return area; };
-/** An open floor point across the room from him, near the open front edge where nothing is in the way. */
+const layout = (build: AreaBuilder, y = 0) => { const area = build(new Vector3(0, y, 0), content); area.dispose(); return area; };
+/** Depth of a floor line near the bedroom's open front edge, where nothing is in the way. */
+const frontZ = () => layout(createBedroom).exit.z - .3;
+/** An open floor point across the room from him, near the open front edge. */
 const openFloor = () => {
   const [x] = position();
-  return { x: x > 0 ? x - 2.2 : x + 2.2, z: layout(createBedroom).exit.z - .3 };
+  return { x: x > 0 ? x - 2.2 : x + 2.2, z: frontZ() };
 };
+/** Walks him to the bedroom's clear centre line at the front, so a straight run across the room is open. */
+function toFront() {
+  clickWorld(layout(createBedroom).view.center.x, frontZ());
+  until(() => message.mock.calls.at(-1)?.[0] === 'Click my things to see what I get up to.', 10);
+  advance(.5);
+}
+/** A clear floor point straight through the nearest bedroom furniture that is not right beside him, so he walks into it. */
+function throughFurniture() {
+  const [x, z] = position();
+  const { obstacles, bounds } = layout(createBedroom);
+  const open = ({ x: px, z: pz }: { x: number; z: number }) => px > bounds.minX + .3 && px < bounds.maxX - .3 && pz > bounds.minZ + .3 && pz < bounds.maxZ - .3
+    && obstacles.every((obstacle) => Math.hypot(px - obstacle.x, pz - obstacle.z) > obstacle.radius + .3);
+  const aims = obstacles.map((obstacle) => {
+    const away = Math.hypot(obstacle.x - x, obstacle.z - z), reach = obstacle.radius + .5;
+    return { away, point: { x: obstacle.x + (obstacle.x - x) / away * reach, z: obstacle.z + (obstacle.z - z) / away * reach } };
+  }).filter(({ away, point }) => away > .8 && open(point)).sort((a, b) => a.away - b.away);
+  return aims[0].point;
+}
 /** A screen point the bedroom's own pick resolves to the station, clear of his afro. */
 function stationPoint(id: string) {
   const bedroom = createBedroom(new Vector3(), content);
+  bedroom.group.updateMatrixWorld(true);
   const reach = bedroom.stations.find((station) => station.id === id)!.reach;
   const raycaster = new Raycaster();
   try {
@@ -143,14 +181,59 @@ const modelMesh = (prefix: string) => { let found: Mesh | undefined; capture.sce
 const skinColor = (prefix: string) => (modelMesh(prefix).material as MeshStandardMaterial).color.clone();
 const steamShowing = () => capture.scene!.children.filter((child) => (child as Sprite).isSprite && child.visible).length;
 const morph = (name: string, target: string) => { const node = mesh(name); return node.morphTargetInfluences![node.morphTargetDictionary![target]]; };
-/** Horizontal angle between where his body faces and the camera, in radians. */
-function angleToCamera() {
+/** The group that carries him: travel, heading, lean and lift. */
+function actorOf() {
   let actor: Object3D = mesh('head');
   while (actor.parent && actor.parent !== capture.scene) actor = actor.parent;
-  const facing = new Vector3(0, 0, 1).applyQuaternion(actor.getWorldQuaternion(new Quaternion()));
+  return actor;
+}
+const yawOf = (object: Object3D) => { const facing = new Vector3(0, 0, 1).applyQuaternion(object.getWorldQuaternion(new Quaternion())); return Math.atan2(facing.x, facing.z); };
+const wrap = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle));
+/** Horizontal angle between where his body faces and the camera, in radians. */
+function angleToCamera() {
+  const actor = actorOf();
   const toCamera = capture.camera!.position.clone().sub(actor.getWorldPosition(new Vector3()));
-  const angle = Math.atan2(toCamera.x, toCamera.z) - Math.atan2(facing.x, facing.z);
-  return Math.abs(Math.atan2(Math.sin(angle), Math.cos(angle)));
+  return Math.abs(wrap(Math.atan2(toCamera.x, toCamera.z) - yawOf(actor)));
+}
+const CLIPS = { idle: '01_Idle_Breathe', walk: '06_Walk_InPlace', run: '07_Run_InPlace', wave: '02_Wave_Hello', sit: '08_Sit_Relaxed' } as const;
+type Clip = keyof typeof CLIPS;
+/** Each clip's share of the pose this frame; a clip the mixer is not running counts as zero. */
+const weights = () => Object.fromEntries(Object.entries(CLIPS).map(([clip, name]) => {
+  const action = capture.actions.get(name);
+  return [clip, action?.isScheduled() ? action.getEffectiveWeight() : 0];
+})) as Record<Clip, number>;
+/** One rendered frame of his motion: where he is, whether the camera sees him, how the clips are mixed, and how fast the walk and run clips play. */
+type Motion = { at: Vector3; visible: boolean; weights: Record<Clip, number>; walk: number; run: number; phase: string; tour: string; activity: string };
+function motion(): Motion {
+  const at = actorOf().getWorldPosition(new Vector3());
+  const chest = at.clone().setY(at.y + 1.2).project(capture.camera!);
+  return {
+    at, visible: Math.abs(chest.x) <= 1 && Math.abs(chest.y) <= 1, weights: weights(),
+    walk: capture.actions.get(CLIPS.walk)!.getEffectiveTimeScale(), run: capture.actions.get(CLIPS.run)!.getEffectiveTimeScale(),
+    phase: host.dataset.phase!, tour: host.dataset.tour!, activity: host.dataset.activity!,
+  };
+}
+/** Steps one 30 Hz frame at a time and samples after each. */
+function record<T>(seconds: number, sample: () => T, done: () => boolean = () => false) {
+  const samples: T[] = [];
+  for (let frame = 0; frame < seconds * 30 && !done(); frame += 1) { advance(1 / 30); samples.push(sample()); }
+  return samples;
+}
+const groundSpeed = (from: Vector3, to: Vector3) => Math.hypot(to.x - from.x, to.z - from.z) * 30;
+/**
+ * Frames where one locomotion clip carries the pose at a steady speed while the camera
+ * sees him: how far its feet push per second (time scale times the clip's measured ground
+ * speed) against how fast he really moved. Zero means no foot slide.
+ */
+function glides(samples: Motion[]) {
+  const slides: { clip: 'walk' | 'run'; slide: number }[] = [];
+  for (let index = 2; index < samples.length; index += 1) {
+    const speed = groundSpeed(samples[index - 1].at, samples[index].at), before = groundSpeed(samples[index - 2].at, samples[index - 1].at);
+    const clip = samples[index].weights.run > .95 ? 'run' : samples[index].weights.walk > .95 ? 'walk' : null;
+    if (!clip || !samples[index].visible || speed < .3 || Math.abs(speed - before) > speed * .1) continue;
+    slides.push({ clip, slide: Math.abs(samples[index][clip] * CLIP_SPEED[clip] - speed) / speed });
+  }
+  return slides;
 }
 
 describe('shipped character world integration', () => {
@@ -193,13 +276,14 @@ describe('shipped character world integration', () => {
     advance(12);
     expect(host.dataset.phase).toBe('roam');
     expect(wrapper.style.getPropertyValue('--intro-black')).toBe('0');
-    expect(phase.mock.calls.map(([value]) => value)).toEqual(['opening', 'reveal', 'approach', 'bonk', 'recoil', 'recover', 'roam']);
+    expect(phase.mock.calls.map(([value]) => value)).toEqual(['opening', 'approach', 'bonk', 'recoil', 'recover', 'point', 'roam']);
   });
 
-  it('applies real facial morphs after run mixer evaluation and resets them after speech', async () => {
-    await create(); advance(3.8);
+  it('applies real facial morphs after locomotion mixer evaluation and resets them after speech', async () => {
+    // Just into the run-up, while "Hi hi hi hi" still flaps his mouth.
+    await create(); advance(.7);
     expect(host.dataset.phase).toBe('approach');
-    expect(host.dataset.motion).toBe('run');
+    expect(host.dataset.motion).toMatch(/^(walk|run)$/);
     const mouths = ['cavity', 'teeth', 'tongue'].map((part) => mesh(`FACE2_mouth_${part}`));
     for (const mouth of mouths) {
       expect(mouth).toBeDefined();
@@ -207,7 +291,8 @@ describe('shipped character world integration', () => {
       expect(mouth.morphTargetInfluences!.slice(5).some((value) => value > .01)).toBe(true);
     }
     let sawClosedEye = false;
-    for (let index = 0; index < 65; index += 1) {
+    // Blinks come every 3 to 6 seconds.
+    for (let index = 0; index < 200; index += 1) {
       advance(1 / 30);
       const eye = mesh('FACE2_eye_white_L');
       const values = eye.morphTargetInfluences!;
@@ -232,7 +317,7 @@ describe('shipped character world integration', () => {
     until(() => host.dataset.activity !== 'idle');
     expect(host.dataset.activity, JSON.stringify({ dataset: { ...host.dataset }, messages: message.mock.calls })).not.toBe('idle');
     const [x] = position();
-    clickWorld(x > 0 ? x - 1.5 : x + 1.5, openFloor().z); advance(1 / 30);
+    clickWorld(x > 0 ? x - 1.5 : x + 1.5, frontZ()); advance(1 / 30);
     expect(host.dataset.activity).toBe('idle');
   });
 
@@ -282,11 +367,8 @@ describe('shipped character world integration', () => {
 
   it('looks surprised, brows up and mouth round, when he bonks into furniture', async () => {
     await create(); api!.skipIntro(); advance(.5);
-    // Straight through the toy box from where he stands.
-    const [x, z] = position();
-    const box = layout(createBedroom).obstacles.find((obstacle) => obstacle.id === 'toybox')!;
-    const away = Math.hypot(box.x - x, box.z - z);
-    clickWorld(box.x + (box.x - x) / away * .7, box.z + (box.z - z) / away * .7);
+    const through = throughFurniture();
+    clickWorld(through.x, through.z);
     until(() => host.dataset.bumps !== '0', 8);
     expect(host.dataset.bumps).not.toBe('0');
     expect(host.dataset.expression).toBe('surprised');
@@ -298,7 +380,10 @@ describe('shipped character world integration', () => {
 
   it('turns his whole body to the camera while he speaks standing free, then back to his own heading', async () => {
     await create(); api!.skipIntro(); advance(.5);
+    // Across the room along the front, so he ends up side-on to the camera.
+    toFront();
     const floor = openFloor();
+    message.mockClear();
     clickWorld(floor.x, floor.z);
     until(() => message.mock.calls.some(([text]) => text === 'Click my things to see what I get up to.'), 10);
     advance(.5);
@@ -325,41 +410,116 @@ describe('shipped character world integration', () => {
 
   it('a station pick sends him to that station and starts its routine', async () => {
     await create(); api!.skipIntro(); advance(.1);
-    click(stationPoint('printer')); advance(1 / 30);
-    expect(host.dataset.station).toBe('printer');
+    click(stationPoint('desk')); advance(1 / 30);
+    expect(host.dataset.station).toBe('desk');
     until(() => host.dataset.activity === 'perform', 30);
     expect(host.dataset.activity).toBe('perform');
-    expect(host.dataset.station).toBe('printer');
+    expect(host.dataset.station).toBe('desk');
+    expect(host.dataset.presenting).toBe('');
   });
 
-  it('follows a scroll to the lab through the whole tour, ignoring clicks mid-flight, takes a queued Show me there, then jumps back up', async () => {
+  it('follows a scroll to the lab: runs to the exit, trips there, falls onto the lab landing, ignores clicks on the way, takes a queued Show me, then jumps back up', async () => {
     await create(); api!.skipIntro(); advance(.1);
+    const { exit } = layout(createBedroom), lab = layout(createLab, -18);
     scrollTo(1);
     // A Show me pressed while he is still upstairs waits until he has landed in the lab.
-    api!.visit('skills');
+    api!.visit(exhibit);
     const phases: string[] = [];
-    for (let frame = 0; frame < 8 * 30; frame += 1) {
-      advance(1 / 30);
-      if (phases.at(-1) !== host.dataset.tour) phases.push(host.dataset.tour!);
-      if (host.dataset.tour === 'trip' && phases.length === 3) clickWorld(0, 1);
-    }
+    const chase: Motion[] = [];
+    let tripped: number[] = [], landed: number[] = [];
+    until(() => {
+      const tour = host.dataset.tour!;
+      if (phases.at(-1) !== tour) {
+        phases.push(tour);
+        if (tour === 'trip') tripped = position();
+        if (tour === 'land') landed = position();
+        // Clicks mid-flight go nowhere.
+        if (tour === 'chase' || tour === 'trip') click({ x: width / 2, y: height * .6 });
+      }
+      if (tour === 'chase') chase.push(motion());
+      return phases.length === 7;
+    }, 20);
     expect(phases).toEqual(['settled', 'chase', 'trip', 'fall', 'land', 'recover', 'settled']);
     expect(message).not.toHaveBeenCalledWith('On my way. Click another spot to change course.');
+    // The chase lasts as long as his run to the exit takes, and the trip starts there.
+    expect(Math.hypot(tripped[0] - exit.x, tripped[1] - exit.z)).toBeLessThan(.2);
+    // The camera heads down to the lab as he runs, so every steady frame counts, seen or not.
+    const strides = glides(chase.map((sample) => ({ ...sample, visible: true })));
+    expect(strides.length).toBeGreaterThan(5);
+    for (const { slide } of strides) expect(slide).toBeLessThan(.15);
+    expect(landed[0]).toBeCloseTo(lab.landing.x, 1); expect(landed[1]).toBeCloseTo(lab.landing.z, 1);
     expect(host.dataset.area).toBe('lab');
-    const { bounds } = layout(createLab, -18);
+    const { bounds } = lab;
     const [x, z] = position();
     expect(x).toBeGreaterThanOrEqual(bounds.minX); expect(x).toBeLessThanOrEqual(bounds.maxX);
     expect(z).toBeGreaterThanOrEqual(bounds.minZ); expect(z).toBeLessThanOrEqual(bounds.maxZ);
     const lines = greeting.mock.calls.map(([line]) => line);
     expect(lines).toContain(CHASE_LINE.line);
     expect(lines).toContain(AREA_ARRIVAL_LINES.lab.line);
-    until(() => host.dataset.station === 'skills', 5);
-    expect(host.dataset.station).toBe('skills');
+    until(() => host.dataset.station === exhibit, 5);
+    expect(host.dataset.station).toBe(exhibit);
     scrollTo(0);
     const back: string[] = [];
-    for (let frame = 0; frame < 5 * 30; frame += 1) { advance(1 / 30); if (back.at(-1) !== host.dataset.tour) back.push(host.dataset.tour!); }
+    until(() => { if (back.at(-1) !== host.dataset.tour) back.push(host.dataset.tour!); return back.length === 5; }, 10);
     expect(back).toEqual(['settled', 'jump', 'land', 'recover', 'settled']);
     expect(host.dataset.area).toBe('bedroom');
+  });
+
+  it('presents a project exhibit a Show me sends him to: its lines to the camera, a Visit sign, and the room told throughout, until a floor click, Escape or a scroll ends it', async () => {
+    const updates: { stationId: string | null; progress: number }[] = [];
+    vi.doMock('@/components/character/world/lab', async (importOriginal) => {
+      const { createLab: build } = await importOriginal<{ createLab: AreaBuilder }>();
+      return { createLab: (...args: Parameters<AreaBuilder>) => {
+        const area = build(...args);
+        const update = area.update;
+        area.update = (dt, elapsed, activity) => { updates.push({ ...activity }); update(dt, elapsed, activity); };
+        return area;
+      } };
+    });
+    try {
+      // A deep link to the lab starts him there.
+      scrollTop = height;
+      await create(); advance(.1);
+      expect(host.dataset.area).toBe('lab');
+      const lab = layout(createLab, -18);
+      const { present } = lab.stations.find((station) => station.id === exhibit)!;
+      const show = () => {
+        api!.visit(exhibit);
+        until(() => host.dataset.presenting === exhibit, 20);
+        expect(host.dataset.presenting).toBe(exhibit);
+      };
+      show();
+      expect(greeting).toHaveBeenLastCalledWith(present!.lines[0].line);
+      expect(host.dataset.station).toBe(exhibit);
+      const shown = sign.mock.calls.at(-1)![0];
+      expect(shown).toMatchObject({ url: present!.url, label: present!.linkLabel ?? 'Visit' });
+      expect(shown.x).toBeGreaterThan(0); expect(shown.x).toBeLessThan(width);
+      expect(shown.y).toBeGreaterThan(0); expect(shown.y).toBeLessThan(height);
+      updates.length = 0;
+      advance(1.5);
+      expect(angleToCamera()).toBeLessThan(.1);
+      // Every line in order, then still presenting, sign up, long after the last one.
+      advance(present!.lines.length * 6);
+      expect(greeting.mock.calls.map(([line]) => line).filter((line) => present!.lines.some((each) => each.line === line))).toEqual(present!.lines.map(({ line }) => line));
+      expect(host.dataset.presenting).toBe(exhibit);
+      expect(sign).not.toHaveBeenLastCalledWith(null);
+      expect(updates.every(({ stationId }) => stationId === exhibit)).toBe(true);
+      updates.forEach(({ progress }, index) => { if (index) expect(progress).toBeGreaterThanOrEqual(updates[index - 1].progress); });
+      expect(updates.at(-1)!.progress).toBe(1);
+      clickWorld(lab.exit.x, lab.exit.z, undefined, -18); advance(1 / 30);
+      expect(host.dataset.presenting).toBe('');
+      expect(sign).toHaveBeenLastCalledWith(null);
+      expect(updates.at(-1)!.stationId).toBeNull();
+      show();
+      api!.key('Escape'); advance(1 / 30);
+      expect(host.dataset.presenting).toBe('');
+      expect(sign).toHaveBeenLastCalledWith(null);
+      show();
+      scrollTo(3);
+      until(() => host.dataset.tour === 'chase', 2);
+      expect(host.dataset.presenting).toBe('');
+      expect(sign).toHaveBeenLastCalledWith(null);
+    } finally { vi.doUnmock('@/components/character/world/lab'); }
   });
 
   it('starts mid-page in the viewed area without the intro', async () => {
@@ -394,7 +554,7 @@ describe('shipped character world integration', () => {
   });
 
   it('can skip while paused without replaying cues and eases a cancelled ball back to its bedroom rest', async () => {
-    await create(); advance(3.8);
+    await create(); advance(1.5);
     expect(greeting).toHaveBeenCalledWith('Hi hi hi hi');
     api!.setPaused(true); api!.skipIntro();
     expect(phase).toHaveBeenLastCalledWith('roam');
@@ -408,7 +568,7 @@ describe('shipped character world integration', () => {
     const ball = capture.scene!.getObjectByName('activity-ball')!;
     const before = ball.position.clone();
     const [x] = position();
-    clickWorld(x > 0 ? x - 1.5 : x + 1.5, openFloor().z);
+    clickWorld(x > 0 ? x - 1.5 : x + 1.5, frontZ());
     expect(ball.position.distanceTo(before)).toBe(0);
     advance(1 / 30);
     expect(host.dataset.activity).toBe('idle');
@@ -432,5 +592,226 @@ describe('shipped character world integration', () => {
     advance(3);
     expect(host.dataset.activity).toBe('read');
     expect(hips.getWorldPosition(new Vector3()).distanceTo(seated)).toBeLessThan(.005);
+  });
+});
+
+const bone = (name: string) => capture.scene!.getObjectByName(name)!;
+/** A joint in his own space: travel, heading and lift taken out. */
+const inActor = (name: string) => actorOf().worldToLocal(bone(name).getWorldPosition(new Vector3()));
+
+describe('his motion', () => {
+  it('plays the walk and run as fast as he really moves, so his feet do not slide', async () => {
+    await create(); api!.skipIntro(); advance(.5);
+    toFront();
+    const [x, z] = position();
+    // A long trip runs; a short one walks.
+    clickWorld(x > 0 ? x - 3.4 : x + 3.4, z);
+    const samples = record(5, motion);
+    const [after, depth] = position();
+    clickWorld(after > 0 ? after - .9 : after + .9, depth);
+    samples.push(...record(4, motion));
+    const slides = glides(samples);
+    expect(slides.filter(({ clip }) => clip === 'run').length).toBeGreaterThan(5);
+    expect(slides.filter(({ clip }) => clip === 'walk').length).toBeGreaterThan(5);
+    for (const { slide } of slides) expect(slide).toBeLessThan(.15);
+  });
+
+  it('runs at the lens with his feet keeping up with the ground', async () => {
+    await create();
+    const samples = record(6, motion, () => host.dataset.phase === 'bonk');
+    const slides = glides(samples.filter((sample) => sample.phase === 'approach'));
+    expect(slides.length).toBeGreaterThan(20);
+    for (const { slide } of slides) expect(slide).toBeLessThan(.15);
+  });
+
+  it('renders on a steady beat on 60 and 120 Hz displays, even with timestamp jitter', async () => {
+    await create(); api!.skipIntro(); advance(.5);
+    for (const hz of [60, 120]) {
+      const gaps = new Set<number>();
+      let last = -1;
+      for (let vsync = 0; vsync < 240; vsync += 1) {
+        now += 1000 / hz + Math.sin(vsync * 12.9898) * .3;
+        const renders = capture.renders;
+        const pending = [...frames]; frames.clear();
+        for (const [, callback] of pending) callback(now);
+        if (capture.renders === renders) continue;
+        if (last >= 0) gaps.add(vsync - last);
+        last = vsync;
+      }
+      expect([...gaps]).toEqual([hz === 60 ? 1 : 2]);
+    }
+  });
+
+  it('crossfades clips with eased weights that always add up to one, through a run start, a slow-down, a stop and a reversal', async () => {
+    await create(); api!.skipIntro(); advance(.5);
+    toFront();
+    const [x, z] = position();
+    const ahead = x > 0 ? -1 : 1;
+    clickWorld(x + ahead * 3.4, z);
+    const samples = record(.9, weights);
+    const [running, depth] = position();
+    clickWorld(running + ahead * .8, depth);
+    samples.push(...record(2.5, weights));
+    clickWorld(running - ahead * 2.5, depth);
+    samples.push(...record(2.5, weights));
+    expect(samples.some((sample) => sample.run > .99)).toBe(true);
+    expect(samples.some((sample) => sample.walk > .99)).toBe(true);
+    const step = 1 / 30 / .22 + .01;
+    samples.forEach((sample, index) => {
+      expect(Object.values(sample).reduce((sum, weight) => sum + weight, 0)).toBeCloseTo(1, 2);
+      if (index) for (const clip of Object.keys(CLIPS) as Clip[]) expect(Math.abs(sample[clip] - samples[index - 1][clip])).toBeLessThan(step);
+    });
+  });
+
+  it('keeps walking or running through a bump and eases the jolt in and out', async () => {
+    await create(); api!.skipIntro(); advance(.5);
+    const through = throughFurniture();
+    clickWorld(through.x, through.z);
+    const samples = record(6, () => ({ height: actorOf().position.y, weights: weights(), motion: host.dataset.motion! }));
+    const bumping = samples.filter((sample) => sample.motion === 'bump');
+    expect(bumping.length).toBeGreaterThan(3);
+    for (const sample of bumping) expect(sample.weights.idle).toBeLessThan(.5);
+    samples.slice(1).forEach((sample, index) => expect(Math.abs(sample.height - samples[index].height)).toBeLessThan(.015));
+  });
+
+  it('eases his idle bob in and out, so starting and stopping never twitch his height', async () => {
+    await create(); api!.skipIntro(); advance(.5);
+    toFront(); advance(3.5);
+    const [x, z] = position();
+    const ahead = x > 0 ? -1 : 1;
+    clickWorld(x + ahead * 2, z);
+    const heights = record(5, () => actorOf().position.y);
+    clickWorld(x, z);
+    heights.push(...record(5, () => actorOf().position.y));
+    expect(host.dataset.bumps).toBe('0');
+    heights.slice(1).forEach((height, index) => expect(Math.abs(height - heights[index])).toBeLessThan(.005));
+  });
+
+  it('turns to face the bed at a steady pace once he gets there, not in a whip', async () => {
+    await create(); api!.skipIntro(); advance(.5);
+    const { stand } = layout(createBedroom).stations.find((station) => station.id === 'bed')!;
+    click(stationPoint('bed'));
+    const samples = record(20, () => ({ yaw: yawOf(actorOf()), at: actorOf().getWorldPosition(new Vector3()) }), () => host.dataset.activity === 'pickup-book');
+    let turning = 0;
+    for (let index = 1; index < samples.length; index += 1) {
+      const { at, yaw } = samples[index];
+      // At the stand point (inside the station's arrival radius), standing still.
+      if (Math.hypot(at.x - stand.x, at.z - stand.z) > .13 || groundSpeed(samples[index - 1].at, at) > .05) continue;
+      const rate = Math.abs(wrap(yaw - samples[index - 1].yaw)) * 30;
+      if (rate > .01) turning += 1;
+      expect(rate).toBeLessThan(4.5);
+    }
+    expect(turning).toBeGreaterThan(2);
+  });
+
+  it('guards his afro with bent elbows and hands on its sides, raised and lowered gently', async () => {
+    await create(); api!.skipIntro(); advance(.5);
+    click(screenOf(afroTop()));
+    const joints = ['L', 'R'].map((side) => ({ shoulder: `upper_arm${side}`, elbow: `forearm${side}`, hand: `hand${side}` }));
+    const samples = record(2.3, () => joints.map(({ shoulder, elbow, hand }) => ({ shoulder: inActor(shoulder), elbow: inActor(elbow), hand: inActor(hand) })));
+    expect(greeting).toHaveBeenCalledWith("Stop, don't do that.");
+    samples.slice(1).forEach((arms, index) => arms.forEach(({ hand }, side) => expect(hand.distanceTo(samples[index][side].hand) * 30).toBeLessThan(3)));
+    // Mid-guard: hands up by the afro, out past the shoulders, elbows bent.
+    for (const { shoulder, elbow, hand } of samples[30]) {
+      const length = shoulder.distanceTo(elbow) + elbow.distanceTo(hand);
+      expect(shoulder.distanceTo(hand)).toBeLessThan(.92 * length);
+      expect(elbow.clone().sub(shoulder).angleTo(hand.clone().sub(elbow))).toBeGreaterThan(.35);
+      expect(hand.y).toBeGreaterThan(shoulder.y);
+      expect(Math.abs(hand.x)).toBeGreaterThan(Math.abs(shoulder.x));
+    }
+  });
+
+  it('reaches for the book and puts it back with unhurried hands', async () => {
+    await create(); api!.skipIntro(); advance(.5);
+    click(stationPoint('bed'));
+    let returned = false;
+    const samples = record(30, () => ({ activity: host.dataset.activity!, hands: ['handL', 'handR'].map(inActor) }), () => {
+      returned ||= host.dataset.activity === 'return-book';
+      return returned && host.dataset.activity !== 'return-book';
+    });
+    samples.push(...record(.6, () => ({ activity: 'released', hands: ['handL', 'handR'].map(inActor) })));
+    const handled = samples.map((sample, index) => ({ ...sample, index })).filter(({ activity }) => ['pickup-book', 'return-book', 'released'].includes(activity));
+    expect(handled.length).toBeGreaterThan(50);
+    for (const { index, hands } of handled) hands.forEach((hand, side) => expect(hand.distanceTo(samples[index - 1].hands[side]) * 30).toBeLessThan(3));
+  });
+
+  it('lowers him onto a low seat: his feet stay down until his hips reach it', async () => {
+    // The islands' seats sit at about 0.3 to 0.35, below his 0.59 hip.
+    const seat = .33;
+    vi.doMock('@/components/character/world/bedroom', async (importOriginal) => {
+      const { createBedroom: build } = await importOriginal<{ createBedroom: AreaBuilder }>();
+      return { createBedroom: (...args: Parameters<AreaBuilder>) => {
+        const area = build(...args);
+        for (const station of area.stations) if (station.seat !== undefined) station.seat = seat;
+        return area;
+      } };
+    });
+    try {
+      await create(); api!.skipIntro(); advance(.5);
+      api!.visit('desk');
+      const samples = record(20, () => ({ activity: host.dataset.activity!, lift: actorOf().position.y, hips: bone('pelvis').getWorldPosition(new Vector3()).y }), () => host.dataset.activity === 'perform');
+      const sitting = samples.filter(({ activity }) => activity === 'sit');
+      expect(sitting.length).toBeGreaterThan(20);
+      // The seat contact sits 0.13 below the pelvis bone.
+      for (const { hips, lift } of sitting) if (hips > seat + .13 + .01) expect(lift).toBeLessThan(.005);
+      expect(samples.at(-1)!.hips).toBeCloseTo(seat + .13, 1);
+    } finally { vi.doUnmock('@/components/character/world/bedroom'); }
+  });
+
+  it('opens on a close dead-on shot he runs into through the back door, then dollies straight back to the bedroom camera without a cut', async () => {
+    await create();
+    const { bounds } = layout(createBedroom);
+    const door = capture.scene!.getObjectByName('back-door')!;
+    let roaming = 0;
+    const samples = record(20, () => ({
+      phase: host.dataset.phase!, at: actorOf().getWorldPosition(new Vector3()), door: door.rotation.y,
+      camera: capture.camera!.position.clone(), forward: capture.camera!.getWorldDirection(new Vector3()),
+    }), () => (roaming += +(host.dataset.phase === 'roam')) > 30);
+    // He starts out behind the back wall, and the door swings open for him and shuts behind him.
+    expect(samples[0].at.z).toBeLessThan(bounds.minZ);
+    expect(Math.max(...samples.map((sample) => sample.door))).toBeGreaterThan(1);
+    expect(samples.find((sample) => sample.phase === 'bonk')!.door).toBe(0);
+    expect(samples.at(-1)!.phase).toBe('roam');
+    // The bonk shakes the camera; outside it he only gets closer until he hits the lens, and only further after.
+    const steady = samples.map((sample, index) => ({ ...sample, index })).filter(({ phase: name }) => name !== 'bonk');
+    // Along the floor, so the hop as he falls back does not count as coming closer.
+    const distanceOf = ({ camera, at }: { camera: Vector3; at: Vector3 }) => Math.hypot(camera.x - at.x, camera.z - at.z);
+    const closest = steady.reduce((best, sample) => distanceOf(sample) < distanceOf(best) ? sample : best).index;
+    // He hits the lens between the last frame of the run and the first of the fall back.
+    expect(['approach', 'recoil']).toContain(samples[closest].phase);
+    samples.slice(1).forEach((sample, index) => {
+      const before = samples[index];
+      // No teleport, from the first frame through the hand-over to roaming.
+      expect(sample.at.distanceTo(before.at)).toBeLessThan(.2);
+      // The camera only ever pulls straight back along one unchanging view direction.
+      expect(sample.camera.z).toBeGreaterThanOrEqual(before.camera.z - 1e-6);
+      if (sample.phase === 'bonk' || before.phase === 'bonk') return;
+      expect(sample.forward.angleTo(samples[0].forward)).toBeLessThan(Math.PI / 180);
+      const distance = distanceOf(sample) - distanceOf(before);
+      if (index + 1 <= closest) expect(distance).toBeLessThan(.01); else expect(distance).toBeGreaterThan(-.01);
+    });
+  });
+
+  it('ends the intro pointing down at the Ask bar and promotes it once', async () => {
+    await create();
+    const phases: string[] = [];
+    askPromoted.mockImplementation(() => { phases.push(phase.mock.calls.at(-1)![0]); });
+    until(() => host.dataset.phase === 'point', 15);
+    advance(1.2);
+    expect(askPromoted).toHaveBeenCalledOnce();
+    expect(phases).toEqual(['point']);
+    expect(greeting).toHaveBeenLastCalledWith(INTRO_DIALOGUE.point.line);
+    // One hand points forward and down, toward the bar at the bottom of the screen.
+    const pointing = ['L', 'R'].map((side) => ({ shoulder: inActor(`upper_arm${side}`), hand: inActor(`hand${side}`) }))
+      .filter(({ shoulder, hand }) => hand.z - shoulder.z > .25 && hand.y < shoulder.y - .1);
+    expect(pointing).toHaveLength(1);
+    until(() => host.dataset.phase === 'roam', 10);
+    advance(5);
+    expect(askPromoted).toHaveBeenCalledOnce();
+  });
+
+  it('never promotes the Ask bar when the intro is skipped', async () => {
+    await create(); advance(1); api!.skipIntro(); advance(14);
+    expect(askPromoted).not.toHaveBeenCalled();
   });
 });

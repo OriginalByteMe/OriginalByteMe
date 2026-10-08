@@ -1,6 +1,12 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { AnimationMixer, Box3, Texture, Vector3 } from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { describe, expect, it } from "vitest";
 import {
   CHARACTER_CONFIG as CONFIG,
+  CLIP_SPEED,
   DEFAULT_WORLD_BOUNDS as BOUNDS,
   createCharacterState,
   stepCharacter,
@@ -74,6 +80,73 @@ describe("character locomotion", () => {
       expect(distance(state.position, states[0].position)).toBeLessThan(1e-8);
       expect(distance(state.velocity, states[0].velocity)).toBeLessThan(1e-8);
       expect(state.heading).toBeCloseTo(states[0].heading, 8);
+    }
+  });
+
+  it("does not flip between walk and run while his speed hovers around the switch", () => {
+    const state = createCharacterState({ x: -2.4, z: 0 }, Math.PI / 2);
+    const motions: string[] = [];
+    // Push the speed a little either side of the old single threshold, frame after frame.
+    for (let index = 0; index < 240; index += 1) {
+      state.velocity.x = CONFIG.walkSpeed + 0.15 + 0.08 * Math.sin(index / 6);
+      stepCharacter(state, { x: 2.6, z: 0 }, 1 / 120);
+      if (state.motion !== motions.at(-1)) motions.push(state.motion);
+    }
+    expect(motions.length).toBeLessThanOrEqual(2);
+  });
+
+  it("turns toward a goal behind him before setting off, never travelling far off his facing", () => {
+    for (const goal of [{ x: 0, z: -1.2 }, { x: 0.6, z: -1.2 }, { x: -2.2, z: -0.4 }]) {
+      const state = createCharacterState({ x: 0, z: 0.8 }, 0);
+      for (let index = 0; index < 60 * 4; index += 1) {
+        stepCharacter(state, goal, 1 / 60);
+        if (state.speed > 0.3) {
+          const travel = Math.atan2(state.velocity.x, state.velocity.z);
+          expect(Math.abs(Math.atan2(Math.sin(travel - state.heading), Math.cos(travel - state.heading)))).toBeLessThan(Math.PI / 4);
+        }
+      }
+      expect(distance(state.position, goal)).toBeLessThan(CONFIG.arrivalRadius + 0.002);
+    }
+  });
+
+  it("reverses mid-run by slowing and turning, not by running backwards", () => {
+    const state = simulate(createCharacterState({ x: -2.2, z: 0 }, Math.PI / 2), { x: 2.4, z: 0 }, 0.7);
+    expect(state.motion).toBe("run");
+    for (let index = 0; index < 60 * 3; index += 1) {
+      stepCharacter(state, { x: -2.4, z: 0 }, 1 / 60);
+      if (state.speed > 0.3) {
+        const travel = Math.atan2(state.velocity.x, state.velocity.z);
+        expect(Math.abs(Math.atan2(Math.sin(travel - state.heading), Math.cos(travel - state.heading)))).toBeLessThan(Math.PI / 4);
+      }
+    }
+  });
+
+  it("pins the walk and run clip ground speeds to how far the shipped model's feet push back", async () => {
+    const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+    // Embedded images need a browser decoder; foot travel does not.
+    loader.register((parser) => ({ name: "headless-textures", beforeRoot() { parser.loadTextureImage = async () => new Texture(); return null; } }));
+    const data = readFileSync(resolve(process.cwd(), "public/models/good-vibes-hero.glb"));
+    const bytes = new ArrayBuffer(data.byteLength); new Uint8Array(bytes).set(data);
+    const gltf = await loader.parseAsync(bytes, "");
+    const model = gltf.scene;
+    // The scene normalises him to 2.45 m tall.
+    model.scale.multiplyScalar(2.45 / new Box3().setFromObject(model).getSize(new Vector3()).y);
+    const mixer = new AnimationMixer(model);
+    const feet = ["footL", "footR"].map((name) => model.getObjectByName(name)!);
+    for (const [clip, name] of [["walk", "06_Walk_InPlace"], ["run", "07_Run_InPlace"]] as const) {
+      const animation = gltf.animations.find((each) => each.name === name)!;
+      const action = mixer.clipAction(animation).play();
+      let pushed = 0;
+      let previous: number[] | null = null;
+      for (let index = 0; index <= 480; index += 1) {
+        action.time = Math.min(animation.duration - 1e-6, animation.duration * index / 480); mixer.update(0); model.updateMatrixWorld(true);
+        const z = feet.map((foot) => foot.getWorldPosition(new Vector3()).z);
+        if (previous) z.forEach((value, foot) => { pushed += Math.max(0, previous![foot] - value); });
+        previous = z;
+      }
+      action.stop();
+      // Over one cycle each foot strokes back once; together that is how far the body travels.
+      expect(Math.abs(pushed / animation.duration - CLIP_SPEED[clip]) / CLIP_SPEED[clip]).toBeLessThan(0.05);
     }
   });
 

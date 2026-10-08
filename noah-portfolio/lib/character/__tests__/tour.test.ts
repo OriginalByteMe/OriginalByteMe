@@ -4,25 +4,43 @@ import { areaScrollPosition, CharacterTourController, type TourFrame } from '../
 const STEP = .05;
 type View = number | ((time: number) => number);
 type TimedFrame = TourFrame & { time: number };
-function run(tour: CharacterTourController, seconds: number, view: View, from = 0) {
+/** Stands in for the scene: reports reaching the exit once he has chased it for `chase` seconds. */
+function run(tour: CharacterTourController, seconds: number, view: View, from = 0, chase = .6) {
   const frames: TimedFrame[] = [];
+  let chasing = 0;
   for (let index = 1; index <= Math.round(seconds / STEP); index += 1) {
     const time = from + index * STEP;
-    frames.push({ ...tour.tick(STEP, { viewArea: typeof view === 'number' ? view : view(time) }), time });
+    const frame = tour.tick(STEP, { viewArea: typeof view === 'number' ? view : view(time), arrived: chasing + 1e-9 >= chase });
+    frames.push({ ...frame, time });
+    chasing = frame.phase === 'chase' ? chasing + STEP : 0;
   }
   return frames;
 }
 const starts = (frames: TimedFrame[]) => frames.flatMap((frame) => frame.started ? [[frame.started, +frame.time.toFixed(2)]] : []);
 describe('scroll tour between areas', () => {
-  it('goes down one area as chase, trip, fall, land, recover and joins the lower area when the fall ends', () => {
+  it('goes down one area as chase, trip, fall, land, recover: the chase ends when the scene reports the exit, the rest is timed', () => {
     const frames = run(new CharacterTourController({ areas: 3 }), 6, 1);
-    expect(starts(frames)).toEqual([['chase', .35], ['trip', 1.25], ['fall', 1.7], ['land', 3], ['recover', 3.55], ['settled', 4.65]]);
+    // The arrival tick's time already counts toward the trip.
+    expect(starts(frames)).toEqual([['chase', .35], ['trip', .95], ['fall', 1.35], ['land', 2.65], ['recover', 3.2], ['settled', 4.3]]);
     const at = (time: number) => frames.find((frame) => Math.abs(frame.time - time) < 1e-6)!;
-    expect(at(2.95)).toMatchObject({ phase: 'fall', area: 0, from: 0, to: 1 });
-    expect(at(3)).toMatchObject({ phase: 'land', area: 1, from: 0, to: 1 });
+    expect(at(2.6)).toMatchObject({ phase: 'fall', area: 0, from: 0, to: 1 });
+    expect(at(2.65)).toMatchObject({ phase: 'land', area: 1, from: 0, to: 1 });
     expect(at(.3)).toMatchObject({ phase: 'settled', area: 0, from: 0, to: 0 });
+    expect(at(.6)).toMatchObject({ phase: 'chase', progress: 0 });
     expect(at(6)).toMatchObject({ phase: 'settled', area: 1, from: 1, to: 1, started: null });
-    expect(at(2.35).progress).toBeCloseTo(.5);
+    expect(at(2).progress).toBeCloseTo(.5);
+  });
+
+  it('keeps chasing, however long it takes, until the scene reports he reached the exit', () => {
+    const frames = run(new CharacterTourController({ areas: 3 }), 20, 1, 0, Infinity);
+    expect(starts(frames)).toEqual([['chase', .35]]);
+    expect(frames.at(-1)).toMatchObject({ phase: 'chase', area: 0, from: 0, to: 1 });
+  });
+
+  it('counts an arrival report only during a chase already under way', () => {
+    // The scene says "arrived" every tick: the chase still lasts one tick, and the timed phases keep their length.
+    const frames = run(new CharacterTourController({ areas: 3 }), 5, 1, 0, 0);
+    expect(starts(frames)).toEqual([['chase', .35], ['trip', .4], ['fall', .8], ['land', 2.1], ['recover', 2.65], ['settled', 3.75]]);
   });
 
   it('goes up one area as jump, land, recover and joins the upper area when the jump ends', () => {
@@ -44,7 +62,7 @@ describe('scroll tour between areas', () => {
     expect(starts(frames).map(([phase]) => phase)).toEqual([
       'chase', 'trip', 'fall', 'land', 'recover', 'chase', 'trip', 'fall', 'land', 'recover', 'settled',
     ]);
-    expect(starts(frames)[5]).toEqual(['chase', 4.65]);
+    expect(starts(frames)[5]).toEqual(['chase', 4.3]);
     expect(frames.every((frame) => Math.abs(frame.to - frame.from) <= 1)).toBe(true);
     expect(frames.at(-1)).toMatchObject({ phase: 'settled', area: 2 });
   });

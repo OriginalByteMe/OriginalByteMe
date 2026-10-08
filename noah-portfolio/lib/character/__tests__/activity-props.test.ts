@@ -5,6 +5,9 @@ import { CharacterActivityController, type ActivityFrame } from '../activities';
 
 const RESTS = { ball: { x: -1.9, y: .6, z: 1.16 }, book: { x: 1.77, y: .43, z: .03 } };
 const STAND = { x: -1.6, z: .8 };
+const SHOULDER_VOLUMES = ['L', 'R'].flatMap((side) => ['045', '090', '135', '180'].map((angle) => `ShoulderVolume_${side}_${angle}`));
+/** What the mixer left on the shirt this frame. */
+const MIXER_VOLUME = .03;
 
 function fixture() {
   // The area group sits at the lab's origin to prove rests are area-local.
@@ -18,13 +21,19 @@ function fixture() {
     upper.position.set(side * .228, 1.137, .098); forearm.position.set(side * .12, -.317, 0); hand.position.set(side * .07, -.248, 0);
     spine.add(upper); upper.add(forearm); forearm.add(hand);
   }
+  // The shirt's eight shoulder correctives, at an idle-level value as the clips bake them.
+  const shirt = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial());
+  shirt.name = 'Shirt'; shirt.morphTargetDictionary = Object.fromEntries(SHOULDER_VOLUMES.map((name, index) => [name, index]));
+  shirt.morphTargetInfluences = SHOULDER_VOLUMES.map(() => MIXER_VOLUME);
+  model.add(shirt);
   world.updateMatrixWorld(true);
   const props = createActivityProps(world, actor, model, RESTS);
   const base = new CharacterActivityController().tick(0, { position: { x: 0, z: 0 } });
   const frame = (patch: Partial<ActivityFrame>): ActivityFrame => ({ ...base, ...patch });
-  return { world, actor, model, props, frame, ball: props.group.getObjectByName('activity-ball')!, book: props.group.getObjectByName('activity-book')! };
+  return { world, actor, model, props, frame, shirt, ball: props.group.getObjectByName('activity-ball')!, book: props.group.getObjectByName('activity-book')! };
 }
 const worldOf = (object: THREE.Object3D) => object.getWorldPosition(new THREE.Vector3());
+const volume = (shirt: THREE.Mesh, name: string) => shirt.morphTargetInfluences![shirt.morphTargetDictionary![name]];
 
 describe('activity props and contact poses', () => {
   it('rests the ball and book on the area rest points with no pedestals of their own', () => {
@@ -128,6 +137,57 @@ describe('activity props and contact poses', () => {
     props.beforeMixer();
     props.pose({ kind: 'play', reach: print, weight: 0, time: 0, progress: .5 });
     for (const [name, quaternion] of Object.entries(rest)) expect(bone(name).quaternion.angleTo(quaternion)).toBeLessThan(1e-6);
+  });
+
+  it('leaves the clip pose exactly as it was at weight zero and barely moves the elbows at a small weight', () => {
+    const { props, model, frame } = fixture();
+    const bone = (name: string) => model.getObjectByName(name)!;
+    const clip = Object.fromEntries(['upper_armR', 'forearmR'].map((name) => [name, bone(name).quaternion.clone()]));
+    // The first frame of a ball pickup weights the hand at zero.
+    props.apply(frame({ phase: 'pickup-ball', progress: 0, ball: { mode: 'pickup', progress: 0 } }));
+    for (const [name, quaternion] of Object.entries(clip)) expect(bone(name).quaternion.angleTo(quaternion)).toBeLessThan(1e-6);
+    props.beforeMixer();
+    const elbows = ['forearmR', 'forearmL'].map((name) => worldOf(bone(name)));
+    props.pose({ kind: 'type', reach: worldOf(model).add(new THREE.Vector3(0, 1, .5)), weight: .05, time: 0, progress: .5 });
+    ['forearmR', 'forearmL'].forEach((name, index) => expect(worldOf(bone(name)).distanceTo(elbows[index])).toBeLessThan(.03));
+  });
+
+  it('points one arm, the one on that side, most of the way toward a target and looks there', () => {
+    const { props, model } = fixture();
+    const bone = (name: string) => model.getObjectByName(name)!;
+    const left = bone('upper_armL').quaternion.clone();
+    const shoulder = worldOf(bone('upper_armR'));
+    const target = worldOf(model).add(new THREE.Vector3(-2, -.5, 3));
+    const headBefore = new THREE.Vector3(0, 0, 1).applyQuaternion(bone('head').getWorldQuaternion(new THREE.Quaternion()));
+    props.pose({ kind: 'point', reach: target, weight: 1, time: 0, progress: 0 });
+    const hand = worldOf(bone('handR'));
+    const length = worldOf(bone('forearmR')).distanceTo(shoulder) + hand.distanceTo(worldOf(bone('forearmR')));
+    expect(hand.distanceTo(shoulder)).toBeCloseTo(.85 * length, 2);
+    expect(hand.clone().sub(shoulder).normalize().angleTo(target.clone().sub(shoulder).normalize())).toBeLessThan(.02);
+    expect(bone('upper_armL').quaternion.angleTo(left)).toBeLessThan(1e-6);
+    const toward = target.clone().sub(worldOf(bone('head'))).normalize();
+    const headAfter = new THREE.Vector3(0, 0, 1).applyQuaternion(bone('head').getWorldQuaternion(new THREE.Quaternion()));
+    expect(headAfter.angleTo(toward)).toBeLessThan(headBefore.angleTo(toward));
+  });
+
+  it('drives the shirt shoulder correctives from how high the posed arm is, and hands them back to the mixer', () => {
+    const { props, model, shirt } = fixture();
+    const shoulder = worldOf(model.getObjectByName('upper_armL')!);
+    // Both hands reaching far overhead: both arms straight up.
+    props.pose({ kind: 'play', reach: worldOf(model).add(new THREE.Vector3(0, 4, .1)), weight: 1, time: 0, progress: 0 });
+    for (const side of ['L', 'R']) {
+      expect(volume(shirt, `ShoulderVolume_${side}_180`)).toBeGreaterThan(.5);
+      expect(volume(shirt, `ShoulderVolume_${side}_045`)).toBeLessThan(.1);
+    }
+    props.beforeMixer();
+    for (const name of SHOULDER_VOLUMES) expect(volume(shirt, name)).toBe(MIXER_VOLUME);
+    // The left arm out to the side at shoulder height: the 90 degree shape, and the right arm left to the clip.
+    props.pose({ kind: 'point', reach: shoulder.clone().add(new THREE.Vector3(2, 0, 0)), weight: 1, time: 0, progress: 0 });
+    expect(volume(shirt, 'ShoulderVolume_L_090')).toBeGreaterThan(.7);
+    expect(volume(shirt, 'ShoulderVolume_L_180')).toBe(0);
+    for (const angle of ['045', '090', '135', '180']) expect(volume(shirt, `ShoulderVolume_R_${angle}`)).toBe(MIXER_VOLUME);
+    props.beforeMixer();
+    for (const name of SHOULDER_VOLUMES) expect(volume(shirt, name)).toBe(MIXER_VOLUME);
   });
 
   it('handles model fallback, reset, remount and idempotent disposal without stranded objects', () => {

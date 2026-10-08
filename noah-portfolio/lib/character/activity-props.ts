@@ -1,13 +1,21 @@
 import * as THREE from 'three';
-import type { ActivityFrame, ActivityPropMode } from './activities';
+import { ACTIVITY_CONFIG, type ActivityFrame, type ActivityPropMode } from './activities';
 import type { StationKind, Vec3 } from '@/components/character/world/types';
 
 const BALL_RADIUS = .15;
+/** Seconds a hand takes to reach for a prop or to let it go. */
+const HAND_RAMP = .5;
+/** Spread of the hands either side of the afro guard's reach point, onto the afro's sides. */
+const AFRO_SPREAD = .44;
+/** Share of the arm's length a pointing hand reaches out. */
+const POINT_REACH = .85;
+/** The shirt's shoulder correctives, one per 45 degrees of upper-arm elevation from hanging straight down. */
+const SHOULDER_ANGLES = ['045', '090', '135', '180'] as const;
 
-/** World-space arm/head overlay for a station kind, both hands guarding the afro, or his right knee raised for a stomp. */
+/** World-space arm/head overlay for a station kind, both hands guarding the afro, one arm pointing, or his right knee raised for a stomp. */
 export type StationPose = {
-  kind: StationKind | 'afro' | 'stomp';
-  /** World point the hands or eyes go to (keyboard, rack button, frame corner, afro centre). */
+  kind: StationKind | 'afro' | 'point' | 'stomp';
+  /** World point the hands or eyes go to (keyboard, rack button, frame corner, the afro's sides, what he points at). */
   reach: THREE.Vector3;
   /** 0 leaves the clip untouched, 1 is full contact. */
   weight: number;
@@ -21,7 +29,7 @@ export type ActivityProps = {
   beforeMixer(): void;
   /** Call after actor transforms and mixer.update. Never changes the actor root. */
   apply(frame: ActivityFrame): void;
-  /** Call after apply(); layers a station, afro or stomp pose onto the same reversible overlay. */
+  /** Call after apply(); layers a station, afro, point or stomp pose onto the same reversible overlay. */
   pose(pose: StationPose): void;
   /** Call after pose(); turns neck and head toward a world point within neck limits, taking over from a station look by the same weight. */
   face(target: THREE.Vector3, weight: number): void;
@@ -29,7 +37,8 @@ export type ActivityProps = {
   dispose(): void;
 };
 type BonePose = { bone: THREE.Object3D; quaternion: THREE.Quaternion };
-type Arm = { upper: THREE.Object3D; forearm: THREE.Object3D; hand: THREE.Object3D; side: number };
+/** `volumes`: this side's shirt shoulder corrective slots, in SHOULDER_ANGLES order. */
+type Arm = { upper: THREE.Object3D; forearm: THREE.Object3D; hand: THREE.Object3D; side: number; volumes: number[] };
 type Prop = {
   object: THREE.Group;
   home: THREE.Vector3;
@@ -76,11 +85,18 @@ export function createActivityProps(area: THREE.Object3D, actor: THREE.Object3D,
   const book = makeProp(bookObject, vector(rests.book));
   const overlays: BonePose[] = [];
   const find = (name: string) => model.getObjectByName(name) ?? model.getObjectByName(name.replace('.', '')) ?? model.getObjectByName(name.replace('.', '_'));
+  // The clips bake the shirt's shoulder correctives; a pose that raises an arm drives them from that arm's elevation instead.
+  let shirt: THREE.Mesh | undefined;
+  model.traverse((node) => { if (!shirt && node instanceof THREE.Mesh && node.morphTargetDictionary?.ShoulderVolume_L_045 !== undefined) shirt = node; });
   const arms: Arm[] = [];
   for (const [suffix, side] of [['R', -1], ['L', 1]] as const) {
     const upper = find(`upper_arm.${suffix}`), forearm = find(`forearm.${suffix}`), hand = find(`hand.${suffix}`);
-    if (upper && forearm && hand) arms.push({ upper, forearm, hand, side });
+    const volumes = SHOULDER_ANGLES.map((angle) => shirt?.morphTargetDictionary?.[`ShoulderVolume_${suffix}_${angle}`]).filter((slot): slot is number => slot !== undefined);
+    if (upper && forearm && hand) arms.push({ upper, forearm, hand, side, volumes: volumes.length === SHOULDER_ANGLES.length ? volumes : [] });
   }
+  /** This frame's IK weight per arm, and the mixer's corrective values the overlay replaced. */
+  const reached = new Map<Arm, number>();
+  const mixerVolumes = new Map<number, number>();
   const head = find('head');
   const neck = find('neck');
   const spine = find('spine');
@@ -96,6 +112,10 @@ export function createActivityProps(area: THREE.Object3D, actor: THREE.Object3D,
   const beforeMixer = () => {
     for (const pose of overlays) pose.bone.quaternion.copy(pose.quaternion);
     overlays.length = 0;
+    // The mixer skips writes that did not change, so a stale corrective would otherwise stick.
+    const influences = shirt?.morphTargetInfluences;
+    if (influences) for (const [slot, value] of mixerVolumes) influences[slot] = value;
+    mixerVolumes.clear(); reached.clear();
   };
   const rotateToward = (bone: THREE.Object3D, child: THREE.Object3D, target: THREE.Vector3) => {
     save(bone);
@@ -107,22 +127,53 @@ export function createActivityProps(area: THREE.Object3D, actor: THREE.Object3D,
     const parentQ = bone.parent?.getWorldQuaternion(new THREE.Quaternion()) ?? new THREE.Quaternion();
     bone.quaternion.copy(parentQ.invert().multiply(q)); bone.updateWorldMatrix(false, true);
   };
+  /**
+   * Two-bone IK for one arm: solves the arm onto `destination` with the elbow bent toward
+   * the hint, then blends that solution in from the pose the arm already has by
+   * `influence`, joint by joint, so weight 0 is the clip exactly and a light pose moves
+   * every joint only a little.
+   */
   const poseArm = (arm: Arm, destination: THREE.Vector3, influence = 1) => {
+    if (influence <= 0) return;
     const root = arm.upper.getWorldPosition(new THREE.Vector3());
     const elbow = arm.forearm.getWorldPosition(new THREE.Vector3());
-    const wrist = arm.hand.getWorldPosition(new THREE.Vector3());
-    const target = wrist.clone().lerp(destination, influence);
-    const l1 = root.distanceTo(elbow), l2 = elbow.distanceTo(wrist);
+    const l1 = root.distanceTo(elbow), l2 = elbow.distanceTo(arm.hand.getWorldPosition(new THREE.Vector3()));
     if (l1 < .001 || l2 < .001) return;
-    const direction = target.clone().sub(root);
+    reached.set(arm, Math.max(reached.get(arm) ?? 0, influence));
+    const before = [arm.upper.quaternion.clone(), arm.forearm.quaternion.clone()];
+    const direction = destination.clone().sub(root);
     const d = THREE.MathUtils.clamp(direction.length(), Math.abs(l1 - l2) + .001, l1 + l2 - .001);
-    direction.normalize(); target.copy(root).addScaledVector(direction, d);
+    direction.normalize();
+    const target = root.clone().addScaledVector(direction, d);
     const bend = new THREE.Vector3(arm.side, -.15, -.5).transformDirection(actor.matrixWorld);
     bend.addScaledVector(direction, -bend.dot(direction)).normalize();
     const along = (l1 * l1 + d * d - l2 * l2) / (2 * d);
     const elbowTarget = root.clone().addScaledVector(direction, along).addScaledVector(bend, Math.sqrt(Math.max(0, l1 * l1 - along * along)));
     rotateToward(arm.upper, arm.forearm, elbowTarget);
     rotateToward(arm.forearm, arm.hand, target);
+    if (influence >= 1) return;
+    arm.upper.quaternion.copy(before[0].slerp(arm.upper.quaternion, influence));
+    arm.forearm.quaternion.copy(before[1].slerp(arm.forearm.quaternion, influence));
+    arm.upper.updateWorldMatrix(false, true);
+  };
+  /** Sets each posed arm's shoulder correctives from its upper arm's elevation, blended over the mixer's by the arm's IK weight. */
+  const shoulders = () => {
+    const influences = shirt?.morphTargetInfluences;
+    if (!influences) return;
+    const down = new THREE.Vector3(0, -1, 0).transformDirection(actor.matrixWorld);
+    for (const [arm, weight] of reached) {
+      const upper = arm.forearm.getWorldPosition(new THREE.Vector3()).sub(arm.upper.getWorldPosition(new THREE.Vector3()));
+      const degrees = THREE.MathUtils.radToDeg(upper.angleTo(down));
+      arm.volumes.forEach((slot, index) => {
+        // Piecewise linear between neighbouring shapes: each peaks at its own angle; the first rises from
+        // the 22.5 degrees the clips' arms hang at, the last holds on to straight up.
+        const peak = 45 * (index + 1);
+        const value = index === SHOULDER_ANGLES.length - 1 ? THREE.MathUtils.clamp((degrees - 135) / 45, 0, 1)
+          : Math.max(0, 1 - Math.abs(degrees - peak) / (index === 0 && degrees < peak ? 22.5 : 45));
+        if (!mixerVolumes.has(slot)) mixerVolumes.set(slot, influences[slot]);
+        influences[slot] = THREE.MathUtils.lerp(mixerVolumes.get(slot)!, value, weight);
+      });
+    }
   };
   /** Rotates a bone in world space by part of the turn that takes the actor's facing to the target, so the face follows whatever the rig's local axes are. */
   const turnToward = (bone: THREE.Object3D, target: THREE.Vector3, amount: number) => {
@@ -204,8 +255,8 @@ export function createActivityProps(area: THREE.Object3D, actor: THREE.Object3D,
           const contact = frame.ball.mode === 'toss' ? ballHeld.clone() : ball.object.getWorldPosition(new THREE.Vector3());
           contact.y -= BALL_RADIUS * .8;
           if (frame.ball.mode === 'toss') contact.y += Math.sin(frame.ball.progress * Math.PI * 2) * .09;
-          const weight = frame.phase === 'pickup-ball' ? smooth(Math.min(1, frame.progress * 4))
-            : frame.phase === 'return-ball' ? 1 - smooth(Math.max(0, (frame.progress - .8) / .2)) : 1;
+          const weight = frame.phase === 'pickup-ball' ? smooth(frame.progress * ACTIVITY_CONFIG.pickup / HAND_RAMP)
+            : frame.phase === 'return-ball' ? 1 - smooth(1 + (frame.progress - 1) * ACTIVITY_CONFIG.return / HAND_RAMP) : 1;
           poseArm(arm, contact, weight);
         }
       }
@@ -213,12 +264,13 @@ export function createActivityProps(area: THREE.Object3D, actor: THREE.Object3D,
         const centre = book.object.getWorldPosition(new THREE.Vector3());
         for (const arm of arms) {
           const offset = new THREE.Vector3(arm.side * (open ? .23 : .14), -.015, 0).applyQuaternion(actor.getWorldQuaternion(new THREE.Quaternion()));
-          const weight = frame.phase === 'pickup-book' ? smooth(Math.min(1, frame.progress * 4))
-            : frame.phase === 'return-book' ? 1 - smooth(Math.max(0, (frame.progress - .8) / .2)) : 1;
+          const weight = frame.phase === 'pickup-book' ? smooth(frame.progress * ACTIVITY_CONFIG.pickup / HAND_RAMP)
+            : frame.phase === 'return-book' ? 1 - smooth(1 + (frame.progress - 1) * ACTIVITY_CONFIG.return / HAND_RAMP) : 1;
           poseArm(arm, centre.clone().add(offset), weight);
         }
         if (head && open) { save(head); head.rotateX(.18); }
       }
+      shoulders();
       model.updateWorldMatrix(false, true);
     },
     pose({ kind, reach, weight, time, progress }) {
@@ -243,7 +295,18 @@ export function createActivityProps(area: THREE.Object3D, actor: THREE.Object3D,
       } else if (kind === 'admire' && progress < .45) {
         look(.9, reach.clone().setY(reach.y + 1.2));
       } else if (kind === 'afro') {
-        hands(.2, () => 0);
+        // Hands on the afro's sides with the elbows bent, well inside his reach.
+        hands(AFRO_SPREAD, () => 0);
+      } else if (kind === 'point') {
+        // The arm on the target's side reaches most of the way toward it; he looks there too.
+        const side = Math.sign(reach.clone().sub(actor.getWorldPosition(new THREE.Vector3())).dot(across)) || -1;
+        const arm = arms.find((entry) => entry.side === side);
+        if (arm) {
+          const shoulder = arm.upper.getWorldPosition(new THREE.Vector3()), elbow = arm.forearm.getWorldPosition(new THREE.Vector3());
+          const length = shoulder.distanceTo(elbow) + elbow.distanceTo(arm.hand.getWorldPosition(new THREE.Vector3()));
+          poseArm(arm, reach.clone().sub(shoulder).setLength(length * POINT_REACH).add(shoulder), weight);
+        }
+        look(.6);
       } else if (kind === 'stomp') {
         // Right knee up and out, so it reads even from the front camera; the scene drops the weight to zero for the slam.
         if (!thigh || !shin || !foot) return;
@@ -259,6 +322,7 @@ export function createActivityProps(area: THREE.Object3D, actor: THREE.Object3D,
         hands(.12, () => .04 * Math.sin(time * 7));
         look(.5);
       }
+      shoulders();
       model.updateWorldMatrix(false, true);
     },
     face(target, weight) {
