@@ -10,9 +10,9 @@ const CONTENT: WorldContent = {
   projects: [], skills: [], funFacts: [],
   headline: 'Full-stack software engineer', location: 'Kuala Lumpur, Malaysia',
   career: [
-    { company: 'MerchantSpring', role: 'Senior AI Engineer', period: '2026 - Present', logo: '/logos/merchantspring.svg' },
-    { company: 'Supa (formerly Supahands)', role: 'Full-Stack Developer', period: '2020 - 2025', logo: '/logos/supa.png' },
-    { company: 'Bowiq', role: 'CAD Designer & 3D Printing Engineer', period: '2023 - Present', logo: '/logos/bowiq.png' },
+    { company: 'MerchantSpring', role: 'Senior AI Engineer', period: '2026 - Present', logo: '/logos/merchantspring.svg', url: '', highlights: [] },
+    { company: 'Supa (formerly Supahands)', role: 'Full-Stack Developer', period: '2020 - 2025', logo: '/logos/supa.png', url: '', highlights: [] },
+    { company: 'Bowiq', role: 'CAD Designer & 3D Printing Engineer', period: '2023 - Present', logo: '/logos/bowiq.png', url: '', highlights: [] },
   ],
 };
 const EMPTY_CAREER: WorldContent = { ...CONTENT, career: [] };

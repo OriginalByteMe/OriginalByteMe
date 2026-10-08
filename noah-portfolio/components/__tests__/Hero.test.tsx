@@ -39,13 +39,13 @@ vi.mock('@/components/ChatBox', () => ({
 
 const content: WorldContent = {
   projects: [
-    { slug: 'moodify', title: 'Moodify', description: 'Playlists that follow your mood.', url: 'https://github.com/OriginalByteMe/Moodify', image: '', tech: ['Next.js', 'Spotify API'] },
-    { slug: 'ai-image-cutout', title: 'AI Image Cutout Tool', description: 'Cuts subjects out of photos.', url: '', image: '', tech: ['Python'] },
+    { slug: 'moodify', title: 'Moodify', description: 'Playlists that follow your mood.', url: 'https://github.com/OriginalByteMe/Moodify', image: '', tech: [{ name: 'Next.js', icon: '/icons/next-js.svg' }, { name: 'Spotify API', icon: '/icons/spotify.svg' }] },
+    { slug: 'ai-image-cutout', title: 'AI Image Cutout Tool', description: 'Cuts subjects out of photos.', url: '', image: '', tech: [{ name: 'Python', icon: '/icons/python.svg' }] },
   ],
-  skills: [{ category: 'Databases', skills: ['PostgreSQL', 'Redis'] }, { category: 'AI & LLM Tooling', skills: ['LangChain'] }],
+  skills: [{ category: 'Databases', skills: [{ name: 'PostgreSQL', icon: '/icons/postgresql.svg' }, { name: 'Redis', icon: '/icons/redis.svg' }] }, { category: 'AI & LLM Tooling', skills: [{ name: 'LangChain', icon: '/icons/langchain.png' }] }],
   headline: 'Full-Stack Developer',
   location: 'Kuala Lumpur, Malaysia',
-  career: [{ company: 'MerchantSpring', role: 'Senior AI Engineer', period: '2026 - Present', logo: '' }, { company: 'Bowiq', role: 'CAD Designer & 3D Printing Engineer', period: '2023 - Present', logo: '' }],
+  career: [{ company: 'MerchantSpring', role: 'Senior AI Engineer', period: '2026 - Present', logo: '', url: '', highlights: [] }, { company: 'Bowiq', role: 'CAD Designer & 3D Printing Engineer', period: '2023 - Present', logo: '', url: '', highlights: [] }],
   funFacts: ['Self-hosts on Proxmox + Unraid'],
 };
 let reducedMotion = true;
@@ -182,11 +182,11 @@ describe('Character world sections', () => {
     for (const project of content.projects) {
       const card = within(lab).getByRole('heading', { level: 3, name: project.title }).closest('li')!;
       expect(card).toHaveTextContent(project.description);
-      expect(card).toHaveTextContent(project.tech.join(' · '));
+      expect(card).toHaveTextContent(project.tech.map((tech) => tech.name).join(' · '));
     }
     expect(within(lab).getByRole('link', { name: /Visit Moodify/ })).toHaveAttribute('href', 'https://github.com/OriginalByteMe/Moodify');
     expect(within(lab).queryByRole('link', { name: /Visit AI Image Cutout Tool/ })).not.toBeInTheDocument();
-    expect(within(lab).getByText('Databases').nextSibling).toHaveTextContent('PostgreSQL, Redis');
+    expect(within(lab).getByText('Databases').nextSibling).toHaveTextContent(/^PostgreSQL, Redis\s*$/);
     expect(within(lab).getByText('AI & LLM Tooling')).toBeInTheDocument();
     expect(within(lab).queryByRole('button', { name: /Show me/ })).not.toBeInTheDocument();
 
@@ -209,8 +209,8 @@ describe('Character world sections', () => {
     expect(createScene.mock.calls[0][1].content).toBe(content);
     fireEvent.click(screen.getByRole('button', { name: 'Show me Moodify' }));
     expect(scene.visit).toHaveBeenLastCalledWith('project:moodify');
-    fireEvent.click(screen.getByRole('button', { name: 'Show me the skills wall' }));
-    expect(scene.visit).toHaveBeenLastCalledWith('skills');
+    fireEvent.click(screen.getByRole('button', { name: 'Show me the AI & LLM Tooling wall' }));
+    expect(scene.visit).toHaveBeenLastCalledWith('skills:ai-llm-tooling');
     for (const panel of document.querySelectorAll('.character-world__panel')) expect(panel).toHaveAttribute('data-character-ui');
   });
 });

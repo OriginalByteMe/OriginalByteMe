@@ -1,5 +1,6 @@
 import type * as THREE from 'three';
 import type { Vec2 } from '@/lib/character/controller';
+import type { CharacterLine } from '@/lib/character/narrative';
 import type { WorldContent } from '@/lib/character/world-content';
 
 export type AreaId = 'bedroom' | 'lab' | 'about';
@@ -12,7 +13,7 @@ export type Obstacle = { id: string; x: number; z: number; radius: number };
 export type StationKind = 'type' | 'watch' | 'tinker' | 'read' | 'ball' | 'admire' | 'play';
 
 export type Station = {
-  /** Bedroom: desk, printer, rack, ball, bed. Lab: project:<corpus slug>, skills. About: portrait, skyline, career. */
+  /** Bedroom: desk, printer, rack, ball, bed. Lab: project:<corpus slug>, skills:<group> (skillStationId). About: portrait, skyline, career:<company>. */
   id: string;
   kind: StationKind;
   /** Accessible name, e.g. "MacBook" or "LLM Comparison exhibit". */
@@ -25,6 +26,12 @@ export type Station = {
   reach: Vec3;
   /** Area-local seat surface height when the character sits here (desk chair, bed). */
   seat?: number;
+  /**
+   * When the visitor sends him here: he faces the camera and says the lines in order while
+   * `update` gets this station id and the presentation's progress; with a url the page shows
+   * a Visit sign beside him. A floor click, another station or a scroll ends it.
+   */
+  present?: { lines: readonly CharacterLine[]; url?: string; linkLabel?: string };
 };
 
 /**

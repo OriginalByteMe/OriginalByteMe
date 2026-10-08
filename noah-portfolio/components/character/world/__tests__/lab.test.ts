@@ -113,7 +113,7 @@ describe('createLab', () => {
     const content = withProjects([...real.projects, { ...real.projects[3], slug: 'long-one', title: longTitle }]);
     createLab(origin, content);
     const phrases = new Set(draws.flatMap((_, index) => [1, 2, 3, 4].map((lines) => draws.slice(index, index + lines).map((draw) => draw.text).join(' '))));
-    for (const name of [...content.skills.flatMap((group) => [group.category, ...group.skills]), ...content.projects.map((project) => project.title)]) expect(phrases, name).toContain(name);
+    for (const name of [...content.skills.flatMap((group) => [group.category, ...group.skills.map((skill) => skill.name)]), ...content.projects.map((project) => project.title)]) expect(phrases, name).toContain(name);
     for (const [index, draw] of draws.entries()) {
       expect([draw.left >= 0, draw.right <= draw.canvas.width, draw.top >= 0, draw.bottom <= draw.canvas.height], draw.text).toEqual([true, true, true, true]);
       for (const other of draws.slice(index + 1)) {

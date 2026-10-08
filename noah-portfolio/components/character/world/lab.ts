@@ -214,7 +214,7 @@ export const createLab: AreaBuilder = (origin, content) => {
     const y = KEY_BASE + (rows - 1 - row) * rowHeight, [cap, category] = KEY_COLORS[row % KEY_COLORS.length];
     return [
       { text: skillGroup.category, x: left + categoryWidth / 2, y, width: categoryWidth, color: category, ink: '#fff8ee', column: 0, row, span: 2 },
-      ...skillGroup.skills.map((text, index) => ({ text, x: left + categoryWidth + .06 + keyWidth / 2 + index * (keyWidth + .06), y, width: keyWidth, color: cap, ink: '#3f2849', column: index + 1, row, span: 1 })),
+      ...skillGroup.skills.map(({ name: text }, index) => ({ text, x: left + categoryWidth + .06 + keyWidth / 2 + index * (keyWidth + .06), y, width: keyWidth, color: cap, ink: '#3f2849', column: index + 1, row, span: 1 })),
     ];
   });
   // The poke button sits in a gap of the exhibit arc so the walk to it stays open.

@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Hero, { HeroPortrait } from '../Hero';
 import HeroCharacter, { type CharacterStatus } from './HeroCharacter';
 import type { CharacterScene } from './create-character-scene';
-import type { WorldContent } from '@/lib/character/world-content';
+import { skillStationId, type WorldContent } from '@/lib/character/world-content';
 
 /**
  * One sticky 3D viewport behind three scrolling sections. The bedroom, lab and
@@ -37,7 +37,7 @@ export default function CharacterWorld({ content }: { content: WorldContent }) {
               <li key={project.slug}>
                 <h3>{project.title}</h3>
                 <p>{project.description}</p>
-                <p className="character-world__tech"><span className="sr-only">Built with: </span>{project.tech.join(' · ')}</p>
+                <p className="character-world__tech"><span className="sr-only">Built with: </span>{project.tech.map((tech) => tech.name).join(' · ')}</p>
                 <div className="character-world__actions">
                   {project.url && <a href={project.url} target="_blank" rel="noreferrer noopener">Visit <span className="sr-only">{project.title}</span> <span aria-hidden="true">↗</span></a>}
                   {showMe(`project:${project.slug}`, project.title)}
@@ -48,10 +48,12 @@ export default function CharacterWorld({ content }: { content: WorldContent }) {
           <h3 className="character-world__subheading">Skills</h3>
           <dl className="character-world__skills">
             {content.skills.map((group) => (
-              <div key={group.category}><dt>{group.category}</dt><dd>{group.skills.join(', ')}</dd></div>
+              <div key={group.category}>
+                <dt>{group.category}</dt>
+                <dd>{group.skills.map((skill) => skill.name).join(', ')} {showMe(skillStationId(group.category), `the ${group.category} wall`)}</dd>
+              </div>
             ))}
           </dl>
-          <div className="character-world__actions">{showMe('skills', 'the skills wall')}</div>
         </div>
       </section>
       <section id="about" aria-labelledby="about-heading" className="character-world__area">
