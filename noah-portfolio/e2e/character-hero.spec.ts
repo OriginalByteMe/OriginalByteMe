@@ -5,6 +5,7 @@ test('character loads, responds to keys, pauses, resets and yields to the origin
   await page.goto('/');
   const hero = page.getByTestId('character-hero');
   await expect(hero).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+  await page.getByRole('button', { name: 'Click to enter' }).click();
   const playground = page.getByTestId('character-playground');
   await expect(playground).toHaveAttribute('data-area', 'bedroom');
   const initial = await playground.getAttribute('data-position');
@@ -25,6 +26,7 @@ test('character loads, responds to keys, pauses, resets and yields to the origin
   await expect(page.getByRole('img', { name: 'Portrait of Noah Rijkaard' })).toBeVisible();
   await page.getByRole('button', { name: 'Back to playground' }).click();
   await expect(hero).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+  await page.getByRole('button', { name: 'Click to enter' }).click();
   await expect(page.getByRole('link', { name: 'Email Noah' })).toBeVisible();
 });
 
@@ -55,6 +57,7 @@ test('touch stage preserves page scrolling and fits a narrow viewport', async ({
   const playground = page.getByTestId('character-playground');
   await playground.scrollIntoViewIfNeeded();
   await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+  await page.getByRole('button', { name: 'Click to enter' }).click();
   await page.getByRole('button', { name: 'Skip intro' }).click();
   await expect(playground).toHaveCSS('touch-action', 'pan-y');
   await expect(page.getByTestId('character-world')).toHaveCSS('touch-action', 'pan-y');
@@ -65,7 +68,7 @@ test('touch stage preserves page scrolling and fits a narrow viewport', async ({
   await context.close();
 });
 
-test('voice, effects and music are on by default, start at the first click and mute from their toggles', async ({ page }) => {
+test('voice, effects and music are on by default and start with the enter click, then mute from their toggles', async ({ page }) => {
   await page.addInitScript(() => {
     const Native = window.AudioContext;
     window.AudioContext = class extends Native {
@@ -74,12 +77,14 @@ test('voice, effects and music are on by default, start at the first click and m
   });
   await page.goto('/');
   await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+  await expect(page.getByTestId('character-hero')).toHaveAttribute('data-phase', 'opening');
+  await page.getByRole('button', { name: 'Click to enter' }).click();
+  await expect.poll(() => page.evaluate(() => (window as Window & { characterAudio?: AudioContext }).characterAudio?.state)).toBe('running');
   const sound = page.getByRole('button', { name: 'Mute character sound' });
   const music = page.getByRole('button', { name: 'Stop music' });
   await expect(sound).toHaveAttribute('aria-pressed', 'true');
   await expect(music).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Skip intro' }).click();
-  await expect.poll(() => page.evaluate(() => (window as Window & { characterAudio?: AudioContext }).characterAudio?.state)).toBe('running');
   await expect(page.getByRole('status')).toContainText('Hey, my name is Noah. Ask me a question down here.', { timeout: 15_000 });
   await page.getByRole('button', { name: 'Say hi' }).click();
   await expect(page.getByRole('status')).toContainText('Hi, you see me? Do you see me? Oh, hello.');
@@ -95,6 +100,7 @@ test('timed startup runs without scrolling and hover never issues movement comma
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+  await page.getByRole('button', { name: 'Click to enter' }).click();
   const world = page.getByTestId('character-playground');
   await expect(world).toHaveAttribute('data-phase', 'approach', { timeout: 8_000 });
   expect(await page.evaluate(() => scrollY)).toBe(0);
@@ -124,6 +130,7 @@ test('uncommanded character visits his bedroom stations, then a key interrupts',
   test.setTimeout(90_000);
   await page.goto('/');
   await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+  await page.getByRole('button', { name: 'Click to enter' }).click();
   await page.getByRole('button', { name: 'Skip intro' }).click();
   const world = page.getByTestId('character-playground');
   await expect.poll(() => world.getAttribute('data-station'), { timeout: 30_000 }).toMatch(/desk|printer|rack|ball|bed/);
@@ -138,6 +145,7 @@ test('scrolling down makes him follow into the lab and about rooms, Show me send
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+  await page.getByRole('button', { name: 'Click to enter' }).click();
   await page.getByRole('button', { name: 'Skip intro' }).click();
   const world = page.getByTestId('character-playground');
   const lab = page.getByRole('region', { name: 'Things I’ve built' });

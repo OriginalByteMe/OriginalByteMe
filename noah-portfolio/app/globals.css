@@ -2488,6 +2488,12 @@ body {
 .character-hero--immersive .character-hero__fallback { position: absolute; right: 7vw; top: 17vh; width: min(33vw, 26rem); z-index: 0; }
 .character-hero--immersive .character-hero__restore { position: absolute; z-index: 6; right: 10vw; bottom: 5rem; }
 .character-hero--immersive .character-hero__loading { z-index: 5; left: auto; right: 10vw; transform: none; bottom: 5rem; }
+/* Covers the whole title card so a click anywhere enters; the pill is the visible and focusable target. */
+.character-hero--immersive .character-hero__enter { position: absolute; inset: 0; z-index: 5; display: grid; place-items: end center; padding-bottom: 5rem; cursor: pointer; }
+.character-hero__enter span { padding: .8rem 1.6rem; border: 1px solid #ffffff66; border-radius: 999px; font: .8rem ui-monospace, monospace; color: #fff; }
+.character-hero__enter:hover span, .character-hero__enter:focus-visible span { background: #ffffff1f; }
+.character-hero__enter:focus-visible { outline: none; }
+.character-hero__enter:focus-visible span { outline: 3px solid #8b6cc1; outline-offset: 2px; }
 .character-stage[data-phase="bonk"]::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 8rem #af7d9466; pointer-events: none; border: 2px solid #ffffff55; border-radius: 5%; }
 @media (max-width: 700px) {
   .immersive-hero__copy { top: 6.5rem; left: 1.5rem; max-width: calc(100% - 3rem); }

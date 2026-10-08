@@ -23,7 +23,7 @@ export default function HeroCharacter({ fallback, content, sceneRef, onStatus }:
   const [paused, setPaused] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [musicEnabled, setMusicEnabled] = useState(true);
-  const [audioStarted, setAudioStarted] = useState(false);
+  const [entered, setEntered] = useState(false);
   const [greeting, setGreeting] = useState<string | null>(null);
   const [message, setMessage] = useState('Click the floor to send me exploring.');
 
@@ -63,6 +63,7 @@ export default function HeroCharacter({ fallback, content, sceneRef, onStatus }:
         });
         if (cancelled) { scene.dispose(); return; }
         api.current = scene;
+        scene.setPaused(true); // The intro waits on the title card for the click that also unlocks audio.
         cleanup = scene.dispose;
         setStatus('ready');
       } catch {
@@ -76,7 +77,7 @@ export default function HeroCharacter({ fallback, content, sceneRef, onStatus }:
       preference.removeEventListener('change', stopForPreference);
       cleanup?.();
       setGreeting(null);
-      setAudioStarted(false);
+      setEntered(false);
       api.current = null;
     };
   }, [portrait, content, api]);
@@ -85,18 +86,12 @@ export default function HeroCharacter({ fallback, content, sceneRef, onStatus }:
   const ready = status === 'ready' && !showPortrait;
   const reported = showPortrait ? 'fallback' : status;
   useEffect(() => { onStatus?.(reported); }, [reported, onStatus]);
-  // Browsers refuse audio before a gesture, so default-on sound and music start at the first click or key press anywhere.
-  useEffect(() => {
-    const scene = api.current;
-    if (!ready || audioStarted || !scene || (!soundEnabled && !musicEnabled)) return;
-    const start = async () => {
-      const started = await Promise.all([soundEnabled && scene.setSoundEnabled(true), musicEnabled && scene.setMusicEnabled(true)]);
-      if (api.current === scene && started.some(Boolean)) setAudioStarted(true);
-    };
-    window.addEventListener('click', start, true);
-    window.addEventListener('keydown', start, true);
-    return () => { window.removeEventListener('click', start, true); window.removeEventListener('keydown', start, true); };
-  }, [ready, audioStarted, soundEnabled, musicEnabled, api]);
+  // Browsers refuse audio before a gesture, so the intro and default-on sound and music start together on the enter click.
+  const enter = () => {
+    api.current?.setPaused(false); setEntered(true);
+    if (soundEnabled) toggle(true, (scene) => scene.setSoundEnabled(true), setSoundEnabled);
+    if (musicEnabled) toggle(true, (scene) => scene.setMusicEnabled(true), setMusicEnabled);
+  };
   /** Both toggles ask the scene for the real state: a browser can refuse audio. */
   const toggle = async (next: boolean, request: (scene: CharacterScene) => Promise<boolean>, apply: (on: boolean) => void) => {
     const scene = api.current;
@@ -119,7 +114,8 @@ export default function HeroCharacter({ fallback, content, sceneRef, onStatus }:
       </figure>
       {!showPortrait && <div className="character-hero__opening" aria-hidden="true"><p>Hi, I’m<br /><em>Noah Rijkaard.</em></p></div>}
       {status === 'loading' && !showPortrait && <p className="character-hero__loading" role="status">Waking up the good vibes…</p>}
-      {ready && <div className="character-hero__controls" aria-label="Character controls">
+      {ready && !entered && <button type="button" className="character-hero__enter" onClick={enter}><span>Click to enter</span></button>}
+      {ready && entered && <div className="character-hero__controls" aria-label="Character controls">
         {phase !== 'roam' && <button type="button" onClick={() => api.current?.skipIntro()}>Skip intro</button>}
         <button type="button" onClick={() => { const next = !paused; setPaused(next); api.current?.setPaused(next); }} aria-pressed={paused}>{paused ? 'Resume' : 'Pause'}</button>
         <button type="button" onClick={() => api.current?.wave()}>Say hi <span aria-hidden="true">↗</span></button>
