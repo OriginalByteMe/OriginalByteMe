@@ -31,7 +31,7 @@ export default function CharacterWorld({ content }: { content: WorldContent }) {
         <div className="character-world__panel" data-character-ui>
           <p className="character-world__eyebrow">Tech lab</p>
           <h2 id="lab-heading">Things I’ve built</h2>
-          <p className="character-world__intro">Every project has an exhibit in my lab. Press Show me and I’ll go play with it.</p>
+          <p className="character-world__intro">Every project and skill group has a machine in my lab. Press Show me and I’ll show it to you.</p>
           <ul className="character-world__projects">
             {content.projects.map((project) => (
               <li key={project.slug}>

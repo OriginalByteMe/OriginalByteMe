@@ -140,7 +140,7 @@ test('uncommanded character visits his bedroom stations, then a key interrupts',
   await expect(world).toHaveAttribute('data-activity', 'idle');
 });
 
-test('scrolling down makes him follow into the lab and about rooms, Show me sends him to an exhibit, and scrolling up brings him back', async ({ page }) => {
+test('scrolling down makes him follow into the lab and about rooms, Show me makes him present a project with a Visit link, and scrolling up brings him back', async ({ page }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
@@ -154,10 +154,13 @@ test('scrolling down makes him follow into the lab and about rooms, Show me send
   await expect(world).toHaveAttribute('data-area', 'lab', { timeout: 10_000 });
   await expect(world).toHaveAttribute('data-tour', 'settled', { timeout: 10_000 });
   await lab.getByRole('button', { name: 'Show me Moodify' }).click();
-  await expect(world).toHaveAttribute('data-station', 'project:moodify');
-  await expect(world).toHaveAttribute('data-activity', 'perform', { timeout: 20_000 });
+  await expect(world).toHaveAttribute('data-presenting', 'project:moodify', { timeout: 20_000 });
+  const visit = page.locator('.character-stage__sign');
+  await expect(visit).toHaveAttribute('href', 'https://github.com/OriginalByteMe/Moodify', { timeout: 20_000 });
+  await expect(visit).toHaveAttribute('target', '_blank');
   await page.getByRole('region', { name: 'About me' }).evaluate((section) => section.scrollIntoView());
   await expect(world).toHaveAttribute('data-area', 'about', { timeout: 15_000 });
+  await expect(visit).toHaveCount(0);
   await page.evaluate(() => scrollTo(0, 0));
   await expect.poll(() => world.getAttribute('data-tour'), { timeout: 5_000 }).toBe('jump');
   await expect(world).toHaveAttribute('data-area', 'bedroom', { timeout: 20_000 });
