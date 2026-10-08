@@ -657,7 +657,6 @@ body {
 
 .profile-identity { grid-area: identity; }
 .profile-portrait-cell { grid-area: portrait; min-width: 0; }
-.profile-ask { grid-area: ask; }
 
 .hero-action {
   display: inline-flex;
@@ -845,82 +844,6 @@ body {
   transition: none;
 }
 
-.ask-launcher-button {
-  display: inline-flex;
-  width: 3.5rem;
-  height: 3.5rem;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid hsl(var(--ring) / 0.56);
-  border-radius: 9999px;
-  background: hsl(var(--backdrop-scene-violet));
-  color: hsl(var(--background));
-  box-shadow: 0 1.125rem 2.75rem -1rem hsl(var(--backdrop-scene-violet) / 0.68);
-  transition: transform 180ms ease, box-shadow 180ms ease;
-}
-
-.ask-launcher-button svg {
-  width: 1.5rem;
-  height: 1.5rem;
-}
-
-.ask-launcher-button:hover {
-  box-shadow: 0 1.25rem 3rem -1rem hsl(var(--backdrop-scene-violet) / 0.78);
-  transform: translateY(-0.125rem);
-}
-
-.ask-launcher-button:active {
-  transform: translateY(0) scale(0.98);
-}
-
-.ask-launcher-button:focus-visible {
-  outline: 0.1875rem solid hsl(var(--ring) / 0.42);
-  outline-offset: 0.25rem;
-}
-
-.profile-ask-launcher {
-  width: min(100%, 38rem);
-  justify-self: center;
-  text-align: left;
-}
-
-.profile-ask-launcher__entry {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.profile-ask-launcher__cta {
-  color: hsl(var(--foreground) / 0.72);
-  font-size: 0.8125rem;
-  line-height: 1.4;
-  text-align: center;
-}
-
-.profile-ask-launcher__composer {
-  --console-accent: hsl(var(--ring) / 0.78);
-  --console-border: hsl(var(--border) / 0.92);
-  --console-border-strong: hsl(var(--ring) / 0.52);
-  --console-muted: hsl(var(--foreground) / 0.68);
-  --console-surface-raised: hsl(var(--background) / 0.62);
-  margin-top: 1rem;
-  border: 1px solid var(--console-border);
-  border-radius: 1.5rem;
-  background: hsl(var(--card) / 0.9);
-  padding: 1.5rem;
-  box-shadow: 0 1.25rem 2.5rem -1.75rem hsl(var(--foreground) / 0.28);
-}
-
-.dark .profile-ask-launcher__composer {
-  --console-accent: hsl(var(--backdrop-scene-violet) / 0.92);
-  --console-border: hsl(var(--foreground) / 0.18);
-  --console-border-strong: hsl(var(--backdrop-scene-violet) / 0.56);
-  --console-muted: hsl(var(--foreground) / 0.76);
-  --console-surface-raised: hsl(var(--background) / 0.72);
-}
-
 .site-listening-section-anchor {
   width: 100%;
   align-self: stretch;
@@ -1099,10 +1022,6 @@ body {
     right: 0;
   }
 
-  .profile-ask-launcher__composer {
-    padding: 1rem;
-  }
-
   .listening-easter-egg[data-align="left"] {
     left: 1rem;
   }
@@ -1137,209 +1056,171 @@ body {
   }
 }
 
-/* The expanded Ask-Me composer keeps the same restrained editorial controls
-   as the dock without returning to an always-open hero card. */
-
-.ask-editorial__heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
+/* The always-open Ask bar, pinned to the bottom of the viewport in every mode.
+   --ask-bar-space is the strip it occupies; world controls and signs sit above it. */
+:root {
+  --ask-bar-space: calc(8.25rem + env(safe-area-inset-bottom, 0px));
 }
 
-.ask-editorial__heading > div:first-child {
-  min-width: 0;
+.site-shell {
+  padding-bottom: var(--ask-bar-space);
 }
 
-.ask-editorial__eyebrow {
-  color: var(--console-muted);
-}
-
-.ask-editorial__title {
-  margin-top: 0.5rem;
-  font-family: var(--font-serif), Georgia, serif;
-  font-size: 1.5rem;
-  line-height: 1.125;
-  letter-spacing: -0.025em;
-}
-
-.ask-editorial__intro {
-  margin-top: 0.75rem;
-  color: var(--console-muted);
-  font-size: 0.8125rem;
-  line-height: 1.55;
-}
-
-
-.ask-editorial__eyebrow {
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.625rem;
-  letter-spacing: 0.25em;
-  text-transform: uppercase;
-}
-
-
-.ask-composer {
-  width: 100%;
-  min-width: 0;
-  margin-top: 1.25rem;
-}
-
-.ask-composer__field {
+.ask-bar {
+  position: fixed;
+  z-index: 50;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  left: 50%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.5rem;
-  border: 1px solid var(--console-border, hsl(var(--border)));
-  border-radius: 0.875rem;
-  background: var(--console-surface-raised, hsl(var(--card)));
-  padding: 0.5rem;
-  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.04);
-  transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  width: min(42rem, calc(100vw - 1.5rem));
+  gap: 0.35rem;
+  border: 1px solid hsl(var(--story-border) / 0.7);
+  border-radius: 1.75rem;
+  background: hsl(var(--story-surface-raised) / 0.88);
+  padding: 0.45rem;
+  color: hsl(var(--story-ink));
+  box-shadow: var(--story-shadow);
+  transform: translateX(-50%);
+  backdrop-filter: blur(14px) saturate(1.2);
 }
 
-.ask-composer__field:focus-within {
-  border-color: var(--console-border-strong, hsl(var(--ring) / 0.58));
-  box-shadow:
-    0 0 0 0.1875rem hsl(var(--ring) / 0.12),
-    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+.ask-bar__form {
+  position: relative;
 }
 
-.profile-ask-launcher__composer:has(.ask-composer__field:focus-within) {
-  border-color: var(--console-border-strong);
+.ask-bar__input {
+  width: 100%;
+  min-height: 3.25rem;
+  border: 1px solid hsl(var(--story-border));
+  border-radius: 999px;
+  background: hsl(var(--story-surface));
+  padding: 0.25rem 3.75rem 0.25rem 1.2rem;
+  color: inherit;
+  /* 16px keeps iOS from zooming the page on focus. */
+  font-size: 1rem;
+  transition: border-color 180ms ease;
 }
 
-.ask-composer__field-meta {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.125rem 0.5rem 0;
-  color: var(--console-muted, hsl(var(--muted-foreground)));
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.5625rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.ask-bar__input::placeholder {
+  color: hsl(var(--story-muted));
 }
 
-.ask-composer__input {
-  min-width: 0;
-  min-height: 2.75rem;
-  border: 0;
-  background: transparent;
-  padding-inline: 0.5rem;
-  color: hsl(var(--foreground));
-  font-size: 0.875rem;
-  outline: none;
-}
-
-.ask-composer__input::placeholder {
-  color: var(--console-muted, hsl(var(--muted-foreground)));
-  opacity: 0.72;
-}
-
-.ask-composer__input:disabled {
-  cursor: not-allowed;
-  opacity: 0.58;
-}
-
-.ask-composer__submit {
+.ask-bar__submit {
+  position: absolute;
+  top: 50%;
+  right: 0.25rem;
   display: inline-flex;
   width: 2.75rem;
   height: 2.75rem;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--console-border-strong, hsl(var(--ring) / 0.52));
-  border-radius: 0.625rem;
-  background: hsl(var(--ring) / 0.9);
-  color: hsl(var(--primary-foreground));
-  transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease;
+  border-radius: 999px;
+  background: hsl(var(--story-accent));
+  color: hsl(var(--story-surface));
+  transform: translateY(-50%);
+  transition: opacity 180ms ease;
 }
 
-.ask-composer__submit:hover:not(:disabled) {
-  border-color: hsl(var(--ring) / 0.78);
-  background: hsl(var(--ring));
-}
-
-.ask-composer__submit:focus-visible,
-.ask-composer__route:focus-visible {
-  outline: 2px solid hsl(var(--ring) / 0.72);
-  outline-offset: 3px;
-}
-
-.ask-composer__submit:disabled {
+.ask-bar__submit:disabled {
   cursor: not-allowed;
-  opacity: 0.42;
+  opacity: 0.4;
 }
 
-.ask-composer__routes {
-  margin-top: 1rem;
+.ask-bar__input:focus-visible,
+.ask-bar__submit:focus-visible,
+.ask-bar__route:focus-visible {
+  border-color: hsl(var(--story-accent));
+  outline: var(--story-focus-width) solid hsl(var(--story-accent));
+  outline-offset: 1px;
 }
 
-.ask-composer__routes-label {
-  color: var(--console-muted, hsl(var(--muted-foreground)));
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.5625rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+/* One row of prompt chips; it scrolls sideways on narrow screens instead of growing taller. */
+.ask-bar__routes {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding: 0.25rem;
+  scrollbar-width: none;
 }
 
-.ask-composer__route-list {
-  margin-top: 0.375rem;
-  border-bottom: 1px solid var(--console-border, hsl(var(--border)));
+.ask-bar__routes:empty {
+  display: none;
 }
 
-.ask-composer__route {
-  display: grid;
-  width: 100%;
-  min-height: 2.75rem;
-  grid-template-columns: 2rem minmax(0, 1fr);
-  align-items: center;
-  gap: 0.5rem;
-  border-top: 1px solid var(--console-border, hsl(var(--border)));
-  background: transparent;
-  padding: 0.5rem 0.25rem;
-  color: var(--console-muted, hsl(var(--muted-foreground)));
+.ask-bar__route {
+  min-height: 2.25rem;
+  flex: 0 0 auto;
+  border: 1px solid hsl(var(--story-border) / 0.8);
+  border-radius: 999px;
+  background: hsl(var(--story-surface) / 0.7);
+  padding: 0.35rem 0.85rem;
+  color: hsl(var(--story-muted));
   font-size: 0.75rem;
-  line-height: 1.35;
-  text-align: left;
-  transition: border-color 180ms ease, color 180ms ease, background-color 180ms ease;
+  white-space: nowrap;
 }
 
-.ask-composer__route span {
-  color: var(--console-accent, hsl(var(--ring)));
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.5625rem;
-  letter-spacing: 0.1em;
+.ask-bar__route:hover,
+.ask-bar__route--home {
+  border-color: hsl(var(--story-accent) / 0.6);
+  color: hsl(var(--story-accent));
 }
 
-.ask-composer__route:hover:not(:disabled),
-.ask-composer__route:focus-visible {
-  border-color: var(--console-border-strong, hsl(var(--ring) / 0.52));
-  background: hsl(var(--ring) / 0.055);
-  color: hsl(var(--foreground));
+/* While the character promotes the bar, a hand-drawn arrow points down at the box. */
+.ask-bar__arrow {
+  position: absolute;
+  bottom: calc(100% - 0.5rem);
+  left: 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.15rem;
+  color: hsl(var(--story-accent));
+  pointer-events: none;
+  animation:
+    ask-bar-arrow-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both,
+    ask-bar-arrow-bob 1.3s ease-in-out 420ms infinite alternate;
 }
 
-.ask-composer__route:disabled {
-  cursor: not-allowed;
-  opacity: 0.48;
+.ask-bar__arrow span {
+  border: 1px solid hsl(var(--story-accent) / 0.4);
+  border-radius: 999px;
+  background: hsl(var(--story-surface-raised));
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  box-shadow: var(--story-shadow);
 }
 
-@media (max-width: 30rem) {
-  .ask-editorial__heading {
-    gap: 0.75rem;
+.ask-bar__arrow svg {
+  width: 3rem;
+  height: 3.5rem;
+  margin-top: 1.1rem;
+  stroke: currentColor;
+}
+
+@keyframes ask-bar-arrow-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.75rem);
+  }
+}
+
+@keyframes ask-bar-arrow-bob {
+  to {
+    transform: translateY(0.4rem);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ask-composer__field,
-  .ask-composer__submit,
-  .ask-composer__route {
+  .ask-bar__arrow {
+    animation: none;
+  }
+
+  .ask-bar__input,
+  .ask-bar__submit {
     transition: none;
   }
 
-  .ask-composer__submit svg {
+  .ask-bar__submit svg {
     animation: none;
   }
 }
@@ -2406,56 +2287,43 @@ body {
 @media (max-width: 36rem) { .character-stage__speech { font-size: .56rem; padding: .55rem .6rem; top: 2.7rem; } }
 
 /*
- * Character world: one 3D viewport behind the hero, lab and about sections. While the scene
- * loads or runs, the viewport sticks and the sections scroll over it; otherwise (portrait
- * fallback) it stays in the hero and the lab and about panels read as plain page content.
+ * Character world: one sticky 3D viewport over the town street, and one scrolling section per
+ * lot. The renderer clears transparent, so the page's dithered Backdrop is the sky. Sections hold
+ * the chapter facts as screen-reader text. Without the scene (portrait fallback) the viewport
+ * stays in the hero and the page's 2D Story tells the chapters instead.
  */
 .character-world { position: relative; isolation: isolate; color: #37304a; touch-action: pan-y; }
 .dark .character-world { color: #eee6f3; }
-.character-world__viewport { position: absolute; inset: 0 0 auto; height: 100svh; overflow: clip; background: radial-gradient(ellipse at 68% 32%, #fff6e7 0%, #efe4dc 50%, #cdbbd9 100%); }
-.dark .character-world__viewport { background: radial-gradient(ellipse at 68% 32%, #4f405b 0%, #30293a 55%, #1f1b28 100%); }
-.character-world__viewport::after { content: ''; position: absolute; z-index: 1; inset: 0; background: linear-gradient(100deg, #f5eee2d9 0%, #f5eee266 30%, transparent 55%); pointer-events: none; }
-.dark .character-world__viewport::after { background: linear-gradient(100deg, #282330e0 0%, #28233066 30%, transparent 58%); }
+.character-world__viewport { position: absolute; inset: 0 0 auto; height: 100svh; overflow: clip; }
 /* Sticky from first paint so the scene can load wherever the page opens (e.g. #about); only the portrait fallback stays put in the hero. */
 .character-world:not([data-status="fallback"]) .character-world__viewport { position: sticky; top: 0; }
 .character-world:not([data-status="fallback"]) > #hero { margin-top: -100svh; }
-/* Sections pass clicks through to the scene; only panels and controls take pointer events. */
+/* Sections pass clicks through to the scene. */
 .character-world > section { position: relative; z-index: 2; pointer-events: none; }
-.character-world__area { min-height: 140svh; padding: clamp(6rem, 14vh, 9rem) clamp(1.5rem, 6vw, 7rem) 30svh; }
-.character-world[data-status="fallback"] .character-world__area { min-height: 0; padding-top: 5.5rem; padding-bottom: 5rem; }
-.character-world__panel { pointer-events: auto; max-width: min(34rem, 38vw); padding: 1.6rem 1.7rem; border: 1px solid #9c80b630; border-radius: 1.8rem; background: #fffaf2e6; box-shadow: 0 24px 70px -40px #3a334580; }
-.dark .character-world__panel { background: #2c2533eb; border-color: #bba6d830; }
-.character-world[data-status="fallback"] .character-world__panel { max-width: 46rem; }
-.character-world__eyebrow { font: .62rem ui-monospace, monospace; letter-spacing: .2em; text-transform: uppercase; color: #7a658a; }
-.dark .character-world__eyebrow { color: #c5b3d3; }
-.character-world__panel h2 { margin-top: .6rem; font: clamp(2rem, 3.4vw, 3.1rem)/1.02 Georgia, serif; letter-spacing: -.04em; }
-.character-world__intro { margin-top: .8rem; font-size: .9rem; line-height: 1.65; color: #6a5977; }
-.dark .character-world__intro { color: #bdaecd; }
-.character-world__subheading { margin-top: 1.7rem; font: 1.35rem Georgia, serif; letter-spacing: -.02em; }
-.character-world__projects { display: grid; gap: .8rem; margin-top: 1.4rem; }
-.character-world__projects li { padding: 1rem 1.1rem; border-radius: 1.2rem; background: #f4ecdfcc; }
-.dark .character-world__projects li { background: #3a3142cc; }
-.character-world__projects h3 { font: 1.15rem Georgia, serif; color: #72509c; }
-.dark .character-world__projects h3 { color: #c9b3ec; }
-.character-world__projects p { margin-top: .35rem; font-size: .82rem; line-height: 1.6; }
-.character-world__projects .character-world__tech { font: .62rem/1.5 ui-monospace, monospace; letter-spacing: .05em; color: #84718f; }
-.character-world__actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .7rem; }
-.character-world__actions a, .character-world__show { display: inline-flex; min-height: 44px; align-items: center; gap: .35rem; padding: .45rem .9rem; border: 1px solid #9c80b640; border-radius: 999px; background: #fffaf2; font: .66rem ui-monospace, monospace; color: #654c7b; }
-.character-world__show { border-color: transparent; background: #72509c; color: #fffaf2; }
-.dark .character-world__actions a { background: #332c3b; color: #cfb9e3; }
-.dark .character-world__show { background: #b39bc3; color: #241f30; }
-.character-world__actions a:focus-visible, .character-world__show:focus-visible { outline: 3px solid #9976bd; outline-offset: 3px; }
-.character-world__skills { display: grid; gap: .65rem; margin-top: .8rem; }
-.character-world__skills dt { font: .6rem ui-monospace, monospace; letter-spacing: .14em; text-transform: uppercase; color: #7a658a; }
-.character-world__skills dd { margin-top: .15rem; font-size: .84rem; line-height: 1.55; }
-.character-world__career, .character-world__facts { display: grid; gap: .45rem; margin-top: .7rem; font-size: .86rem; line-height: 1.55; }
-.character-world__career span { display: block; font: .62rem ui-monospace, monospace; letter-spacing: .08em; color: #84718f; }
-.character-world__facts li::before { content: '✦ '; color: #eb9a84; }
-.character-world__portrait { display: flex; align-items: center; gap: 1rem; margin-top: 1.6rem; }
-.character-world__portrait img { width: 6.5rem; height: auto; border: 6px solid #e8d9c4; border-radius: .5rem; box-shadow: 0 14px 30px -18px #3a334599; }
-.character-world__portrait figcaption { font: .66rem/1.6 ui-monospace, monospace; color: #84718f; }
+/* Each lot holds the camera for a while before the next section pans it along the street. */
+.character-world__area { min-height: 140svh; }
+.character-world[data-status="fallback"] .character-world__area { min-height: 0; }
+/* A keyboard user tabbing to a link in a lot's facts sees them as a panel instead of screen-reader text. */
+.character-world__facts:focus-within {
+  top: 6rem; left: clamp(1rem, 6vw, 7rem); width: min(34rem, calc(100vw - 2rem)); height: auto; max-height: calc(100svh - var(--ask-bar-space, 8rem) - 8rem);
+  margin: 0; padding: 1.4rem 1.6rem; overflow: auto; clip: auto; clip-path: none; white-space: normal; pointer-events: auto;
+  border-radius: 1.6rem; background: #fffaf2f2; box-shadow: 0 24px 70px -40px #3a334580; font-size: .85rem; line-height: 1.6;
+}
+.dark .character-world__facts:focus-within { background: #2c2533f2; }
+.character-world__facts:focus-within h2 { font: 1.6rem Georgia, serif; }
+.character-world__facts a:focus-visible { outline: 3px solid #9976bd; outline-offset: 2px; }
+/* Live 3D: the town tells the chapters, so the home-mode 2D Story steps aside. Ask-Me answers still take over the page. */
+.site-shell[data-takeover="false"]:has(.character-world:is([data-status="loading"], [data-status="ready"])) > #story { display: none; }
+/* The Visit sign at his feet while he presents: the scene reports the top-centre point in host pixels and keeps 16rem of room for it. */
+.character-stage__sign { position: absolute; z-index: 4; transform: translateX(-50%); display: inline-flex; width: max-content; max-width: min(16rem, calc(100% - 3rem)); min-height: 44px; align-items: center; justify-content: center; gap: .35rem; padding: .55rem 1rem; border: 2px solid #72509c; border-radius: 1.4rem; background: #fffaf2; font: 600 .78rem/1.3 ui-monospace, monospace; text-align: center; color: #4b2f70; box-shadow: 0 10px 26px -14px #3a3345a6; }
+.dark .character-stage__sign { background: #2c2533; border-color: #c9b3ec; color: #eee1f4; }
+.character-stage__sign:hover { background: #f4ecdf; }
+.character-stage__sign:focus-visible { outline: 3px solid #8b6cc1; outline-offset: 3px; }
 .immersive-hero { position: relative; min-height: 100svh; }
 .immersive-hero__copy { position: absolute; z-index: 2; top: clamp(6.5rem, 15vh, 10rem); left: clamp(1.5rem, 6vw, 7rem); max-width: min(47vw, 39rem); pointer-events: none; }
+/* Over the live town the copy can sit on sky or ground, so a soft blurred wash keeps it legible. */
+.character-world:not([data-status="fallback"]) .immersive-hero__copy::before { content: ''; position: absolute; z-index: -1; inset: -1.5rem -2rem; border-radius: 3rem; background: #f5eee2c7; filter: blur(22px); }
+.dark .character-world:not([data-status="fallback"]) .immersive-hero__copy::before { background: #1f1b28c7; }
 .immersive-hero__eyebrow { font: .65rem ui-monospace, monospace; letter-spacing: .23em; text-transform: uppercase; color: #7a658a; }
 .immersive-hero__identity h1 { margin-top: 1rem; font-family: Georgia, serif; font-size: clamp(3rem, 6.7vw, 7rem); line-height: .98; letter-spacing: -.055em; }
 .immersive-hero__identity h1 em { color: #72509c; font-weight: 400; }
@@ -2467,29 +2335,23 @@ body {
 .immersive-hero__contacts svg { width: 14px; height: 14px; }
 .dark .immersive-hero__contacts a { background: #332c3ba3; color: #cfb9e3; }
 .immersive-hero__contacts a:focus-visible { outline: 3px solid #9976bd; outline-offset: 3px; }
-.immersive-hero__ask { position: absolute; z-index: 5; bottom: 3.5rem; left: clamp(1.5rem, 6vw, 7rem); width: min(26rem, calc(100% - 3rem)); pointer-events: auto; }
-.immersive-hero__ask .profile-ask-launcher__entry { align-items: flex-start; }
-.immersive-hero__ask .profile-ask-launcher__composer { max-height: 58svh; overflow-y: auto; background: #fffaf4f7; }
-.dark .immersive-hero__ask .profile-ask-launcher__composer { background: #302735f7; }
-.immersive-hero__scroll { position: absolute; z-index: 2; bottom: 1.2rem; left: 50%; transform: translateX(-50%); font: .58rem ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; pointer-events: none; color: #927b9f; }
+.immersive-hero__scroll { position: absolute; z-index: 2; bottom: calc(var(--ask-bar-space, 8rem) + 1rem); left: clamp(1.5rem, 6vw, 7rem); font: .58rem ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; pointer-events: none; color: #927b9f; }
 .immersive-hero__scroll span { display: inline-block; margin-left: .5rem; }
 .character-hero--immersive { position: absolute; inset: 0; max-width: none; width: 100%; margin: 0; }
 .character-hero--immersive .character-stage { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; aspect-ratio: auto; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
 .character-hero--immersive .character-stage__canvas { pointer-events: none; }
 .character-hero--immersive .character-stage__eyebrow { left: auto; right: 5vw; top: 6rem; width: min(25rem, 42vw); font-size: .6rem; }
-/* Everything on the right sits above the fixed AskDock bubble (bottom-right, about 5.5rem tall). */
-.character-hero--immersive .character-stage__caption { bottom: 9rem; left: auto; right: 4vw; width: min(24rem, 45vw); font-size: .85rem; }
-.character-hero--immersive .character-stage__note { bottom: 11.5rem; left: auto; right: 4vw; transform: none; }
-.character-hero--immersive .character-stage__speech { top: auto; bottom: 14.3rem; left: auto; right: 4vw; transform: none; width: min(22rem, 42vw); font-size: .8rem; line-height: 1.6; padding: 1rem 1.15rem; }
-.character-hero--immersive .character-hero__controls { position: absolute; z-index: 6; right: 4vw; bottom: 5rem; width: min(36rem, 58vw); margin: 0; padding: .25rem; border: 1px solid #9c80b638; border-radius: 1.8rem; background: #fffaf2c9; }
-/* Seven controls wrap to two rows below this width and would cover the caption, which repeats the note. */
-@media (max-width: 75rem) { .character-hero--immersive .character-stage__caption { display: none; } }
+/* Everything on the right stacks above the controls, which sit above the Ask bar. The caption repeats the note, so the street keeps that room. */
+.character-hero--immersive .character-stage__caption { display: none; }
+.character-hero--immersive .character-stage__note { bottom: calc(var(--ask-bar-space, 8rem) + 4.2rem); left: auto; right: 4vw; transform: none; }
+.character-hero--immersive .character-stage__speech { top: auto; bottom: calc(var(--ask-bar-space, 8rem) + 6.8rem); left: auto; right: 4vw; transform: none; width: min(22rem, 42vw); font-size: .8rem; line-height: 1.6; padding: 1rem 1.15rem; }
+.character-hero--immersive .character-hero__controls { position: absolute; z-index: 6; right: 4vw; bottom: calc(var(--ask-bar-space, 8rem) + .5rem); width: min(36rem, 58vw); margin: 0; padding: .25rem; border: 1px solid #9c80b638; border-radius: 1.8rem; background: #fffaf2c9; }
 .dark .character-hero--immersive .character-hero__controls { background: #302735d9; }
 .character-hero--immersive .character-hero__fallback { position: absolute; right: 7vw; top: 17vh; width: min(33vw, 26rem); z-index: 0; }
-.character-hero--immersive .character-hero__restore { position: absolute; z-index: 6; right: 10vw; bottom: 5rem; }
-.character-hero--immersive .character-hero__loading { z-index: 5; left: auto; right: 10vw; transform: none; bottom: 5rem; }
+.character-hero--immersive .character-hero__restore { position: absolute; z-index: 6; right: 10vw; bottom: calc(var(--ask-bar-space, 8rem) + .5rem); }
+.character-hero--immersive .character-hero__loading { z-index: 5; left: auto; right: 10vw; transform: none; bottom: calc(var(--ask-bar-space, 8rem) + .5rem); }
 /* Covers the whole title card so a click anywhere enters; the pill is the visible and focusable target. */
-.character-hero--immersive .character-hero__enter { position: absolute; inset: 0; z-index: 5; display: grid; place-items: end center; padding-bottom: 5rem; cursor: pointer; }
+.character-hero--immersive .character-hero__enter { position: absolute; inset: 0; z-index: 5; display: grid; place-items: end center; padding-bottom: calc(var(--ask-bar-space, 8rem) + 1.5rem); cursor: pointer; }
 .character-hero__enter span { padding: .8rem 1.6rem; border: 1px solid #ffffff66; border-radius: 999px; font: .8rem ui-monospace, monospace; color: #fff; }
 .character-hero__enter:hover span, .character-hero__enter:focus-visible span { background: #ffffff1f; }
 .character-hero__enter:focus-visible { outline: none; }
@@ -2502,36 +2364,26 @@ body {
   .immersive-hero__eyebrow { font-size: .5rem; }
   .immersive-hero__contacts { gap: .25rem; margin-top: .6rem; }
   .immersive-hero__contacts a { padding: .35rem .6rem; font-size: .64rem; }
-  .character-world__viewport::after { background: linear-gradient(180deg, #f5eee2d9 0%, #f5eee299 28%, transparent 50%); }
-  .dark .character-world__viewport::after { background: linear-gradient(180deg, #282330e6 0%, #28233088 28%, transparent 50%); }
-  /* The room is seen first on arrival; the panel peeks above the controls and scrolls up over it. */
-  .character-world__area { min-height: 170svh; padding: calc(100svh - 9rem) 1rem 20svh; }
-  .character-world__panel { max-width: none; padding: 1.2rem 1.15rem; }
-  .immersive-hero__ask { bottom: 6.5rem; left: 1.25rem; width: calc(100% - 2.5rem); }
-  .immersive-hero__ask .profile-ask-launcher__entry { align-items: flex-start; }
   .character-hero--immersive .character-stage__eyebrow { top: auto; bottom: 16rem; right: 1.4rem; font-size: .45rem; width: 45vw; }
-  .character-hero--immersive .character-stage__speech { bottom: 17.5rem; right: 1.3rem; width: min(18rem, 65vw); font-size: .65rem; padding: .65rem .85rem; }
-  .character-hero--immersive .character-stage__note { bottom: 14rem; right: 1.3rem; font-size: .5rem; }
-  .character-hero--immersive .character-stage__caption { display: none; }
-  .character-hero--immersive .character-hero__controls { bottom: 2.6rem; right: 1.2rem; width: calc(100% - 2.4rem); }
+  .character-hero--immersive .character-stage__speech { bottom: calc(var(--ask-bar-space, 8rem) + 9.5rem); right: 1.3rem; width: min(18rem, 65vw); font-size: .65rem; padding: .65rem .85rem; }
+  .character-hero--immersive .character-stage__note { bottom: calc(var(--ask-bar-space, 8rem) + 7rem); right: 1.3rem; font-size: .5rem; }
+  .character-hero--immersive .character-hero__controls { bottom: calc(var(--ask-bar-space, 8rem) + .5rem); right: 1.2rem; width: calc(100% - 2.4rem); }
   .character-hero--immersive .character-hero__fallback { top: 43vh; right: 8vw; width: 40vw; max-width: 14rem; }
-  .character-hero--immersive .character-hero__restore { bottom: 2.6rem; right: 1.2rem; }
-  .immersive-hero__scroll { bottom: .65rem; font-size: .5rem; }
+  .character-hero--immersive .character-hero__restore { bottom: calc(var(--ask-bar-space, 8rem) + .5rem); right: 1.2rem; }
+  .immersive-hero__scroll { display: none; }
 }
 @media (max-height: 680px) and (min-width: 701px) {
   .immersive-hero__copy { top: 6rem; }
   .immersive-hero__identity h1 { font-size: 4rem; }
   .immersive-hero__intro { font-size: .8rem; }
-  .immersive-hero__ask { bottom: 2.5rem; }
 }
 @media (prefers-reduced-motion: reduce) { .immersive-hero { min-height: 100svh; } }
 @media (max-width: 700px) {
   .immersive-hero__copy { top: 5.5rem; }
-  .immersive-hero__ask { bottom: 9rem; }
-  .character-hero--immersive .character-hero__controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); bottom: 1.8rem; padding: .25rem; gap: 0; }
+  .character-hero--immersive .character-hero__controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: .25rem; gap: 0; }
   .character-hero--immersive .character-hero__controls button { min-height: 44px; }
-  .character-hero--immersive .character-stage__speech { left: 1.2rem; right: auto; bottom: 16.5rem; width: min(15rem, 54vw); font-size: .62rem; }
-  .character-hero--immersive .character-stage__note { bottom: 14.9rem; right: 1.2rem; }
+  .character-hero--immersive .character-stage__speech { left: 1.2rem; right: auto; bottom: calc(var(--ask-bar-space, 8rem) + 9rem); width: min(15rem, 54vw); font-size: .62rem; }
+  .character-hero--immersive .character-stage__note { bottom: calc(var(--ask-bar-space, 8rem) + 7rem); right: 1.2rem; }
   .character-hero--immersive .character-stage__eyebrow { display: none; }
 }
 @media (max-height: 520px) and (max-width: 700px) {
@@ -2545,5 +2397,4 @@ body {
 .character-hero__opening p { opacity: var(--intro-title, 1); padding: 2rem; color: #fff; text-align: center; font: clamp(2.5rem, 7vw, 7rem)/1.03 Georgia, serif; letter-spacing: -.045em; }
 .character-hero__opening em { color: #e8daf5; font-weight: 400; }
 .character-world:has(.character-hero[data-phase="opening"]:not([data-status="fallback"])) .immersive-hero__copy,
-.character-world:has(.character-hero[data-phase="opening"]:not([data-status="fallback"])) .immersive-hero__ask,
 .character-world:has(.character-hero[data-phase="opening"]:not([data-status="fallback"])) .immersive-hero__scroll { visibility: hidden; }

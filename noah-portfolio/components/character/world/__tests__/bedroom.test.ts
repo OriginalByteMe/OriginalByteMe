@@ -2,11 +2,12 @@ import * as THREE from 'three';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { stubCanvas2d } from '@/lib/character/__tests__/canvas-stub';
 import { CHARACTER_CONFIG } from '@/lib/character/controller';
-import type { WorldContent } from '@/lib/character/world-content';
+import { corpus } from '@/lib/corpus';
+import { worldContent } from '@/lib/character/world-content';
 import { createBedroom } from '../bedroom';
 import type { Vec3, WorldArea } from '../types';
 
-const content: WorldContent = { projects: [], skills: [], headline: '', location: '', career: [], funFacts: [] };
+const content = worldContent(corpus);
 const R = CHARACTER_CONFIG.radius;
 // The scene's default camera: high and in front of the open edge.
 const camera = new THREE.Vector3(0, 4.7, 11.5);
@@ -48,13 +49,13 @@ describe('createBedroom', () => {
     });
     expect(triangles).toBeLessThanOrEqual(25_000);
     expect(draws).toBeLessThanOrEqual(120);
-    const lower = createBedroom(new THREE.Vector3(0, -18, 0), content);
-    expect(lower.group.position.toArray()).toEqual([0, -18, 0]);
-    lower.dispose();
+    const next = createBedroom(new THREE.Vector3(16, 0, 0), content);
+    expect(next.group.position.toArray()).toEqual([16, 0, 0]);
+    next.dispose();
   });
 
-  it('places every bedroom station where the character can arrive and face its object', () => {
-    expect(area.id).toBe('bedroom');
+  it('places every home station where the character can arrive and face its object', () => {
+    expect(area.id).toBe('home');
     expect(Object.fromEntries(area.stations.map((s) => [s.id, s.kind]))).toEqual({ desk: 'type', printer: 'watch', rack: 'tinker', ball: 'ball', bed: 'read' });
     for (const s of area.stations) {
       expect(insideInset(area, s.stand), s.id).toBe(true);
@@ -67,17 +68,9 @@ describe('createBedroom', () => {
       expect(s.reach.y, s.id).toBeGreaterThanOrEqual(0.75); expect(s.reach.y, s.id).toBeLessThanOrEqual(1.65);
       expect((Math.sin(s.heading) * dx + Math.cos(s.heading) * dz) / distance, s.id).toBeGreaterThan(0.9);
     }
-    expect(insideInset(area, area.exit)).toBe(true);
-    expect(clearance(area, area.exit)).toBeGreaterThanOrEqual(R);
-    expect(area.exit.z).toBeGreaterThan(area.bounds.maxZ - 0.8);
-  });
-
-  it('trips him over the network cable that runs past the exit', () => {
-    const cable = named<THREE.Mesh>(area, 'network-cable');
-    const position = cable.geometry.attributes.position;
-    let nearest = Infinity;
-    for (let i = 0; i < position.count; i++) nearest = Math.min(nearest, Math.hypot(position.getX(i) - area.exit.x, position.getZ(i) - area.exit.z));
-    expect(nearest).toBeLessThan(0.35);
+    expect(insideInset(area, area.entry)).toBe(true);
+    expect(clearance(area, area.entry)).toBeGreaterThanOrEqual(R);
+    expect(area.entry.z).toBeGreaterThan(area.bounds.maxZ - 0.8);
   });
 
   it.each([
@@ -111,7 +104,7 @@ describe('createBedroom', () => {
     }
   });
 
-  it('puts a seat under the seated pelvis and lands him on top of the bed', () => {
+  it('puts a seat under the seated pelvis', () => {
     for (let frame = 1; frame <= 60; frame++) area.update(1 / 30, frame / 30, { stationId: 'desk', progress: frame / 60 });
     expect(station(area, 'desk').seat).toBeCloseTo(0.62, 2);
     expect(station(area, 'bed').seat).toBeCloseTo(0.66, 2);
@@ -122,10 +115,6 @@ describe('createBedroom', () => {
       expect(hitBelow(area, pelvis).point.y, id).toBeCloseTo(s.seat!, 2);
       expect(area.pick(down(pelvis)), id).toBe(id);
     }
-    expect(area.landing.y).toBeGreaterThan(0.4);
-    const above = { ...area.landing, y: area.landing.y + 0.5 };
-    expect(hitBelow(area, above).point.y).toBeCloseTo(area.landing.y, 2);
-    expect(area.pick(down(above))).toBe('bed');
   });
 
   it.each([

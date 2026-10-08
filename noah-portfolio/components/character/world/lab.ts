@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { STATION_LINES } from '@/lib/character/narrative';
 import type { AreaBuilder, Obstacle, Station } from './types';
 
 type V3 = [number, number, number];
@@ -22,8 +23,8 @@ const CAP_Z = WALL_Z + .15; // key cap centre, .14 deep on an .08 plate
 const KEY_BASE = 1.95; // bottom key row centre, above the exhibits as seen from the camera
 const POKE_Y = 1.28; // the skills poke button, at standing hand height
 const BOUNDS = { minX: -4.6, maxX: 4.6, minZ: -2.2, maxZ: 2.6 };
-const EXIT = { x: 3, z: 2.3 };
-const LANDING = { x: 0, y: .6, z: 1.98 };
+const TOOLBOX_X = 3;
+const BEANBAG = { x: 0, z: 1.98 };
 const SCREEN = { width: .62, height: .35 };
 const scratch = { matrix: new THREE.Matrix4(), position: new THREE.Vector3(), rotation: new THREE.Quaternion(), euler: new THREE.Euler(), scale: new THREE.Vector3(), color: new THREE.Color() };
 
@@ -184,7 +185,7 @@ const THEMES: Record<string, Theme> = {
   },
 };
 
-/** Tech Lab: one exhibit per corpus project in an arc (two staggered rows past five), a keyboard wall of every skill, a beanbag landing and a toolbox to trip over at the exit. */
+/** Tech Lab, the workshop lot until it is rebuilt: one exhibit per corpus project in an arc (two staggered rows past five), a keyboard wall of every skill, a beanbag and a toolbox by the entry. */
 export const createLab: AreaBuilder = (origin, content) => {
   const group = new THREE.Group();
   group.name = 'lab';
@@ -214,7 +215,7 @@ export const createLab: AreaBuilder = (origin, content) => {
     const y = KEY_BASE + (rows - 1 - row) * rowHeight, [cap, category] = KEY_COLORS[row % KEY_COLORS.length];
     return [
       { text: skillGroup.category, x: left + categoryWidth / 2, y, width: categoryWidth, color: category, ink: '#fff8ee', column: 0, row, span: 2 },
-      ...skillGroup.skills.map((text, index) => ({ text, x: left + categoryWidth + .06 + keyWidth / 2 + index * (keyWidth + .06), y, width: keyWidth, color: cap, ink: '#3f2849', column: index + 1, row, span: 1 })),
+      ...skillGroup.skills.map(({ name: text }, index) => ({ text, x: left + categoryWidth + .06 + keyWidth / 2 + index * (keyWidth + .06), y, width: keyWidth, color: cap, ink: '#3f2849', column: index + 1, row, span: 1 })),
     ];
   });
   // The poke button sits in a gap of the exhibit arc so the walk to it stays open.
@@ -223,7 +224,7 @@ export const createLab: AreaBuilder = (origin, content) => {
   // Room shell, workbench corner, shelf, cables, toolbox and beanbag: one static draw call.
   const cables: V3[][] = [
     [[1, signY + .15, -2.57], [2.2, signY + .4, -2.57], [3.3, signY + .1, -2.57], [3.36, 2.9, -2.57], [3.38, 1.3, -2.57], [3.5, 1.06, -2.4]],
-    [[EXIT.x + .25, .2, 2.78], [EXIT.x + .5, .03, 2.86], [EXIT.x + .75, .03, 2.95], [EXIT.x + .95, -.08, 3.04], [EXIT.x + 1.05, -.5, 3.06]],
+    [[TOOLBOX_X + .25, .2, 2.78], [TOOLBOX_X + .5, .03, 2.86], [TOOLBOX_X + .75, .03, 2.95], [TOOLBOX_X + .95, -.08, 3.04], [TOOLBOX_X + 1.05, -.5, 3.06]],
   ];
   solid([
     piece(rounded(10.4, .5, 6, .18, 3), CREAM, [0, -.25, .02]),
@@ -256,11 +257,11 @@ export const createLab: AreaBuilder = (origin, content) => {
     piece(rounded(.34, .05, 1.7, .02), PEACH, [-4.77, 2.7, -1.2]),
     ...[CORAL, SAGE, LILAC].map((color, index) => piece(rounded(.26, .2, .34, .04), color, [-4.78, 2.825, -1.8 + index * .55])),
     ...cables.map((points) => piece(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points.map((point) => new THREE.Vector3(...point))), 40, .025, 6), INK)),
-    piece(rounded(.56, .26, .3, .04), CORAL, [EXIT.x, .13, 2.78]),
-    piece(rounded(.58, .06, .32, .02), PLUM, [EXIT.x, .29, 2.78]),
-    piece(new THREE.TorusGeometry(.09, .02, 6, 12, Math.PI), INK, [EXIT.x, .32, 2.78]),
-    piece(rounded(.08, .05, .02, .01), CREAM, [EXIT.x, .22, 2.94]),
-    piece(new THREE.SphereGeometry(.64, 18, 12), CORAL, [LANDING.x, .24, LANDING.z], [0, 0, 0], [1, .6, 1]),
+    piece(rounded(.56, .26, .3, .04), CORAL, [TOOLBOX_X, .13, 2.78]),
+    piece(rounded(.58, .06, .32, .02), PLUM, [TOOLBOX_X, .29, 2.78]),
+    piece(new THREE.TorusGeometry(.09, .02, 6, 12, Math.PI), INK, [TOOLBOX_X, .32, 2.78]),
+    piece(rounded(.08, .05, .02, .01), CREAM, [TOOLBOX_X, .22, 2.94]),
+    piece(new THREE.SphereGeometry(.64, 18, 12), CORAL, [BEANBAG.x, .24, BEANBAG.z], [0, 0, 0], [1, .6, 1]),
   ], group);
 
   const signMaterial = new THREE.MeshBasicMaterial({
@@ -386,7 +387,10 @@ export const createLab: AreaBuilder = (origin, content) => {
     root.updateMatrix();
     const stand = new THREE.Vector3(0, 0, .82).applyMatrix4(root.matrix), reach = new THREE.Vector3(0, TOP + .07, .32).applyMatrix4(root.matrix);
     obstacles.push({ id, x, z, radius: .55 });
-    stations.push({ id, kind: 'play', label: `${project.title} exhibit`, stand: { x: stand.x, z: stand.z }, heading: yaw > 0 ? yaw - Math.PI : yaw + Math.PI, reach: { x: reach.x, y: reach.y, z: reach.z } });
+    stations.push({
+      id, kind: 'play', label: `${project.title} exhibit`, stand: { x: stand.x, z: stand.z }, heading: yaw > 0 ? yaw - Math.PI : yaw + Math.PI, reach: { x: reach.x, y: reach.y, z: reach.z },
+      present: { lines: STATION_LINES[id] ?? [], url: project.url || undefined, linkLabel: `Visit ${project.title}` },
+    });
     reactives.push({ id, energy: 0, animate: (time, energy, progress, dt) => {
       animate(time, energy, progress, dt);
       control.position.y = TOP + .02 - energy * .014 * (.5 + .5 * Math.sin(time * 10));
@@ -397,13 +401,12 @@ export const createLab: AreaBuilder = (origin, content) => {
   group.updateMatrixWorld(true);
 
   return {
-    id: 'lab',
+    id: 'workshop',
     group,
     bounds: { ...BOUNDS },
     obstacles,
     stations,
-    exit: { ...EXIT },
-    landing: { ...LANDING },
+    entry: { x: 2.6, z: 2.3 },
     view: { center: { x: 0, y: 1.7, z: -.3 } },
     pick: (raycaster) => {
       group.updateWorldMatrix(true, true);

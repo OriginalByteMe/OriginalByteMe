@@ -7,7 +7,7 @@ test('character loads, responds to keys, pauses, resets and yields to the origin
   await expect(hero).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
   await page.getByRole('button', { name: 'Click to enter' }).click();
   const playground = page.getByTestId('character-playground');
-  await expect(playground).toHaveAttribute('data-area', 'bedroom');
+  await expect(playground).toHaveAttribute('data-area', 'home');
   const initial = await playground.getAttribute('data-position');
   await page.getByRole('button', { name: 'Skip intro' }).click();
   await playground.focus();
@@ -30,7 +30,7 @@ test('character loads, responds to keys, pauses, resets and yields to the origin
   await expect(page.getByRole('link', { name: 'Email Noah' })).toBeVisible();
 });
 
-test('reduced-motion visitors keep the portrait, never request the model, and can still read the lab and about rooms', async ({ page }) => {
+test('reduced-motion visitors keep the portrait and the 2D Story chapters, and never request the model', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   let requested = false;
   page.on('request', (request) => { if (request.url().includes('good-vibes-hero.glb')) requested = true; });
@@ -38,15 +38,10 @@ test('reduced-motion visitors keep the portrait, never request the model, and ca
   await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'fallback');
   await expect(page.getByRole('img', { name: 'Portrait of Noah Rijkaard' })).toBeVisible();
   await expect(page.getByTestId('character-playground').locator('canvas')).toHaveCount(0);
-  const lab = page.getByRole('region', { name: 'Things I’ve built' });
-  await lab.scrollIntoViewIfNeeded();
-  await expect(lab.getByRole('heading', { level: 3, name: 'Moodify' })).toBeVisible();
-  await expect(lab.getByRole('link', { name: 'Visit Moodify' })).toHaveAttribute('href', 'https://github.com/OriginalByteMe/Moodify');
-  await expect(lab.getByRole('button', { name: /Show me/ })).toHaveCount(0);
-  const about = page.getByRole('region', { name: 'About me' });
-  await about.scrollIntoViewIfNeeded();
-  await expect(about.getByText('Senior AI Engineer')).toBeVisible();
-  await expect(about.getByRole('img', { name: 'Framed hero portrait of Noah Rijkaard' })).toBeVisible();
+  const chapter = page.locator('#story').getByText('Noah, in brief');
+  await chapter.scrollIntoViewIfNeeded();
+  await expect(chapter).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Things I’ve built' }).getByRole('link', { name: 'Visit Moodify' })).toHaveAttribute('href', 'https://github.com/OriginalByteMe/Moodify');
   expect(requested).toBe(false);
 });
 
@@ -115,7 +110,7 @@ test('timed startup runs without scrolling and hover never issues movement comma
   await page.mouse.move(1100, 600);
   await page.waitForTimeout(450);
   await expect(world).toHaveAttribute('data-position', position!);
-  // The bedroom floor fills the right of a wide viewport; the front edge is open.
+  // The home lot fills the right of a wide viewport; the front edge is open.
   await page.mouse.click(1180, 600);
   await expect.poll(() => world.getAttribute('data-position')).not.toBe(position);
   await page.mouse.click(900, 620);
@@ -123,10 +118,10 @@ test('timed startup runs without scrolling and hover never issues movement comma
   await page.getByRole('button', { name: 'Pause', exact: true }).click();
   await page.setViewportSize({ width: 809, height: 1024 });
   await expect(world).toHaveAttribute('data-paused', 'true');
-  await expect(page.getByRole('button', { name: 'Open Ask-Me composer' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Ask a question about Noah' })).toBeVisible();
 });
 
-test('uncommanded character visits his bedroom stations, then a key interrupts', async ({ page }) => {
+test('uncommanded character visits his home stations, then a key interrupts', async ({ page }) => {
   test.setTimeout(90_000);
   await page.goto('/');
   await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
@@ -140,7 +135,7 @@ test('uncommanded character visits his bedroom stations, then a key interrupts',
   await expect(world).toHaveAttribute('data-activity', 'idle');
 });
 
-test('scrolling down makes him follow into the lab and about rooms, Show me sends him to an exhibit, and scrolling up brings him back', async ({ page }) => {
+test('scrolling makes him walk along the street to each lot and back home', async ({ page }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
@@ -148,27 +143,23 @@ test('scrolling down makes him follow into the lab and about rooms, Show me send
   await page.getByRole('button', { name: 'Click to enter' }).click();
   await page.getByRole('button', { name: 'Skip intro' }).click();
   const world = page.getByTestId('character-playground');
-  const lab = page.getByRole('region', { name: 'Things I’ve built' });
-  await lab.evaluate((section) => section.scrollIntoView());
-  await expect.poll(() => world.getAttribute('data-tour'), { timeout: 5_000 }).toMatch(/chase|trip|fall/);
-  await expect(world).toHaveAttribute('data-area', 'lab', { timeout: 10_000 });
+  await page.locator('#built').evaluate((section) => section.scrollIntoView());
+  await expect.poll(() => world.getAttribute('data-tour'), { timeout: 5_000 }).toBe('travel');
+  await expect(world).toHaveAttribute('data-area', 'workshop', { timeout: 10_000 });
   await expect(world).toHaveAttribute('data-tour', 'settled', { timeout: 10_000 });
-  await lab.getByRole('button', { name: 'Show me Moodify' }).click();
-  await expect(world).toHaveAttribute('data-station', 'project:moodify');
-  await expect(world).toHaveAttribute('data-activity', 'perform', { timeout: 20_000 });
-  await page.getByRole('region', { name: 'About me' }).evaluate((section) => section.scrollIntoView());
-  await expect(world).toHaveAttribute('data-area', 'about', { timeout: 15_000 });
+  await page.locator('#about').evaluate((section) => section.scrollIntoView());
+  await expect(world).toHaveAttribute('data-area', 'gallery', { timeout: 15_000 });
   await page.evaluate(() => scrollTo(0, 0));
-  await expect.poll(() => world.getAttribute('data-tour'), { timeout: 5_000 }).toBe('jump');
-  await expect(world).toHaveAttribute('data-area', 'bedroom', { timeout: 20_000 });
+  await expect.poll(() => world.getAttribute('data-tour'), { timeout: 5_000 }).toBe('travel');
+  await expect(world).toHaveAttribute('data-area', 'home', { timeout: 20_000 });
 });
 
-test('loading mid-page skips the intro and starts in the viewed room', async ({ page }) => {
+test('loading mid-page skips the intro and starts at the viewed lot', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/#about');
   const world = page.getByTestId('character-playground');
   await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
   await expect(world).toHaveAttribute('data-phase', 'roam');
-  await expect(world).toHaveAttribute('data-area', 'about');
+  await expect(world).toHaveAttribute('data-area', 'gallery');
   await expect(page.getByRole('button', { name: 'Skip intro' })).toHaveCount(0);
 });

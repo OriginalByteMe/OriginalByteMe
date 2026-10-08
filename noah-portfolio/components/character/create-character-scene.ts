@@ -10,12 +10,17 @@ import { createFaceLayer, EXPRESSIONS, type ExpressionName } from '@/lib/charact
 import { CharacterClickInput, CHARACTER_UI_SELECTOR, rayHitsSphere } from '@/lib/character/input';
 import { createCharacterState, stepCharacter, resolveCharacterTarget, type Vec2 } from '@/lib/character/controller';
 import { CharacterTourController, areaScrollPosition, type TourFrame, type TourPhase } from '@/lib/character/tour';
-import { AFRO_LINES, AREA_ARRIVAL_LINES, BUMP_LINE, CHASE_LINE, JUMP_LINE, PORTRAIT_LINE, STATION_LINES, CharacterTidbitController } from '@/lib/character/narrative';
+import { AFRO_LINES, AREA_ARRIVAL_LINES, BUMP_LINE, CHASE_LINE, PORTRAIT_LINE, STATION_LINES, CharacterTidbitController } from '@/lib/character/narrative';
 import type { WorldContent } from '@/lib/character/world-content';
-import { createBedroom } from './world/bedroom';
-import { createLab } from './world/lab';
 import { createAbout } from './world/about';
-import type { Station, WorldArea } from './world/types';
+import { createBedroom } from './world/bedroom';
+import { createGarage } from './world/garage';
+import { createHall } from './world/hall';
+import { createLab } from './world/lab';
+import { createPostoffice } from './world/postoffice';
+import { createToolshed } from './world/toolshed';
+import { createStreet, LOT_SPACING, lotOrigin, STREET_Z } from './world/town';
+import { LOTS, type AreaBuilder, type AreaId, type Station, type WorldArea } from './world/types';
 
 export interface CharacterScene {
   dispose: () => void;
@@ -28,14 +33,16 @@ export interface CharacterScene {
   wave: () => void;
   reset: () => void;
   key: (key: string) => boolean;
-  /** Sends him to a station once he is settled in its area; scrolling that section into view brings him there. */
-  visit: (stationId: string) => void;
 }
+/** Where the page shows the Visit link for the station he is presenting, in host pixels. */
+export type CharacterSign = { url: string; label: string; x: number; y: number };
 export type CharacterSceneOptions = {
   content: WorldContent;
   onMessage: (message: string) => void;
   onGreeting: (line: string | null) => void;
   onPhase: (phase: IntroPhase) => void;
+  /** The Visit sign while he presents a station with a url; null takes it down. */
+  onSign: (sign: CharacterSign | null) => void;
   onError: () => void;
 };
 type SpeechKind = 'idle' | 'chat' | 'event';
@@ -43,13 +50,20 @@ type SpeechKind = 'idle' | 'chat' | 'event';
 let sessionGreetingCount = 0;
 let sessionTidbitCount = 0;
 let sessionSkippedIntro = false;
-const BUILDERS = [createBedroom, createLab, createAbout];
-/** Area origins stack 18 units apart: bedroom, lab, about. */
-const AREA_Y = [0, -18, -36];
+const BUILDERS: Record<AreaId, AreaBuilder> = {
+  home: createBedroom, hall: createHall, workshop: createLab, toolshed: createToolshed, gallery: createAbout, garage: createGarage, postoffice: createPostoffice,
+};
 const CHARACTER_HEIGHT = 2.45;
 /** Measured on the GLB: the held 08_Sit_Relaxed frame rests its lowest seated vertices 0.13 below the pelvis bone. */
 const SEAT_CLEARANCE = .13;
-const CAMERA_DIRECTION = new THREE.Vector3(0, .42, 1).normalize();
+/** Dead-on down -z with a gentle downward tilt. */
+const CAMERA_DIRECTION = new THREE.Vector3(0, .3, 1).normalize();
+/** Host pixels the framing and the Visit sign keep clear: top chrome and eyebrow, sides, and the controls plus Ask bar at the bottom (two rows of controls when narrow). */
+const CHROME = { top: 110, side: 24, bottom: 200, narrowBottom: 270 };
+/** The Visit sign stands on the floor just in front of his feet; the page centres it below this point. */
+const SIGN_OFFSET = new THREE.Vector3(0, 0, .6);
+/** Widest the sign gets, in host pixels: its CSS max-width (16rem). Keeps it whole on screen. */
+const SIGN_WIDTH = 256;
 /** Sound and seconds between repeats while performing at a station; each `type` call is itself a burst of clicks. */
 const STATION_LOOPS: Record<string, [SfxName, number]> = { desk: ['type', .3], printer: ['printer', 2.2], rack: ['rack', 3], skills: ['poke', .9] };
 const clamp = THREE.MathUtils.clamp;
@@ -65,7 +79,7 @@ const writeSession = (key: string, value: number) => { try { window.sessionStora
 export async function createCharacterScene(host: HTMLElement, options: CharacterSceneOptions): Promise<CharacterScene> {
   const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-  // Transparent clear: the dioramas float over the viewport's CSS gradient in either theme.
+  // Transparent clear: the page's dithered Backdrop shows through as the sky.
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -111,13 +125,14 @@ export async function createCharacterScene(host: HTMLElement, options: Character
       if (node instanceof THREE.SkinnedMesh) node.skeleton.dispose();
     });
   };
-  const origins = AREA_Y.map((y) => new THREE.Vector3(0, y, 0));
+  const origins = LOTS.map((_, lot) => lotOrigin(lot));
   const areas: WorldArea[] = [];
   const disposeAreas = () => { for (const area of areas.splice(0)) { area.group.removeFromParent(); area.dispose(); } };
   let gltf;
   try {
     gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync('/models/good-vibes-hero.glb');
-    BUILDERS.forEach((build, index) => { const area = build(origins[index].clone(), options.content); areas.push(area); scene.add(area.group); });
+    LOTS.forEach(({ id }, lot) => { const area = BUILDERS[id](origins[lot].clone(), options.content); areas.push(area); scene.add(area.group); });
+    scene.add(createStreet());
   } catch (error) {
     disposeAreas(); disposeObject(scene); shadowTexture.dispose(); renderer.dispose(); renderer.domElement.remove(); throw error;
   }
@@ -174,21 +189,17 @@ export async function createCharacterScene(host: HTMLElement, options: Character
   play('idle');
 
   const worldRoot = host.closest<HTMLElement>('.character-world');
-  const sections = ['hero', 'lab', 'about'].map((id) => worldRoot?.querySelector<HTMLElement>(`#${id}`)).filter((section): section is HTMLElement => !!section);
+  const sections = LOTS.map(({ section }) => worldRoot?.querySelector<HTMLElement>(`#${section}`)).filter((section): section is HTMLElement => !!section);
   let scrollPosition = 0;
   const measureScroll = () => { scrollPosition = sections.length === areas.length ? areaScrollPosition(sections.map((section) => section.getBoundingClientRect()), window.innerHeight) : 0; };
   measureScroll();
   const viewArea = () => Math.round(scrollPosition);
-  // The intro belongs to the top of the bedroom; arriving mid-page drops him straight into the viewed area.
+  // The intro belongs to the home lot; arriving mid-page (a deep link) puts him straight at the viewed lot.
   const midPage = scrollPosition > .2;
   let areaIndex = midPage ? viewArea() : 0;
   let area = areas[areaIndex];
-  const restPoint = (index: number): Vec2 => {
-    const { landing, obstacles, bounds } = areas[index];
-    return resolveCharacterTarget({ x: landing.x, z: landing.z }, { x: landing.x, z: landing.z + .9 }, obstacles, bounds);
-  };
-  const introRest = restPoint(0);
-  let state = createCharacterState(restPoint(areaIndex));
+  const introRest = { ...areas[0].entry };
+  let state = createCharacterState({ ...area.entry });
   let target: Vec2 | null = null;
   let paused = false;
   let visible = true;
@@ -214,7 +225,6 @@ export async function createCharacterScene(host: HTMLElement, options: Character
   let speechActive = false;
   let speechKind: SpeechKind | null = null;
   let pendingManualGreeting = false;
-  let pendingVisit: string | null = null;
   let requestedStation: string | null = null;
   let nextStationLineAt = 0;
   let nextBumpLineAt = 0;
@@ -224,8 +234,14 @@ export async function createCharacterScene(host: HTMLElement, options: Character
   let lastBeat = -1;
   let tourFrame: TourFrame = { area: areaIndex, from: areaIndex, to: areaIndex, phase: 'settled', progress: 0, started: null };
   let lastTourPhase: TourPhase = 'settled';
-  const tourFrom = new THREE.Vector3();
-  let hopTo: Vec2 = state.position;
+  /** This leg's walk in world space: out to the street, along it and in to the lot's entry; `along` holds cumulative lengths. */
+  const path = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+  const along = [0, 0, 0, 0];
+  let travelSpeed = 0;
+  /** The station he is presenting to the camera: what it says and links, when it began, when each line starts. */
+  let presentation: { id: string; present: NonNullable<Station['present']>; start: number; cues: number[]; total: number; spoken: number } | null = null;
+  /** Where the Visit sign was last reported; NaN while none is up. */
+  let signX = NaN, signY = NaN;
   sessionGreetingCount = Math.max(sessionGreetingCount, readSession('good-vibes-greetings-v1'));
   sessionTidbitCount = Math.max(sessionTidbitCount, readSession('good-vibes-tidbits-v1'));
   const idle = new CharacterIdleController({ greetingsShown: sessionGreetingCount });
@@ -264,9 +280,9 @@ export async function createCharacterScene(host: HTMLElement, options: Character
   const wrapper = host.closest('.character-hero') as HTMLElement;
   wrapper.style.setProperty('--intro-black', introSkipped ? '0' : '1');
 
-  // Camera framings per area: wide screens keep the diorama in the right ~60% beside the DOM panels.
-  const framings = areas.map(() => ({ position: new THREE.Vector3(), target: new THREE.Vector3() }));
-  // Measured once in build pose: the builders' view radius undersells their slabs, walls and signs.
+  // Camera framing per lot: dead-on, the whole lot inside the free screen area, the projection shifted so the lot sits mid-area.
+  const framings = areas.map(() => ({ position: new THREE.Vector3(), target: new THREE.Vector3(), shift: new THREE.Vector2() }));
+  // Measured once in build pose: the builders' view centre undersells their slabs, walls and signs.
   const areaCorners = areas.map(({ group }) => {
     const { min, max } = new THREE.Box3().setFromObject(group);
     return [0, 1, 2, 3, 4, 5, 6, 7].map((i) => new THREE.Vector3(i & 1 ? max.x : min.x, i & 2 ? max.y : min.y, i & 4 ? max.z : min.z));
@@ -274,39 +290,45 @@ export async function createCharacterScene(host: HTMLElement, options: Character
   const probe = new THREE.PerspectiveCamera();
   const cameraPosition = new THREE.Vector3();
   const cameraTarget = new THREE.Vector3();
-  const desired = { position: new THREE.Vector3(), target: new THREE.Vector3() };
+  const cameraShift = new THREE.Vector2();
+  const desired = { position: new THREE.Vector3(), target: new THREE.Vector3(), shift: new THREE.Vector2() };
   const look = new THREE.Vector3();
   let cameraPlaced = false;
   let canvasWidth = 0;
   let canvasHeight = 0;
-  let wide = true;
-  const viewShift = () => wide ? { x: -.2 * canvasWidth, y: 0 } : { x: 0, y: -.1 * canvasHeight };
+  const chromeBottom = () => camera.aspect >= 1.05 ? CHROME.bottom : CHROME.narrowBottom;
   const frameAreas = () => {
-    wide = camera.aspect >= 1.05;
-    probe.copy(camera);
-    const shift = viewShift();
-    probe.setViewOffset(canvasWidth, canvasHeight, shift.x, shift.y, canvasWidth, canvasHeight);
-    // Free screen region in NDC: right of the DOM panels, between the eyebrow and the caption when wide; below the hero copy when narrow.
-    const [left, right, bottom, top] = wide ? [-.12, .96, -.62, .72] : [-.98, .98, -.9, .25];
+    const wide = camera.aspect >= 1.05;
     areas.forEach(({ view }, index) => {
-      const target = framings[index].target.set(view.center.x, view.center.y, view.center.z).add(origins[index]);
-      let near = 1, far = 40;
+      // The home lot also keeps clear of the hero copy: its left half when wide, its top half when narrow.
+      const left = index === 0 && wide ? canvasWidth * .5 : CHROME.side;
+      const top = index === 0 && !wide ? canvasHeight * .47 : CHROME.top;
+      const minX = left / canvasWidth * 2 - 1, maxX = 1 - CHROME.side / canvasWidth * 2;
+      const minY = chromeBottom() / canvasHeight * 2 - 1, maxY = 1 - top / canvasHeight * 2;
+      const framing = framings[index];
+      framing.shift.set(-(minX + maxX) / 4 * canvasWidth, (minY + maxY) / 4 * canvasHeight);
+      probe.copy(camera);
+      probe.setViewOffset(canvasWidth, canvasHeight, framing.shift.x, framing.shift.y, canvasWidth, canvasHeight);
+      const target = framing.target.set(view.center.x, view.center.y, view.center.z).add(origins[index]);
+      let near = 1, far = 90;
       for (let step = 0; step < 18; step += 1) {
         const distance = (near + far) / 2;
         probe.position.copy(target).addScaledVector(CAMERA_DIRECTION, distance); probe.lookAt(target); probe.updateMatrixWorld();
-        const fits = areaCorners[index].every((corner) => { temp.copy(corner).project(probe); return temp.x >= left && temp.x <= right && temp.y >= bottom && temp.y <= top; });
+        const fits = areaCorners[index].every((corner) => { temp.copy(corner).project(probe); return temp.x >= minX && temp.x <= maxX && temp.y >= minY && temp.y <= maxY; });
         if (fits) far = distance; else near = distance;
       }
-      framings[index].position.copy(target).addScaledVector(CAMERA_DIRECTION, far);
+      framing.position.copy(target).addScaledVector(CAMERA_DIRECTION, far);
     });
   };
+  /** Scrolling eases the camera along the street between neighbouring lots' framings. */
   const placeCamera = (dt: number) => {
     const from = clamp(Math.floor(scrollPosition), 0, areas.length - 1), to = Math.min(from + 1, areas.length - 1);
     const t = smooth(scrollPosition - from);
     desired.position.lerpVectors(framings[from].position, framings[to].position, t);
     desired.target.lerpVectors(framings[from].target, framings[to].target, t);
+    desired.shift.lerpVectors(framings[from].shift, framings[to].shift, t);
     const k = cameraPlaced ? 1 - Math.exp(-dt * 5) : 1;
-    cameraPosition.lerp(desired.position, k); cameraTarget.lerp(desired.target, k);
+    cameraPosition.lerp(desired.position, k); cameraTarget.lerp(desired.target, k); cameraShift.lerp(desired.shift, k);
     cameraPlaced = true;
   };
   let introDepth = 0;
@@ -320,7 +342,7 @@ export async function createCharacterScene(host: HTMLElement, options: Character
     camera.position.copy(cameraPosition).lerp(temp.set(0, 2.25, faceZ + 1.55), focus);
     camera.position.x += Math.sin(elapsed * 75) * shake * .065; camera.position.y += Math.cos(elapsed * 90) * shake * .045;
     camera.lookAt(look.copy(cameraTarget).lerp(temp.set(0, 1.98, faceZ), focus));
-    if (canvasWidth) { const shift = viewShift(); camera.setViewOffset(canvasWidth, canvasHeight, shift.x * (1 - focus), shift.y * (1 - focus), canvasWidth, canvasHeight); }
+    if (canvasWidth) camera.setViewOffset(canvasWidth, canvasHeight, cameraShift.x * (1 - focus), cameraShift.y * (1 - focus), canvasWidth, canvasHeight);
     camera.updateProjectionMatrix();
   };
   const resizeScene = () => {
@@ -337,11 +359,16 @@ export async function createCharacterScene(host: HTMLElement, options: Character
   const resize = new ResizeObserver(() => { cameraPlaced = false; resizeScene(); }); resize.observe(host); resizeScene();
   const visibility = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; last = 0; if (!visible) cancelSpeech(); syncAudio(); }, { threshold: .01 }); visibility.observe(host);
 
-  const cancelActivity = () => { activities.cancel(); activityProps.beforeMixer(); requestedStation = null; };
-  const enterArea = (index: number, at = restPoint(index)) => {
+  const endPresentation = () => {
+    presentation = null;
+    if (Number.isNaN(signX)) return;
+    signX = signY = NaN; options.onSign(null);
+  };
+  const cancelActivity = () => { activities.cancel(); activityProps.beforeMixer(); requestedStation = null; endPresentation(); };
+  const enterArea = (index: number) => {
     areaIndex = index; area = areas[index];
-    activities.setStations(area.stations); activityProps.beforeMixer();
-    target = null; targetRing.visible = false; state = createCharacterState(at); hopTo = state.position; lastBump = 0;
+    activities.setStations(area.stations); activityProps.beforeMixer(); endPresentation();
+    target = null; targetRing.visible = false; state = createCharacterState({ ...area.entry }, state.heading); lastBump = 0;
   };
   const command = (destination: Vec2) => {
     target = resolveCharacterTarget(state.position, destination, area.obstacles, area.bounds); cancelActivity(); cancelSpeech(); waveUntil = afroUntil = 0;
@@ -350,6 +377,7 @@ export async function createCharacterScene(host: HTMLElement, options: Character
   };
   const goToStation = (id: string) => {
     if (!activities.request(id)) return false;
+    endPresentation();
     // Chatter stops for the new errand; an arrival or station line he is in the middle of may finish.
     target = null; targetRing.visible = false; waveUntil = afroUntil = 0; requestedStation = id;
     if (speechKind !== 'event') cancelSpeech();
@@ -379,11 +407,9 @@ export async function createCharacterScene(host: HTMLElement, options: Character
     if (head && rayHitsSphere(raycaster.ray.origin, raycaster.ray.direction, { center: head.getWorldPosition(afroCenter).addScaledVector(actor.up, afroRadius), radius: afroRadius })) { pokeAfro(); return; }
     const station = area.pick(raycaster);
     if (station && goToStation(station)) return;
-    ground.constant = -origins[areaIndex].y;
     if (!raycaster.ray.intersectPlane(ground, hit)) return;
-    const { bounds } = area;
-    // Areas stack on y only, so the hit's x and z are already area-local.
-    command({ x: clamp(hit.x, bounds.minX + .22, bounds.maxX - .22), z: clamp(hit.z, bounds.minZ + .22, bounds.maxZ - .22) });
+    const { bounds } = area, origin = origins[areaIndex];
+    command({ x: clamp(hit.x - origin.x, bounds.minX + .22, bounds.maxX - .22), z: clamp(hit.z - origin.z, bounds.minZ + .22, bounds.maxZ - .22) });
   };
   const clicks = new CharacterClickInput();
   const interactive = (event: PointerEvent) => !!(event.target as HTMLElement)?.closest?.(CHARACTER_UI_SELECTOR);
@@ -403,56 +429,30 @@ export async function createCharacterScene(host: HTMLElement, options: Character
   inputSurface.addEventListener('pointerleave', pointerCancel);
   renderer.domElement.addEventListener('webglcontextlost', contextLost);
 
-  /** One-shot speech and sound for each tour beat; positions are sampled every frame below. */
-  const startTourPhase = (frame: TourFrame) => {
-    if (lastTourPhase === 'recover') state = createCharacterState(hopTo, state.heading);
-    const started = frame.started!;
-    if (started === 'chase' || started === 'jump') { cancelActivity(); cancelSpeech(); target = null; targetRing.visible = false; waveUntil = afroUntil = 0; }
-    if (started === 'chase') say(CHASE_LINE.line, 'greeting');
-    if (started === 'trip') { tourFrom.set(state.position.x, 0, state.position.z); audio.sfx('trip'); }
-    if (started === 'fall') { tourFrom.set(areas[frame.from].exit.x, 0, areas[frame.from].exit.z).add(origins[frame.from]); audio.sfx('fall'); }
-    if (started === 'jump') { tourFrom.copy(actor.position).setY(origins[frame.from].y); say(JUMP_LINE.line, 'greeting'); audio.sfx('jump'); }
-    if (started === 'land') { audio.sfx('land'); say('Ow', 'bonk'); }
-    if (started === 'recover') { hopTo = restPoint(frame.area); say(AREA_ARRIVAL_LINES[area.id].line, 'greeting'); }
-    if (started === 'settled') { state = createCharacterState(hopTo, state.heading); options.onMessage('Click the floor, my things, or my afro.'); }
+  /** A new leg from wherever he is: out to the street, along it, and in to the lot's entry. The first leg drops whatever he was doing. */
+  const startTravel = (frame: TourFrame) => {
+    if (lastTourPhase === 'settled') { cancelActivity(); cancelSpeech(); target = null; targetRing.visible = false; waveUntil = afroUntil = 0; say(CHASE_LINE.line, 'greeting'); }
+    const lot = origins[frame.to], { entry } = areas[frame.to];
+    path[0].set(actor.position.x, 0, actor.position.z);
+    path[1].set(path[0].x, 0, STREET_Z);
+    path[3].set(lot.x + entry.x, 0, lot.z + entry.z);
+    path[2].set(path[3].x, 0, STREET_Z);
+    for (let leg = 1; leg < path.length; leg += 1) along[leg] = along[leg - 1] + path[leg].distanceTo(path[leg - 1]);
   };
-  /** World-space pose for the scripted part of a transition. Returns the clip to play. */
-  const poseTour = (frame: TourFrame): keyof typeof clips => {
-    const p = frame.progress;
-    const exit = areas[frame.from].exit;
-    const landing = areas[frame.to].landing;
-    const land = temp.set(landing.x, landing.y, landing.z).add(origins[frame.to]);
-    let pitch = 0, squash = 1, yaw = state.heading;
-    if (frame.phase === 'trip') {
-      const x = THREE.MathUtils.lerp(tourFrom.x, exit.x, smooth(p)), z = THREE.MathUtils.lerp(tourFrom.z, exit.z, smooth(p));
-      actor.position.set(x, 0, z).add(origins[frame.from]);
-      if (Math.hypot(exit.x - tourFrom.x, exit.z - tourFrom.z) > 1e-3) yaw = Math.atan2(exit.x - tourFrom.x, exit.z - tourFrom.z);
-      pitch = .9 * smooth(p) + .18 * Math.sin(p * Math.PI * 3) * (1 - p);
-    } else if (frame.phase === 'fall') {
-      actor.position.lerpVectors(tourFrom, land, smooth(p));
-      actor.position.y = THREE.MathUtils.lerp(tourFrom.y, land.y, p * p) + 1.4 * p * (1 - p);
-      yaw = Math.atan2(land.x - tourFrom.x, land.z - tourFrom.z);
-      // One forward tumble that ends upright for the landing.
-      pitch = .9 + (Math.PI * 2 - .9) * smooth(p);
-    } else if (frame.phase === 'jump') {
-      const q = clamp((p - .2) / .8, 0, 1);
-      squash = p < .2 ? 1 - .22 * smooth(p / .2) : 1 + .08 * Math.sin(q * Math.PI);
-      actor.position.lerpVectors(tourFrom, land, smooth(q));
-      actor.position.y = THREE.MathUtils.lerp(tourFrom.y, land.y, 1 - (1 - q) ** 2) + 1.2 * Math.sin(q * Math.PI);
-      if (q > 0) yaw = Math.atan2(land.x - tourFrom.x, land.z - tourFrom.z);
-      pitch = -Math.PI * 2 * smooth(q);
-    } else if (frame.phase === 'land') {
-      actor.position.copy(land); actor.position.y += .3 * Math.abs(Math.sin(p * Math.PI * 2)) * (1 - p);
-      squash = 1 - .35 * Math.sin(Math.min(1, p * 2) * Math.PI) * (1 - p);
-      yaw = 0;
-    } else if (frame.phase === 'recover') {
-      const q = clamp((p - .35) / .65, 0, 1);
-      actor.position.set(THREE.MathUtils.lerp(landing.x, hopTo.x, smooth(q)), THREE.MathUtils.lerp(landing.y, 0, q) + .45 * Math.sin(q * Math.PI), THREE.MathUtils.lerp(landing.z, hopTo.z, smooth(q))).add(origins[frame.to]);
-      yaw = 0;
+  /** Samples the leg by eased progress and turns him smoothly into each stretch. */
+  const poseTravel = (frame: TourFrame, dt: number) => {
+    const distance = along[3] * smooth(frame.progress);
+    let leg = 1;
+    while (leg < 3 && along[leg] < distance) leg += 1;
+    const span = along[leg] - along[leg - 1];
+    temp.copy(actor.position);
+    actor.position.lerpVectors(path[leg - 1], path[leg], span > 1e-6 ? (distance - along[leg - 1]) / span : 1);
+    travelSpeed = actor.position.distanceTo(temp) / dt;
+    if (span > 1e-6) {
+      const turn = Math.atan2(path[leg].x - path[leg - 1].x, path[leg].z - path[leg - 1].z) - state.heading;
+      state.heading = THREE.MathUtils.damp(state.heading, state.heading + Math.atan2(Math.sin(turn), Math.cos(turn)), 10, dt);
     }
-    state.heading = yaw;
-    actor.rotation.set(pitch, yaw, 0); actor.scale.set(1, squash, 1);
-    return frame.phase === 'trip' || frame.phase === 'fall' ? 'run' : 'idle';
+    actor.rotation.set(0, state.heading, 0); actor.scale.set(1, 1, 1);
   };
 
   const tick = (now: number) => {
@@ -468,7 +468,7 @@ export async function createCharacterScene(host: HTMLElement, options: Character
       if (story.dialogueEnded) endCaption();
       if (story.phase === 'bonk') audio.sfx('bonk');
       phase = story.phase;
-      if (phase === 'roam') { state = createCharacterState(restPoint(0)); lastBump = 0; sessionSkippedIntro = true; }
+      if (phase === 'roam') { state = createCharacterState({ ...areas[0].entry }); lastBump = 0; sessionSkippedIntro = true; }
       options.onPhase(phase);
     }
     if (story.dialogueStarted) say(story.dialogueStarted.line, phase === 'recoil' ? 'bonk' : 'greeting', 'event', story.dialogueStarted.duration);
@@ -482,35 +482,46 @@ export async function createCharacterScene(host: HTMLElement, options: Character
 
     if (roaming) {
       tourFrame = tour.tick(dt, { viewArea: viewArea() });
-      if (tourFrame.area !== areaIndex) enterArea(tourFrame.area);
-      if (tourFrame.started) startTourPhase(tourFrame);
+      if (tourFrame.started === 'travel') startTravel(tourFrame);
+      if (tourFrame.started === 'settled' || tourFrame.area !== areaIndex) enterArea(tourFrame.area);
+      if (tourFrame.started === 'settled') { say(AREA_ARRIVAL_LINES[area.id].line, 'greeting'); options.onMessage('Click the floor, my things, or my afro.'); }
       lastTourPhase = tourFrame.phase;
     }
     const traveling = tourFrame.phase !== 'settled';
-    if (pendingVisit && settled() && areas[areaIndex].stations.some((station) => station.id === pendingVisit)) { goToStation(pendingVisit); pendingVisit = null; }
     const afroGuard = elapsed < afroUntil;
     const manual = !!target || elapsed < waveUntil || pendingManualGreeting || afroGuard;
     const activityFrame: ActivityFrame = activities.tick(dt, {
-      position: state.position, speed: state.speed, commanded: !roaming || traveling || manual,
+      position: state.position, speed: state.speed, commanded: !roaming || traveling || manual || !!presentation,
       // Idle chatter holds the next routine so he never wanders off mid-sentence.
       paused: !manual && speechActive && speechKind !== 'event',
     });
     const station = stationOf(activityFrame.stationId);
     // While he speaks he faces the visitor: his whole body when standing free, only his head and neck at a station or seated.
     const speaking = roaming && !traveling && speechActive && !target && state.speed < .08;
-    faceBody = THREE.MathUtils.damp(faceBody, speaking && !activityFrame.active ? 1 : 0, 6, dt);
+    faceBody = THREE.MathUtils.damp(faceBody, (speaking && !activityFrame.active) || presentation ? 1 : 0, 6, dt);
     faceHead = THREE.MathUtils.damp(faceHead, speaking && activityFrame.active && !activityFrame.phase.startsWith('approach') ? 1 : 0, 6, dt);
     if (activityFrame.started) {
       const requested = requestedStation === activityFrame.started; requestedStation = null;
       if (activityFrame.kind === 'admire' || activityFrame.kind === 'play') audio.sfx('sparkle');
-      const lines = STATION_LINES[activityFrame.started];
-      // Visitor requests always talk; his own loop rotates lines and spaces them out.
-      if (lines?.length && (requested || elapsed >= nextStationLineAt)) {
-        const line = lines[(stationLineTurns[activityFrame.started] ?? 0) % lines.length];
-        stationLineTurns[activityFrame.started] = (stationLineTurns[activityFrame.started] ?? 0) + 1;
-        say(line.line, line === PORTRAIT_LINE ? 'wonder' : 'fact');
-        nextStationLineAt = elapsed + 24;
+      if (requested && station?.present) {
+        // A presentation: he faces the camera and says its lines back to back, each holding its caption as long as say() does.
+        let at = 0;
+        const cues = station.present.lines.map(({ line }) => { const cue = at; at += Math.max(utteranceDuration(line, 'fact') + 1.2, 2); return cue; });
+        presentation = { id: station.id, present: station.present, start: elapsed, cues, total: Math.max(at, 2), spoken: 0 };
+      } else {
+        const lines = STATION_LINES[activityFrame.started];
+        // Visitor requests always talk; his own loop rotates lines and spaces them out.
+        if (lines?.length && (requested || elapsed >= nextStationLineAt)) {
+          const line = lines[(stationLineTurns[activityFrame.started] ?? 0) % lines.length];
+          stationLineTurns[activityFrame.started] = (stationLineTurns[activityFrame.started] ?? 0) + 1;
+          say(line.line, line === PORTRAIT_LINE ? 'wonder' : 'fact');
+          nextStationLineAt = elapsed + 24;
+        }
       }
+    }
+    if (presentation) {
+      const { present, start, cues } = presentation;
+      while (presentation.spoken < cues.length && elapsed - start >= cues[presentation.spoken]) say(present.lines[presentation.spoken++].line, 'fact');
     }
     if (activityFrame.phase !== lastActivityPhase) {
       if (activityFrame.phase === 'pickup-ball' || activityFrame.phase === 'pickup-book') audio.sfx('pickup');
@@ -521,9 +532,8 @@ export async function createCharacterScene(host: HTMLElement, options: Character
     activityProps.beforeMixer();
     const origin = origins[areaIndex];
     let clip: keyof typeof clips;
-    if (roaming && (!traveling || tourFrame.phase === 'chase')) {
-      const exit = areas[tourFrame.from].exit;
-      stepCharacter(state, tourFrame.phase === 'chase' ? exit : elapsed < waveUntil || afroGuard ? null : target ?? activityFrame.target, dt, area.obstacles, area.bounds);
+    if (roaming && !traveling) {
+      stepCharacter(state, elapsed < waveUntil || afroGuard ? null : target ?? activityFrame.target, dt, area.obstacles, area.bounds);
       if (target && Math.hypot(target.x - state.position.x, target.z - state.position.z) < .13 && state.speed < .08) { target = null; targetRing.visible = false; options.onMessage('Click my things to see what I get up to.'); }
       if (target) targetRing.position.set(target.x, .01, target.z).add(origin);
       const seated = station?.seat !== undefined && activityFrame.animation === 'sit' && !target;
@@ -545,7 +555,8 @@ export async function createCharacterScene(host: HTMLElement, options: Character
       }
       clip = elapsed < waveUntil ? 'wave' : activityFrame.animation === 'sit' && !target ? 'sit' : state.motion === 'run' ? 'run' : state.motion === 'walk' ? 'walk' : 'idle';
     } else if (roaming) {
-      clip = poseTour(tourFrame);
+      poseTravel(tourFrame, dt);
+      clip = 'run';
     } else {
       const depth = story.pose.depth;
       const faceZ = areas[0].bounds.maxZ + 1.6;
@@ -555,7 +566,7 @@ export async function createCharacterScene(host: HTMLElement, options: Character
       clip = phase === 'approach' ? 'run' : phase === 'recover' ? 'wave' : 'idle';
     }
     play(clip);
-    if (current && (clip === 'walk' || clip === 'run')) current.timeScale = traveling ? 1.4 : clamp(state.speed / (clip === 'run' ? 2.4 : 1), .6, 1.6);
+    if (current && (clip === 'walk' || clip === 'run')) current.timeScale = traveling ? clamp(travelSpeed / 2.4, 1, 2.2) : clamp(state.speed / (clip === 'run' ? 2.4 : 1), .6, 1.6);
     if (current && clip === 'sit') { current.paused = true; current.time = activityFrame.sitProgress * 1.5; }
     // Real elapsed time drives every clip, independent of page scrolling.
     mixer.update(dt);
@@ -589,17 +600,19 @@ export async function createCharacterScene(host: HTMLElement, options: Character
       if (step !== lastStep) { lastStep = step; audio.sfx('step', { volume: clip === 'run' ? .8 : .6 }); }
     } else lastStep = -1;
     const performing = activityFrame.phase !== 'idle' && !activityFrame.phase.startsWith('approach');
+    const activity = presentation ? { stationId: presentation.id, progress: clamp((elapsed - presentation.start) / presentation.total, 0, 1) }
+      : { stationId: performing ? activityFrame.stationId : null, progress: performing ? activityFrame.progress : 0 };
     areas.forEach((each, index) => {
-      // Neighbours stay drawn for the scroll between them; areas two floors away are skipped.
-      each.group.visible = Math.abs(cameraTarget.y - framings[index].target.y) < 20;
-      if (each.group.visible) each.update(dt, elapsed, index === areaIndex && performing ? { stationId: activityFrame.stationId, progress: activityFrame.progress } : { stationId: null, progress: 0 });
+      // Neighbouring lots stay drawn for the pan between them; lots further along the street are skipped.
+      each.group.visible = Math.abs(cameraTarget.x - framings[index].target.x) < LOT_SPACING * 1.6;
+      if (each.group.visible) each.update(dt, elapsed, index === areaIndex ? activity : { stationId: null, progress: 0 });
     });
     const local = localPosition.copy(actor.position).sub(origin);
-    shadow.visible = roaming && (!traveling || tourFrame.phase === 'chase' || tourFrame.phase === 'trip') && local.y < .3;
+    shadow.visible = roaming && local.y < .3;
     shadow.position.set(actor.position.x, origin.y + .012, actor.position.z);
 
     // A wave and its pending greeting still count as free: Say hi greets right away.
-    const free = roaming && !traveling && state.motion === 'idle' && state.speed < .05 && !activityFrame.active && !target && !afroGuard;
+    const free = roaming && !traveling && state.motion === 'idle' && state.speed < .05 && !activityFrame.active && !target && !afroGuard && !presentation;
     if (free && pendingManualGreeting) { idle.greetNow(); pendingManualGreeting = false; }
     const idleFrame = idle.tick(dt, free && (!speechActive || speechKind === 'idle'));
     if (free) actor.position.y += idleFrame.bob;
@@ -614,7 +627,7 @@ export async function createCharacterScene(host: HTMLElement, options: Character
     const mouth = elapsed < talkUntil ? Math.max(idleFrame.mouthOpen, .35 + .65 * Math.max(0, Math.sin(elapsed * 18))) : idleFrame.mouthOpen;
     // Expressions blend in priority order (face.ts): anger > surprised > laugh/wink > sleepy > focused > his default happy face.
     if (anger > 0 && elapsed - lastPoke > 10) { anger = Math.max(0, anger - dt * .8); if (!anger) afroClicks = 0; }
-    if (phase === 'bonk' || phase === 'recoil' || tourFrame.phase === 'trip' || tourFrame.phase === 'fall') surprisedUntil = elapsed + .5;
+    if (phase === 'bonk' || phase === 'recoil') surprisedUntil = elapsed + .5;
     const sleepy = roaming && elapsed - lastInput > 45;
     if (sleepy && free && !speechActive && elapsed - yawnAt > 12 + 3 * Math.sin(yawnAt)) yawnAt = elapsed;
     const focused = !!station && activityFrame.phase === 'perform' && (station.kind === 'type' || station.kind === 'watch' || station.kind === 'tinker');
@@ -636,15 +649,25 @@ export async function createCharacterScene(host: HTMLElement, options: Character
     });
     // The face stays alive during locomotion, tours and station play, not only when idle.
     face.apply({ active: true, blink: idleFrame.blink, mouth, time: elapsed, expressions });
-    host.dataset.phase = phase; host.dataset.motion = roaming ? traveling ? tourFrame.phase === 'chase' ? state.motion : 'tour' : state.motion : phase === 'approach' ? 'run' : 'idle';
+    host.dataset.phase = phase; host.dataset.motion = roaming ? traveling ? 'run' : state.motion : phase === 'approach' ? 'run' : 'idle';
     host.dataset.activity = activityFrame.phase;
-    host.dataset.area = area.id; host.dataset.tour = tourFrame.phase; host.dataset.station = activityFrame.stationId ?? '';
+    host.dataset.area = area.id; host.dataset.tour = tourFrame.phase; host.dataset.station = activityFrame.stationId ?? presentation?.id ?? '';
+    host.dataset.presenting = presentation?.id ?? '';
     host.dataset.position = `${local.x.toFixed(3)},${local.z.toFixed(3)}`;
     host.dataset.bumps = String(state.bumpCount); host.dataset.introTime = story.elapsed.toFixed(3);
     host.dataset.blink = idleFrame.blink.toFixed(3); host.dataset.mouth = mouth.toFixed(3);
     host.dataset.expression = anger > 0 ? 'angry' : expressionGoals.surprised ? 'surprised' : expressionGoals.laugh ? 'laugh' : expressionGoals.wink ? 'wink'
       : expressionGoals.yawn ? 'yawn' : sleepy ? 'sleepy' : focused ? 'focused' : 'happy';
     host.dataset.anger = String(Math.ceil(anger));
+    const present = presentation?.present;
+    if (present?.url && canvasWidth) {
+      camera.updateMatrixWorld();
+      temp.copy(actor.position).add(SIGN_OFFSET).project(camera);
+      const half = Math.min(SIGN_WIDTH, canvasWidth - 2 * CHROME.side) / 2;
+      const x = Math.round(clamp((temp.x + 1) / 2 * canvasWidth, CHROME.side + half, canvasWidth - CHROME.side - half));
+      const y = Math.round(clamp((1 - temp.y) / 2 * canvasHeight, CHROME.top, canvasHeight - chromeBottom() - 48));
+      if (x !== signX || y !== signY) { signX = x; signY = y; options.onSign({ url: present.url, label: present.linkLabel ?? 'Visit', x, y }); }
+    }
     renderer.render(scene, camera);
   };
   const skipIntro = () => {
@@ -670,13 +693,7 @@ export async function createCharacterScene(host: HTMLElement, options: Character
     reset: () => {
       skipIntro(); stopMovement(); paused = false; host.dataset.paused = 'false'; syncAudio();
       tour.jumpTo(viewArea()); tourFrame = { ...tourFrame, area: viewArea(), from: viewArea(), to: viewArea(), phase: 'settled', progress: 0, started: null };
-      enterArea(viewArea()); activities.reset(); activityProps.reset(); pendingVisit = null;
-    },
-    visit: (id) => {
-      if (paused || !areas.some((each) => each.stations.some((station) => station.id === id))) return;
-      if (phase !== 'roam') skipIntro();
-      wake();
-      pendingVisit = id;
+      enterArea(viewArea()); activities.reset(); activityProps.reset();
     },
     key: (key) => {
       wake();

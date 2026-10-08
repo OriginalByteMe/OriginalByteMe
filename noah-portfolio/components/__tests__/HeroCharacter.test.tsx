@@ -1,13 +1,12 @@
-import { createRef, type MutableRefObject } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import HeroCharacter from '@/components/character/HeroCharacter';
-import type { CharacterScene } from '@/components/character/create-character-scene';
-import type { WorldContent } from '@/lib/character/world-content';
+import { corpus } from '@/lib/corpus';
+import { worldContent } from '@/lib/character/world-content';
 
 const { createScene, api } = vi.hoisted(() => ({
   api: {
-    dispose: vi.fn(), wave: vi.fn(), skipIntro: vi.fn(), reset: vi.fn(), key: vi.fn(() => true), setPaused: vi.fn(), visit: vi.fn(),
+    dispose: vi.fn(), wave: vi.fn(), skipIntro: vi.fn(), reset: vi.fn(), key: vi.fn(() => true), setPaused: vi.fn(),
     setSoundEnabled: vi.fn(async (enabled: boolean) => enabled), setMusicEnabled: vi.fn(async (enabled: boolean) => enabled),
   },
   createScene: vi.fn(),
@@ -17,7 +16,7 @@ let intersect: IntersectionObserverCallback;
 let preferenceChanged: () => void;
 let reduce = false;
 const fallback = <figure data-testid="fallback">Original portrait</figure>;
-const content: WorldContent = { projects: [], skills: [], headline: 'Full-Stack Developer', location: 'Kuala Lumpur, Malaysia', career: [], funFacts: [] };
+const content = worldContent(corpus);
 const visibleNow = () => act(async () => intersect([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver));
 
 beforeEach(() => {
@@ -62,15 +61,24 @@ describe('HeroCharacter progressive enhancement', () => {
     expect(screen.getByTestId('fallback')).toBeVisible();
     expect(screen.queryByText('Noah Rijkaard.')).not.toBeInTheDocument();
   });
-  it('shares the live scene with the world panels and reports readiness', async () => {
-    const sceneRef = createRef<CharacterScene>() as MutableRefObject<CharacterScene | null>;
+  it('reports readiness, and the fallback once the visitor picks the portrait', async () => {
     const onStatus = vi.fn();
-    await load({ sceneRef, onStatus });
-    expect(sceneRef.current).toBe(api);
+    await load({ onStatus });
     expect(onStatus).toHaveBeenLastCalledWith('ready');
     fireEvent.click(screen.getByRole('button', { name: 'Portrait' }));
-    expect(sceneRef.current).toBeNull();
     expect(onStatus).toHaveBeenLastCalledWith('fallback');
+  });
+  it('puts a real Visit link where the scene reports his sign, opening a new tab, and takes it down on null', async () => {
+    await load();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    act(() => createScene.mock.calls[0][1].onSign({ url: 'https://github.com/OriginalByteMe/Moodify', label: 'Visit Moodify', x: 420, y: 310 }));
+    const sign = screen.getByRole('link', { name: /Visit Moodify/ });
+    expect(sign).toHaveAttribute('href', 'https://github.com/OriginalByteMe/Moodify');
+    expect(sign).toHaveAttribute('target', '_blank');
+    expect(sign).toHaveAttribute('rel', 'noreferrer noopener');
+    expect(sign).toHaveStyle({ left: '420px', top: '310px' });
+    act(() => createScene.mock.calls[0][1].onSign(null));
+    expect(screen.queryByRole('link', { name: /Visit Moodify/ })).not.toBeInTheDocument();
   });
   it('supports pause, resume, wave, keyboard, reset and reversible portrait mode', async () => {
     await load();

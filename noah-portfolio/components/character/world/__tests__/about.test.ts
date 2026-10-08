@@ -1,20 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { stubCanvas2d } from '@/lib/character/__tests__/canvas-stub';
-import type { WorldContent } from '@/lib/character/world-content';
+import { corpus } from '@/lib/corpus';
+import { worldContent, type WorldContent } from '@/lib/character/world-content';
 import type { WorldArea } from '../types';
 import { createAbout } from '../about';
+import { lotOrigin } from '../town';
 
-const ORIGIN = new THREE.Vector3(0, -36, 0);
-const CONTENT: WorldContent = {
-  projects: [], skills: [], funFacts: [],
-  headline: 'Full-stack software engineer', location: 'Kuala Lumpur, Malaysia',
-  career: [
-    { company: 'MerchantSpring', role: 'Senior AI Engineer', period: '2026 - Present', logo: '/logos/merchantspring.svg' },
-    { company: 'Supa (formerly Supahands)', role: 'Full-Stack Developer', period: '2020 - 2025', logo: '/logos/supa.png' },
-    { company: 'Bowiq', role: 'CAD Designer & 3D Printing Engineer', period: '2023 - Present', logo: '/logos/bowiq.png' },
-  ],
-};
+const ORIGIN = lotOrigin(4);
+const CONTENT = worldContent(corpus);
 const EMPTY_CAREER: WorldContent = { ...CONTENT, career: [] };
 
 type Load = { url: string; texture: THREE.Texture<HTMLImageElement>; disposed: boolean; onLoad?: (texture: THREE.Texture<HTMLImageElement>) => void; onError?: (error: unknown) => void };
@@ -48,7 +42,7 @@ describe('createAbout', () => {
   it.each([['three jobs', CONTENT], ['no jobs', EMPTY_CAREER]])('lays out reachable, pickable stations inside the extents with %s', (_, content) => {
     const area = build(content);
     const { bounds } = area;
-    expect(area.id).toBe('about');
+    expect(area.id).toBe('gallery');
     expect(area.group.position.toArray()).toEqual(ORIGIN.toArray());
     expect(Object.fromEntries(area.stations.map((station) => [station.id, station.kind]))).toEqual({ portrait: 'admire', skyline: 'watch', career: 'watch' });
     // controller.ts clamps the character centre to bounds inset by its .22 radius, so every target must sit inside that.
@@ -68,15 +62,8 @@ describe('createAbout', () => {
       expect(firstHit(area, reachRay)!.point.sub(ORIGIN).distanceTo(new THREE.Vector3(reach.x, reach.y, reach.z)), station.id).toBeLessThan(.12);
     }
 
-    // He lands on the couch seat: something solid right under the landing point, away from every station.
-    const { landing, exit } = area;
-    expect(inside(landing.x, landing.z)).toBe(true);
-    expect(landing.y).toBeGreaterThan(.3);
-    const drop = ray([landing.x, landing.y + 1, landing.z], [landing.x, -1, landing.z]);
-    expect(firstHit(area, drop)!.point.y - ORIGIN.y).toBeCloseTo(landing.y, 1);
-    expect(area.pick(drop)).toBeNull();
-    for (const station of area.stations) expect(Math.hypot(landing.x - station.stand.x, landing.z - station.stand.z)).toBeGreaterThan(1.2);
-    expect(inside(exit.x, exit.z)).toBe(true); expect(exit.z).toBeGreaterThan(bounds.maxZ - .6);
+    expect(inside(area.entry.x, area.entry.z)).toBe(true); expect(area.entry.z).toBeGreaterThan(bounds.maxZ - .6);
+    for (const obstacle of area.obstacles) expect(Math.hypot(area.entry.x - obstacle.x, area.entry.z - obstacle.z)).toBeGreaterThanOrEqual(obstacle.radius + .22);
 
     const box = new THREE.Box3().setFromObject(area.group).translate(ORIGIN.clone().negate());
     expect(box.min.x).toBeGreaterThanOrEqual(-7); expect(box.max.x).toBeLessThanOrEqual(7);

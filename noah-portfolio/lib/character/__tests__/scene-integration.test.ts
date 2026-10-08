@@ -5,10 +5,12 @@ import { Quaternion, Raycaster, Vector2, Vector3, type BufferGeometry, type Mesh
 import type { CharacterScene } from '@/components/character/create-character-scene';
 import { createBedroom } from '@/components/character/world/bedroom';
 import { createLab } from '@/components/character/world/lab';
+import { lotOrigin } from '@/components/character/world/town';
+import { LOTS, type AreaBuilder } from '@/components/character/world/types';
 import { corpus } from '@/lib/corpus';
 import { worldContent } from '@/lib/character/world-content';
 import { rayHitsSphere } from '@/lib/character/input';
-import { AFRO_LINES, AREA_ARRIVAL_LINES, CHASE_LINE } from '@/lib/character/narrative';
+import { AFRO_LINES, AREA_ARRIVAL_LINES, CHASE_LINE, STATION_LINES } from '@/lib/character/narrative';
 import { stubCanvas2d } from './canvas-stub';
 
 // Real asset, real mixer, real areas, real scene/controller/tour/face/prop code. Only WebGL
@@ -54,19 +56,20 @@ let hidden = false;
 const message = vi.fn();
 const greeting = vi.fn();
 const phase = vi.fn();
+const sign = vi.fn();
+/** Page layout in screens: the hero is one screen, every later lot's section two. */
+const lotTop = (lot: number) => lot && 1 + (lot - 1) * 2;
 
 beforeEach(() => {
   vi.resetModules();
   now = 100; rafId = 0; width = 1200; height = 800; scrollTop = 0; hidden = false;
   frames = new Map();
   capture.scene = null; capture.camera = null; capture.renders = 0;
-  message.mockClear(); greeting.mockClear(); phase.mockClear();
+  message.mockClear(); greeting.mockClear(); phase.mockClear(); sign.mockClear();
   sessionStorage.clear();
   document.body.innerHTML = `<div class="character-world">
     <div class="character-hero"><div id="scene-host"></div></div>
-    <section id="hero"><button id="ui">UI</button></section>
-    <section id="lab"><div id="panel" data-character-ui>Lab panel</div></section>
-    <section id="about"></section>
+    ${LOTS.map(({ section }, lot) => `<section id="${section}">${lot === 0 ? '<button id="ui">UI</button>' : lot === 1 ? '<div id="panel" data-character-ui>Facts</div>' : ''}</section>`).join('')}
   </div>`;
   world = document.querySelector('.character-world')!;
   wrapper = document.querySelector('.character-hero')!;
@@ -74,10 +77,9 @@ beforeEach(() => {
   Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
   const rect = (top: number, size: number) => ({ left: 0, top, right: width, bottom: top + size, width, height: size, x: 0, y: top, toJSON() {} });
   vi.spyOn(host, 'getBoundingClientRect').mockImplementation(() => rect(0, height));
-  // Page layout: hero one screen, lab and about two screens each, measured relative to the viewport.
-  for (const [id, top, size] of [['hero', 0, 1], ['lab', 1, 2], ['about', 3, 2]] as const) {
-    vi.spyOn(document.getElementById(id)!, 'getBoundingClientRect').mockImplementation(() => rect(top * height - scrollTop, size * height));
-  }
+  LOTS.forEach(({ section }, lot) => {
+    vi.spyOn(document.getElementById(section)!, 'getBoundingClientRect').mockImplementation(() => rect(lotTop(lot) * height - scrollTop, (lot ? 2 : 1) * height));
+  });
   vi.spyOn(document, 'hidden', 'get').mockImplementation(() => hidden);
   stubCanvas2d();
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { frames.set(++rafId, callback); return rafId; });
@@ -89,7 +91,7 @@ afterEach(() => { api?.dispose(); api = undefined; vi.restoreAllMocks(); vi.unst
 
 async function create() {
   const { createCharacterScene } = await import('@/components/character/create-character-scene');
-  api = await createCharacterScene(host, { content, onMessage: message, onGreeting: greeting, onPhase: phase, onError: vi.fn() });
+  api = await createCharacterScene(host, { content, onMessage: message, onGreeting: greeting, onPhase: phase, onSign: sign, onError: vi.fn() });
   return api;
 }
 function advance(seconds: number) {
@@ -102,7 +104,7 @@ function advance(seconds: number) {
 function visible(value: boolean) {
   visibilityCallback([{ isIntersecting: value } as IntersectionObserverEntry], {} as IntersectionObserver);
 }
-function scrollTo(screens: number) { scrollTop = screens * height; window.dispatchEvent(new Event('scroll')); }
+function scrollToLot(lot: number) { scrollTop = lotTop(lot) * height; window.dispatchEvent(new Event('scroll')); }
 const screenOf = (point: Vector3) => { const ndc = point.clone().project(capture.camera!); return { x: (ndc.x + 1) * width / 2, y: (1 - ndc.y) * height / 2 }; };
 function click({ x, y }: { x: number; y: number }, target: HTMLElement = world) {
   for (const kind of ['pointerdown', 'pointerup']) {
@@ -116,27 +118,29 @@ const mesh = (name: string) => capture.scene!.getObjectByName(name) as Mesh;
 const position = () => host.dataset.position!.split(',').map(Number);
 const afroTop = () => mesh('head').getWorldPosition(new Vector3()).add(new Vector3(0, .55, 0));
 const until = (done: () => boolean, seconds = 60) => { for (let frame = 0; !done() && frame < seconds * 30; frame += 1) advance(1 / 30); };
-/** Layout data from a throwaway copy of an area; the scene builds its own. */
-const layout = (build: typeof createBedroom, y = 0) => { const area = build(new Vector3(0, y, 0), content); area.dispose(); return area; };
+/** Layout data from a throwaway copy of a lot; the scene builds its own. */
+const layout = (build: AreaBuilder, lot = 0) => { const area = build(lotOrigin(lot), content); area.dispose(); return area; };
 /** An open floor point across the room from him, near the open front edge where nothing is in the way. */
 const openFloor = () => {
   const [x] = position();
-  return { x: x > 0 ? x - 2.2 : x + 2.2, z: layout(createBedroom).exit.z - .3 };
+  return { x: x > 0 ? x - 2.2 : x + 2.2, z: layout(createBedroom).entry.z - .3 };
 };
-/** A screen point the bedroom's own pick resolves to the station, clear of his afro. */
-function stationPoint(id: string) {
-  const bedroom = createBedroom(new Vector3(), content);
-  const reach = bedroom.stations.find((station) => station.id === id)!.reach;
+/** A screen point the lot's own pick resolves to the station, clear of his afro. */
+function stationPoint(id: string, build: AreaBuilder = createBedroom, lot = 0) {
+  const origin = lotOrigin(lot);
+  const area = build(origin.clone(), content);
+  area.group.updateMatrixWorld(true);
+  const reach = area.stations.find((station) => station.id === id)!.reach;
   const raycaster = new Raycaster();
   try {
     for (const [dx, dy] of [[0, 0], [0, .12], [0, -.12], [.12, 0], [-.12, 0], [0, .25], [0, -.25]]) {
-      const screen = screenOf(new Vector3(reach.x + dx, reach.y + dy, reach.z));
+      const screen = screenOf(new Vector3(reach.x + dx, reach.y + dy, reach.z).add(origin));
       raycaster.setFromCamera(new Vector2(screen.x / width * 2 - 1, 1 - screen.y / height * 2), capture.camera!);
       const afro = rayHitsSphere(raycaster.ray.origin, raycaster.ray.direction, { center: afroTop(), radius: .7 });
-      if (!afro && bedroom.pick(raycaster) === id) return screen;
+      if (!afro && area.pick(raycaster) === id) return screen;
     }
     throw new Error(`no clear screen point picks ${id}`);
-  } finally { bedroom.dispose(); }
+  } finally { area.dispose(); }
 }
 /** The meshes of the shipped model, found by name prefix. */
 const modelMesh = (prefix: string) => { let found: Mesh | undefined; capture.scene!.traverse((node) => { if (!found && (node as Mesh).isMesh && node.name.startsWith(prefix)) found = node as Mesh; }); return found!; };
@@ -154,20 +158,22 @@ function angleToCamera() {
 }
 
 describe('shipped character world integration', () => {
-  it('builds the bedroom, lab and about areas once and disposes every geometry they created', async () => {
+  it('builds the seven lots along the street once and disposes every geometry the town created', async () => {
     await create(); advance(.1);
-    const areas = capture.scene!.children.filter((child) => child.type === 'Group' && !child.getObjectByName('head'));
-    expect(areas.map((area) => area.position.y)).toEqual([0, -18, -36]);
-    expect(host.dataset.area).toBe('bedroom');
+    const groups = capture.scene!.children.filter((child) => child.type === 'Group' && !child.getObjectByName('head'));
+    const lots = groups.filter((group) => group.name !== 'street');
+    expect(lots.map((lot) => lot.position.toArray())).toEqual(LOTS.map((_, lot) => lotOrigin(lot).toArray()));
+    expect(groups.length).toBe(LOTS.length + 1);
+    expect(host.dataset.area).toBe('home');
     const geometries = new Set<BufferGeometry>();
-    for (const area of areas) area.traverse((node: Object3D) => { if ((node as Mesh).isMesh) geometries.add((node as Mesh).geometry); });
-    expect(geometries.size).toBeGreaterThan(30);
+    for (const group of groups) group.traverse((node: Object3D) => { if ((node as Mesh).isMesh) geometries.add((node as Mesh).geometry); });
+    expect(geometries.size).toBeGreaterThan(40);
     const disposed = new Set<BufferGeometry>();
     for (const geometry of geometries) geometry.addEventListener('dispose', () => disposed.add(geometry));
     const renders = capture.renders;
     api!.dispose(); advance(2);
     expect(disposed.size).toBe(geometries.size);
-    for (const area of areas) expect(area.parent).toBeNull();
+    for (const lot of lots) expect(lot.parent).toBeNull();
     expect(capture.renders).toBe(renders);
     expect(host.querySelector('canvas')).toBeNull();
     expect(frames.size).toBe(0);
@@ -332,43 +338,86 @@ describe('shipped character world integration', () => {
     expect(host.dataset.station).toBe('printer');
   });
 
-  it('follows a scroll to the lab through the whole tour, ignoring clicks mid-flight, takes a queued Show me there, then jumps back up', async () => {
+  it('walks along the street to the workshop when its section scrolls into view, ignoring clicks on the way, then walks back home', async () => {
     await create(); api!.skipIntro(); advance(.1);
-    scrollTo(1);
-    // A Show me pressed while he is still upstairs waits until he has landed in the lab.
-    api!.visit('skills');
-    const phases: string[] = [];
-    for (let frame = 0; frame < 8 * 30; frame += 1) {
+    scrollToLot(2);
+    const tours: string[] = [];
+    const seen = new Set<string>();
+    let clicked = false;
+    for (let frame = 0; frame < 6 * 30; frame += 1) {
       advance(1 / 30);
-      if (phases.at(-1) !== host.dataset.tour) phases.push(host.dataset.tour!);
-      if (host.dataset.tour === 'trip' && phases.length === 3) clickWorld(0, 1);
+      if (tours.at(-1) !== host.dataset.tour) tours.push(host.dataset.tour!);
+      seen.add(host.dataset.area!);
+      if (host.dataset.tour === 'travel' && !clicked) { clicked = true; click({ x: width / 2, y: height * .6 }); }
     }
-    expect(phases).toEqual(['settled', 'chase', 'trip', 'fall', 'land', 'recover', 'settled']);
+    expect(tours).toEqual(['settled', 'travel', 'settled']);
+    // He passes the hall without stopping there.
+    expect([...seen]).toEqual(['home', 'workshop']);
     expect(message).not.toHaveBeenCalledWith('On my way. Click another spot to change course.');
-    expect(host.dataset.area).toBe('lab');
-    const { bounds } = layout(createLab, -18);
+    const { bounds } = layout(createLab, 2);
     const [x, z] = position();
     expect(x).toBeGreaterThanOrEqual(bounds.minX); expect(x).toBeLessThanOrEqual(bounds.maxX);
     expect(z).toBeGreaterThanOrEqual(bounds.minZ); expect(z).toBeLessThanOrEqual(bounds.maxZ);
     const lines = greeting.mock.calls.map(([line]) => line);
     expect(lines).toContain(CHASE_LINE.line);
-    expect(lines).toContain(AREA_ARRIVAL_LINES.lab.line);
-    until(() => host.dataset.station === 'skills', 5);
-    expect(host.dataset.station).toBe('skills');
-    scrollTo(0);
+    expect(lines).toContain(AREA_ARRIVAL_LINES.workshop.line);
+    scrollToLot(0);
     const back: string[] = [];
     for (let frame = 0; frame < 5 * 30; frame += 1) { advance(1 / 30); if (back.at(-1) !== host.dataset.tour) back.push(host.dataset.tour!); }
-    expect(back).toEqual(['settled', 'jump', 'land', 'recover', 'settled']);
-    expect(host.dataset.area).toBe('bedroom');
+    expect(back).toEqual(['settled', 'travel', 'settled']);
+    expect(host.dataset.area).toBe('home');
   });
 
-  it('starts mid-page in the viewed area without the intro', async () => {
-    scrollTop = 3 * height;
+  it('runs past several lots in one trip on a fast scroll and stops only at the last', async () => {
+    await create(); api!.skipIntro(); advance(.1);
+    scrollToLot(1); advance(.2); scrollToLot(3); advance(.2); scrollToLot(5);
+    const seen = new Set<string>();
+    until(() => { seen.add(host.dataset.area!); return host.dataset.tour === 'settled' && host.dataset.area !== 'home'; }, 10);
+    expect([...seen]).toEqual(['home', 'garage']);
+    expect(greeting).toHaveBeenLastCalledWith(AREA_ARRIVAL_LINES.garage.line);
+  });
+
+  it('presents a project exhibit he is sent to, with its Visit sign, until a floor click or a scroll ends it', async () => {
+    await create(); api!.skipIntro(); advance(.1);
+    scrollToLot(2);
+    until(() => host.dataset.area === 'workshop' && host.dataset.tour === 'settled', 10);
+    const moodify = content.projects.find((project) => project.slug === 'moodify')!;
+    const present = () => {
+      click(stationPoint('project:moodify', createLab, 2));
+      until(() => host.dataset.presenting === 'project:moodify', 20);
+      expect(host.dataset.presenting).toBe('project:moodify');
+    };
+    present();
+    expect(greeting).toHaveBeenLastCalledWith(STATION_LINES['project:moodify'][0].line);
+    expect(host.dataset.station).toBe('project:moodify');
+    const shown = sign.mock.calls.at(-1)![0];
+    expect(shown).toMatchObject({ url: moodify.url, label: 'Visit Moodify' });
+    expect(shown.x).toBeGreaterThan(0); expect(shown.x).toBeLessThan(width);
+    expect(shown.y).toBeGreaterThan(0); expect(shown.y).toBeLessThan(height);
+    advance(1.5);
+    expect(angleToCamera()).toBeLessThan(.1);
+    // Still presenting, sign up, long after the line is done.
+    advance(8);
+    expect(host.dataset.presenting).toBe('project:moodify');
+    expect(sign).not.toHaveBeenLastCalledWith(null);
+    const { entry } = layout(createLab, 2);
+    clickWorld(lotOrigin(2).x + entry.x, entry.z); advance(1 / 30);
+    expect(host.dataset.presenting).toBe('');
+    expect(sign).toHaveBeenLastCalledWith(null);
+    present();
+    scrollToLot(3);
+    until(() => host.dataset.tour === 'travel', 2);
+    expect(host.dataset.presenting).toBe('');
+    expect(sign).toHaveBeenLastCalledWith(null);
+  });
+
+  it('starts mid-page at the deep-linked lot without the intro', async () => {
+    scrollTop = lotTop(4) * height;
     await create();
     expect(phase).toHaveBeenLastCalledWith('roam');
     expect(wrapper.style.getPropertyValue('--intro-black')).toBe('0');
     advance(.1);
-    expect(host.dataset.area).toBe('about');
+    expect(host.dataset.area).toBe('gallery');
     expect(host.dataset.tour).toBe('settled');
   });
 
@@ -401,7 +450,7 @@ describe('shipped character world integration', () => {
     expect(greeting).toHaveBeenLastCalledWith(null);
     expect(wrapper.style.getPropertyValue('--intro-black')).toBe('0');
     api!.skipIntro(); api!.setPaused(false);
-    api!.visit('ball');
+    click(stationPoint('ball'));
     until(() => host.dataset.activity === 'toss-ball');
     expect(host.dataset.activity).toBe('toss-ball');
     advance(.35);
@@ -421,7 +470,7 @@ describe('shipped character world integration', () => {
 
   it('reads on the bed in a stable seated pose', async () => {
     await create(); api!.skipIntro(); advance(.1);
-    api!.visit('bed');
+    click(stationPoint('bed'));
     until(() => host.dataset.activity === 'read');
     expect(host.dataset.activity).toBe('read');
     advance(.4);

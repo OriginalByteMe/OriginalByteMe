@@ -74,7 +74,7 @@ const noise = (index: number, step: number) => {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 };
 
-/** Noah's cutaway bedroom: corner desk with the MacBook, bed, 3D printer, homelab rack and the cable he trips on. */
+/** Noah's cutaway bedroom, the home lot: corner desk with the MacBook, bed, 3D printer, homelab rack and its network cable. */
 export const createBedroom: AreaBuilder = (origin) => {
   const group = new THREE.Group();
   group.name = 'bedroom';
@@ -303,7 +303,7 @@ export const createBedroom: AreaBuilder = (origin) => {
     [COLOR.plum, new THREE.CylinderGeometry(.245, .245, .04, 20).translate(BALL_REST.x, .43, BALL_REST.z)],
   ]);
 
-  // The network cable runs from the rack, past the exit and over the front edge toward the lab below.
+  // The network cable runs from the rack across the floor and over the front edge.
   const cable = new THREE.CatmullRomCurve3(CABLE.map(([x, y, z]) => new THREE.Vector3(x, y, z)));
   mesh(new THREE.Mesh(shape([[COLOR.plum, new THREE.TubeGeometry(cable, 140, .028, 6)]]), solid), 'network-cable', null);
 
@@ -349,13 +349,12 @@ export const createBedroom: AreaBuilder = (origin) => {
   group.updateMatrixWorld(true);
 
   return {
-    id: 'bedroom',
+    id: 'home',
     group,
     bounds: { minX: -4.75, maxX: 4.75, minZ: -2.6, maxZ: 2.8 },
     obstacles: OBSTACLES.map((obstacle) => ({ ...obstacle })),
     stations: STATIONS.map((station) => ({ ...station, stand: { ...station.stand }, reach: { ...station.reach } })),
-    exit: { x: 1.7, z: 2.18 },
-    landing: { x: -1.95, y: .66, z: -2.3 },
+    entry: { x: 2.8, z: 2.1 },
     view: { center: { x: 0, y: 1.3, z: .1 } },
     propRests: { ball: { ...BALL_REST }, book: { ...BOOK_REST } },
     pick(raycaster) {

@@ -1,6 +1,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { LOTS } from "@/components/character/world/types";
 import {
   AFRO_LINES,
   AREA_ARRIVAL_LINES,
@@ -10,7 +11,6 @@ import {
   CharacterTidbitController,
   type CharacterLine,
   heroScrollProgress,
-  JUMP_LINE,
   NARRATIVE_DIALOGUE,
   NARRATIVE_PHASE_START,
   PORTRAIT_LINE,
@@ -204,7 +204,7 @@ describe("hero geometry", () => {
 const projectSlugs = readdirSync(resolve(process.cwd(), "content/about-me/projects")).map((file) => file.replace(/\.md$/, ""));
 const allLines: CharacterLine[] = [
   ...Object.values(STATION_LINES).flat(), ...Object.values(AREA_ARRIVAL_LINES), ...Object.values(TIDBIT_LINES).flat(),
-  CHASE_LINE, JUMP_LINE, BUMP_LINE, PORTRAIT_LINE, ...AFRO_LINES,
+  CHASE_LINE, BUMP_LINE, PORTRAIT_LINE, ...AFRO_LINES,
 ];
 
 describe("character lines", () => {
@@ -243,8 +243,14 @@ describe("character lines", () => {
     expect(PORTRAIT_LINE.line).toBe("Huh. Maybe that's what I'd look like.");
     expect(STATION_LINES.portrait[0]).toBe(PORTRAIT_LINE);
     expect(CHASE_LINE.line).toBe("Hey, wait for me!");
-    expect(AREA_ARRIVAL_LINES.lab.line).toMatch(/welcome to my lab/i);
-    expect(AREA_ARRIVAL_LINES.about.line).toMatch(/about me/i);
+  });
+
+  it("has an arrival line for every lot on the street, naming where he is", () => {
+    expect(Object.keys(AREA_ARRIVAL_LINES)).toEqual(LOTS.map((lot) => lot.id));
+    expect(AREA_ARRIVAL_LINES.home.line).toMatch(/home/i);
+    expect(AREA_ARRIVAL_LINES.workshop.line).toMatch(/workshop/i);
+    expect(AREA_ARRIVAL_LINES.gallery.line).toMatch(/about me/i);
+    expect(AREA_ARRIVAL_LINES.postoffice.line).toMatch(/say hi/i);
   });
 });
 
@@ -263,7 +269,7 @@ function listen(controller: CharacterTidbitController, seconds: number, input: T
 describe("idle tidbits", () => {
   it("speaks from the current area's pool, spaced by the quiet gap, up to the session cap", () => {
     const controller = new CharacterTidbitController();
-    const spoken = listen(controller, 900, (time) => ({ area: time < 100 ? "bedroom" : time < 200 ? "lab" : "about", ready: true }));
+    const spoken = listen(controller, 900, (time) => ({ area: time < 100 ? "home" : time < 200 ? "workshop" : "gallery", ready: true }));
     expect(spoken).toHaveLength(TIDBIT_CONFIG.maximumLines);
     expect(controller.spoken).toBe(TIDBIT_CONFIG.maximumLines);
     expect(spoken[0].time).toBeGreaterThanOrEqual(18);
@@ -272,37 +278,41 @@ describe("idle tidbits", () => {
       expect(time - spoken[index].time).toBeLessThanOrEqual(25 + 1e-6);
     });
     for (const { line, area } of spoken) expect(TIDBIT_LINES[area]).toContain(line);
-    expect(new Set(spoken.map(({ area }) => area))).toEqual(new Set(["bedroom", "lab", "about"]));
+    expect(new Set(spoken.map(({ area }) => area))).toEqual(new Set(["home", "workshop", "gallery"]));
   });
 
   it("never repeats the previous line and works through a pool before reusing it", () => {
-    const spoken = listen(new CharacterTidbitController({ seed: 7 }), 400, { area: "lab", ready: true }).map(({ line }) => line.id);
+    const spoken = listen(new CharacterTidbitController({ seed: 7 }), 400, { area: "workshop", ready: true }).map(({ line }) => line.id);
     spoken.slice(1).forEach((id, index) => expect(id).not.toBe(spoken[index]));
-    const pool = TIDBIT_LINES.lab.length;
+    const pool = TIDBIT_LINES.workshop!.length;
     expect(new Set(spoken.slice(0, pool)).size).toBe(pool);
+  });
+
+  it("stays quiet in a lot that has no tidbits yet", () => {
+    expect(listen(new CharacterTidbitController(), 300, { area: "hall", ready: true })).toEqual([]);
   });
 
   it("waits for three uninterrupted ready seconds and does not advance while paused", () => {
     const controller = new CharacterTidbitController();
-    expect(listen(controller, 30, { area: "bedroom", ready: false })).toEqual([]);
-    expect(listen(controller, 2.5, { area: "bedroom", ready: true })).toEqual([]);
-    expect(listen(controller, 1, { area: "bedroom", ready: false })).toEqual([]);
-    expect(listen(controller, 2.9, { area: "bedroom", ready: true })).toEqual([]);
-    expect(listen(controller, 100, { area: "bedroom", ready: true, paused: true })).toEqual([]);
-    expect(listen(controller, .15, { area: "bedroom", ready: true })).toHaveLength(1);
+    expect(listen(controller, 30, { area: "home", ready: false })).toEqual([]);
+    expect(listen(controller, 2.5, { area: "home", ready: true })).toEqual([]);
+    expect(listen(controller, 1, { area: "home", ready: false })).toEqual([]);
+    expect(listen(controller, 2.9, { area: "home", ready: true })).toEqual([]);
+    expect(listen(controller, 100, { area: "home", ready: true, paused: true })).toEqual([]);
+    expect(listen(controller, .15, { area: "home", ready: true })).toHaveLength(1);
     const paused = new CharacterTidbitController();
-    listen(paused, 300, { area: "bedroom", ready: true, paused: true });
-    expect(listen(paused, 17.9, { area: "bedroom", ready: true })).toEqual([]);
+    listen(paused, 300, { area: "home", ready: true, paused: true });
+    expect(listen(paused, 17.9, { area: "home", ready: true })).toEqual([]);
   });
 
   it("restores the session count, ignores bad deltas, and never speaks from a zero tick", () => {
-    expect(listen(new CharacterTidbitController({ spoken: 99 }), 300, { area: "about", ready: true })).toEqual([]);
+    expect(listen(new CharacterTidbitController({ spoken: 99 }), 300, { area: "gallery", ready: true })).toEqual([]);
     const restored = new CharacterTidbitController({ spoken: TIDBIT_CONFIG.maximumLines - 1 });
-    expect(listen(restored, 300, { area: "about", ready: true })).toHaveLength(1);
+    expect(listen(restored, 300, { area: "gallery", ready: true })).toHaveLength(1);
     const controller = new CharacterTidbitController({ spoken: NaN });
     expect(controller.spoken).toBe(0);
-    for (const delta of [NaN, Infinity, -1, 0, 1000]) expect(controller.tick(delta, { area: "lab", ready: true })).toBeNull();
-    listen(controller, 40, { area: "lab", ready: true });
-    expect(controller.tick(0, { area: "lab", ready: true })).toBeNull();
+    for (const delta of [NaN, Infinity, -1, 0, 1000]) expect(controller.tick(delta, { area: "workshop", ready: true })).toBeNull();
+    listen(controller, 40, { area: "workshop", ready: true });
+    expect(controller.tick(0, { area: "workshop", ready: true })).toBeNull();
   });
 });

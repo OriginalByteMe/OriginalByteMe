@@ -183,15 +183,6 @@ async function stubPublishedStory(page: Page, story: PublicStory, expectedQuesti
   });
 }
 
-async function openAskMe(page: Page) {
-  const heroLauncher = page.getByRole("button", { name: "Open Ask-Me" });
-  if (await heroLauncher.isVisible()) {
-    await heroLauncher.click();
-    return;
-  }
-  await page.getByRole("button", { name: /ask this portfolio a question/i }).click();
-}
-
 async function submitQuestion(page: Page, question: string) {
   await page.getByRole("textbox", { name: /ask a question/i }).fill(question);
   await page.getByRole("button", { name: /send question/i }).click();
@@ -207,7 +198,6 @@ test("progressively reveals ordered Scenes, stable reading position, Rail, share
   const events = storyEvents(CURRENT_PUBLIC_STORY);
   await installControlledStoryStreams(page, [events], [CURRENT_PUBLIC_STORY]);
   await page.goto("/");
-  await openAskMe(page);
   await submitQuestion(page, CURRENT_QUESTION);
 
   await expect(page.getByRole("heading", { name: "Preparing your Story" })).toBeVisible();
@@ -456,11 +446,9 @@ test("a newer question cancels an unfinished Story and prevents stale updates", 
     [CURRENT_PUBLIC_STORY, RELATED_PUBLIC_STORY],
   );
   await page.goto("/");
-  await openAskMe(page);
   await submitQuestion(page, CURRENT_QUESTION);
   await expect(page.getByRole("heading", { name: "Preparing your Story" })).toBeVisible();
 
-  await openAskMe(page);
   await submitQuestion(page, RELATED_QUESTION);
   await expect
     .poll(() => page.evaluate(() => Boolean((window as StoryTestWindow).__storyStreamAborted?.(0))))

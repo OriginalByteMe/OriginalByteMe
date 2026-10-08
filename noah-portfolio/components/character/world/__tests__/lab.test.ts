@@ -2,13 +2,15 @@ import * as THREE from 'three';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { stubCanvas2d } from '@/lib/character/__tests__/canvas-stub';
 import { createCharacterState, stepCharacter } from '@/lib/character/controller';
+import { STATION_LINES } from '@/lib/character/narrative';
 import { worldContent, type WorldContent } from '@/lib/character/world-content';
 import { loadCorpus } from '@/lib/corpus/loader';
 import { createLab } from '../lab';
+import { lotOrigin } from '../town';
 import type { WorldArea } from '../types';
 
 const real = worldContent(loadCorpus().corpus);
-const origin = new THREE.Vector3(0, -18, 0);
+const origin = lotOrigin(2);
 const withProjects = (projects: WorldContent['projects']): WorldContent => ({ ...real, projects });
 const eight = withProjects([...real.projects, ...['alpha', 'beta', 'gamma'].map((name) => ({ ...real.projects[0], slug: `extra-${name}`, title: `Extra ${name}` }))]);
 const longTitle = 'An Extraordinarily Long Story Model Benchmark Title That Keeps On Going';
@@ -51,7 +53,7 @@ describe('createLab', () => {
   it.each([0, 1, 5])('has one play station per project plus the skills wall for %i projects', (count) => {
     const content = withProjects(real.projects.slice(0, count));
     const area = createLab(origin, content);
-    expect(area.id).toBe('lab');
+    expect(area.id).toBe('workshop');
     expect(area.group.position.toArray()).toEqual(origin.toArray());
     expect(area.stations.map((station) => station.id)).toEqual(ids(content));
     expect(area.stations.map((station) => station.kind)).toEqual([...content.projects.map(() => 'play'), 'tinker']);
@@ -81,16 +83,12 @@ describe('createLab', () => {
     }
     for (const [index, a] of area.stations.entries()) for (const b of area.stations.slice(index + 1)) expect(flat(a.stand).distanceTo(flat(b.stand))).toBeGreaterThan(.5);
 
-    expect(inset(area.exit) && clear(area.exit)).toBe(true);
-    expect(area.exit.z).toBeGreaterThan(bounds.maxZ - .6);
-    expect(area.landing.y).toBeGreaterThan(.2);
-    expect(inset(area.landing) && clear(area.landing)).toBe(true);
-    for (const station of area.stations) expect(flat(area.landing).distanceTo(flat(station.stand))).toBeGreaterThan(.9);
-
-    for (const target of [...area.stations.map((station) => station.stand), area.exit]) {
-      const state = createCharacterState({ x: area.landing.x, z: area.landing.z });
-      for (let frame = 0; frame < 1800; frame++) stepCharacter(state, target, 1 / 60, obstacles, bounds);
-      expect(Math.hypot(state.position.x - target.x, state.position.z - target.z)).toBeLessThan(.13);
+    expect(inset(area.entry) && clear(area.entry)).toBe(true);
+    expect(area.entry.z).toBeGreaterThan(bounds.maxZ - .6);
+    for (const station of area.stations) {
+      const state = createCharacterState({ ...area.entry });
+      for (let frame = 0; frame < 1800; frame++) stepCharacter(state, station.stand, 1 / 60, obstacles, bounds);
+      expect(Math.hypot(state.position.x - station.stand.x, state.position.z - station.stand.z), station.id).toBeLessThan(.13);
     }
 
     const exhibits = content.projects.map((project) => new THREE.Box3().setFromObject(area.group.getObjectByName(`project:${project.slug}`)!).translate(origin.clone().negate()));
@@ -109,11 +107,22 @@ describe('createLab', () => {
     expect(triangles).toBeLessThanOrEqual(25000);
   });
 
+  it('lets every exhibit present its project: its own lines, and a Visit link only when the project has a url', () => {
+    const area = createLab(origin, withProjects([...real.projects, { ...real.projects[0], slug: 'no-link', title: 'No Link', url: '' }]));
+    for (const project of real.projects) {
+      const station = area.stations.find((entry) => entry.id === `project:${project.slug}`)!;
+      expect(station.present).toEqual({ lines: STATION_LINES[station.id], url: project.url, linkLabel: `Visit ${project.title}` });
+      expect(station.present!.lines.length).toBeGreaterThan(0);
+    }
+    expect(area.stations.find((entry) => entry.id === 'project:no-link')!.present!.url).toBeUndefined();
+    expect(area.stations.find((entry) => entry.id === 'skills')!.present).toBeUndefined();
+  });
+
   it('labels every skill, category and project, wrapping long titles inside their label', () => {
     const content = withProjects([...real.projects, { ...real.projects[3], slug: 'long-one', title: longTitle }]);
     createLab(origin, content);
     const phrases = new Set(draws.flatMap((_, index) => [1, 2, 3, 4].map((lines) => draws.slice(index, index + lines).map((draw) => draw.text).join(' '))));
-    for (const name of [...content.skills.flatMap((group) => [group.category, ...group.skills]), ...content.projects.map((project) => project.title)]) expect(phrases, name).toContain(name);
+    for (const name of [...content.skills.flatMap((group) => [group.category, ...group.skills.map((skill) => skill.name)]), ...content.projects.map((project) => project.title)]) expect(phrases, name).toContain(name);
     for (const [index, draw] of draws.entries()) {
       expect([draw.left >= 0, draw.right <= draw.canvas.width, draw.top >= 0, draw.bottom <= draw.canvas.height], draw.text).toEqual([true, true, true, true]);
       for (const other of draws.slice(index + 1)) {
@@ -161,7 +170,7 @@ describe('createLab', () => {
       for (const part of parts) expect(area.pick(aim(part)), id).toBe(id);
     }
     const local = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z).add(origin);
-    const floor = ray(local(area.exit.x, 3, area.exit.z), local(area.exit.x, 0, area.exit.z));
+    const floor = ray(local(area.entry.x, 3, area.entry.z), local(area.entry.x, 0, area.entry.z));
     const sideWall = ray(local(0, 3.2, -1.5), local(-10, 3.2, -1.5));
     for (const raycaster of [floor, sideWall]) {
       expect(raycaster.intersectObject(area.group, true).length).toBeGreaterThan(0);

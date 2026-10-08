@@ -5,12 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import SiteShell, { chooseListeningEasterEggSlot } from '@/components/SiteShell';
 import { makeStore } from '@/lib/store';
-import type { WorldContent } from '@/lib/character/world-content';
+import { corpus } from '@/lib/corpus';
+import { worldContent, type WorldContent } from '@/lib/character/world-content';
 
 const askMeState = vi.hoisted(() => ({ mode: 'home' as 'home' | 'streaming' | 'answer' }));
 const spotifyHook = vi.hoisted(() => ({ fetchSpotifyTracksAndPalettes: vi.fn() }));
 const canvasState = vi.hoisted(() => ({ showChapters: true, renderVersion: 0 }));
-const content: WorldContent = { projects: [], skills: [], headline: 'Full-Stack Developer', location: 'Kuala Lumpur, Malaysia', career: [], funFacts: [] };
+const content = worldContent(corpus);
 
 vi.mock('@/components/AskMeProvider', () => ({
   useAskMe: () => askMeState,
@@ -31,7 +32,7 @@ vi.mock('@/components/PortfolioCanvas', () => ({
   ) : <div>Loading portfolio</div>,
 }));
 vi.mock('@/components/CompactHeader', () => ({ default: () => <header>Compact header</header> }));
-vi.mock('@/components/AskDock', () => ({ default: () => <div>Ask dock</div> }));
+vi.mock('@/components/AskBar', () => ({ default: () => <div>Ask bar</div> }));
 vi.mock('@/components/ThemeSwitch', () => ({
   ThemeSwitch: () => <button type="button" aria-label="Toggle color theme" aria-pressed="false">Theme</button>,
 }));
@@ -183,7 +184,8 @@ describe('site-wide listening easter egg', () => {
     expect(screen.getAllByRole('navigation', { name: 'Primary navigation' })).toHaveLength(1);
     expect(navigation).toHaveClass('site-primary-nav');
     expect(navigation.closest('.site-top-chrome')).toBe(chrome);
-    expect(story).toHaveAttribute('href', '#story');
+    expect(story).toHaveAttribute('href', '#brief');
+    expect(screen.getByText('Ask bar')).toBeInTheDocument();
     expect(blog).toHaveAttribute('href', 'https://blog.noahrijkaard.com');
     expect(blog).toHaveAttribute('target', '_blank');
     expect(blog).toHaveAttribute('rel', 'noreferrer noopener');
@@ -205,6 +207,8 @@ describe('site-wide listening easter egg', () => {
     expect(screen.getByRole('navigation', { name: 'Primary navigation' })).toContainElement(
       screen.getByRole('link', { name: "Read Noah's story" }),
     );
+    expect(screen.getByRole('link', { name: "Read Noah's story" })).toHaveAttribute('href', '#story');
+    expect(screen.getAllByText('Ask bar')).toHaveLength(1);
     expect(screen.getByRole('navigation', { name: 'Primary navigation' })).toContainElement(
       screen.getByRole('link', { name: "Read Noah's blog" }),
     );

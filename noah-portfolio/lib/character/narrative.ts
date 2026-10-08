@@ -246,7 +246,6 @@ const project = (slug: string): CorpusSource => `content/about-me/projects/${slu
 
 export const PORTRAIT_LINE: CharacterLine = { id: "portrait-admire", line: "Huh. Maybe that's what I'd look like." };
 export const CHASE_LINE: CharacterLine = { id: "chase", line: "Hey, wait for me!" };
-export const JUMP_LINE: CharacterLine = { id: "jump", line: "Hup! Coming back up!" };
 /** Walking into furniture. */
 export const BUMP_LINE: CharacterLine = { id: "bump", line: "Oops, excuse me, furniture." };
 /** Escalating replies to afro clicks; index by click count, clamped to the last. */
@@ -256,11 +255,15 @@ export const AFRO_LINES: readonly CharacterLine[] = [
   { id: "afro-3", line: "Seriously, I just fluffed it!" },
   { id: "afro-4", line: "Okay, now you're doing it on purpose." },
 ];
-/** Spoken at recover after landing; the land beat already has its own "Ow". */
+/** Spoken when he walks into a lot from the street. */
 export const AREA_ARRIVAL_LINES: Readonly<Record<AreaId, CharacterLine>> = {
-  bedroom: { id: "arrive-bedroom", line: "Home sweet bedroom!" },
-  lab: { id: "arrive-lab", line: "Oh hey, welcome to my lab!" },
-  about: { id: "arrive-about", line: "Okay, this part's about me." },
+  home: { id: "arrive-home", line: "Home sweet bedroom!" },
+  hall: { id: "arrive-hall", line: "This is the hall. Here's me, in brief!" },
+  workshop: { id: "arrive-workshop", line: "Oh hey, welcome to my workshop!" },
+  toolshed: { id: "arrive-toolshed", line: "The toolshed! This is where my tools live." },
+  gallery: { id: "arrive-gallery", line: "Okay, this part's about me." },
+  garage: { id: "arrive-garage", line: "The garage, home of my rig!" },
+  postoffice: { id: "arrive-postoffice", line: "The post office. Come say hi!" },
 };
 
 /** Keyed by the shared station ids; the scene picks one when a station's routine starts. */
@@ -310,22 +313,22 @@ export const STATION_LINES: Readonly<Record<string, readonly CharacterLine[]>> =
   ],
 };
 
-/** Idle asides per area; every one is a sourced public fact. */
-export const TIDBIT_LINES: Readonly<Record<AreaId, readonly CharacterLine[]>> = {
-  bedroom: [
+/** Idle asides per lot; every one is a sourced public fact. Lots without a pool stay quiet. */
+export const TIDBIT_LINES: Readonly<Partial<Record<AreaId, readonly CharacterLine[]>>> = {
+  home: [
     { id: "tidbit-full-stack", line: "I'm full-stack: backend, infra and frontend!", source: CAREER },
     { id: "tidbit-pragmatic", line: "I lean toward pragmatic, scalable systems.", source: CAREER },
     { id: "tidbit-3d", line: "Fun fact: I'm into CAD and FDM 3D printing!", source: FUN },
     { id: "tidbit-self-hosting", line: "Fun fact: I self-host on Proxmox and Unraid!", source: FUN },
   ],
-  lab: [
+  workshop: [
     { id: "tidbit-llm-open-source", line: "LLM Comparison is open source. Go poke at it!", source: project("llm-comparison") },
     { id: "tidbit-supa-eval", line: "At Supa I shipped LLM evaluation tooling!", source: CAREER },
     { id: "tidbit-benchmark-fallback", line: "My benchmark even picked a free fallback model!", source: project("story-model-benchmark") },
     { id: "tidbit-segment-anything", line: "The sticker maker uses Segment Anything under the hood!", source: project("ai-image-cutout") },
     { id: "tidbit-moodify-hero", line: "Moodify's palette trick recolours this site's hero too!", source: project("moodify") },
   ],
-  about: [
+  gallery: [
     { id: "tidbit-kuala-lumpur", line: "I'm based in Kuala Lumpur, Malaysia!", source: BIO },
     { id: "tidbit-supa-years", line: "Five years at Supa building AI training-data tools!", source: CAREER },
     { id: "tidbit-merchantspring-2026", line: "I joined MerchantSpring in 2026 as a Senior AI Engineer.", source: CAREER },
@@ -398,6 +401,7 @@ export class CharacterTidbitController {
     if (dt === 0 || this.count >= TIDBIT_CONFIG.maximumLines || this.elapsed + 1e-9 < this.nextAt
       || this.ready + 1e-9 < TIDBIT_CONFIG.readyTime) return null;
     const pool = TIDBIT_LINES[input.area];
+    if (!pool?.length) return null;
     let options = pool.filter((line) => line.id !== this.previous && !this.heard.has(line.id));
     if (!options.length) {
       for (const line of pool) this.heard.delete(line.id);

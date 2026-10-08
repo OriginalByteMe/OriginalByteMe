@@ -1,5 +1,5 @@
 import { createElement, type ComponentProps, type ReactNode } from 'react';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,10 +7,11 @@ import Hero from '@/components/Hero';
 import CharacterWorld from '@/components/character/CharacterWorld';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { makeStore } from '@/lib/store';
-import type { WorldContent } from '@/lib/character/world-content';
+import { corpus } from '@/lib/corpus';
+import { worldContent } from '@/lib/character/world-content';
 
 const { createScene, scene } = vi.hoisted(() => ({
-  scene: { dispose: vi.fn(), visit: vi.fn(), setPaused: vi.fn(), key: vi.fn(), wave: vi.fn(), reset: vi.fn(), skipIntro: vi.fn(), setSoundEnabled: vi.fn(), setMusicEnabled: vi.fn() },
+  scene: { dispose: vi.fn(), setPaused: vi.fn(), key: vi.fn(), wave: vi.fn(), reset: vi.fn(), skipIntro: vi.fn(), setSoundEnabled: vi.fn(), setMusicEnabled: vi.fn() },
   createScene: vi.fn(),
 }));
 vi.mock('@/components/character/create-character-scene', () => ({ createCharacterScene: createScene }));
@@ -33,21 +34,7 @@ vi.mock('@paper-design/shaders-react', () => ({
   ImageDithering: () => <div data-testid="portrait-dither" />,
 }));
 
-vi.mock('@/components/ChatBox', () => ({
-  default: () => <label>Question for Noah<input aria-label="Question for Noah" /></label>,
-}));
-
-const content: WorldContent = {
-  projects: [
-    { slug: 'moodify', title: 'Moodify', description: 'Playlists that follow your mood.', url: 'https://github.com/OriginalByteMe/Moodify', image: '', tech: ['Next.js', 'Spotify API'] },
-    { slug: 'ai-image-cutout', title: 'AI Image Cutout Tool', description: 'Cuts subjects out of photos.', url: '', image: '', tech: ['Python'] },
-  ],
-  skills: [{ category: 'Databases', skills: ['PostgreSQL', 'Redis'] }, { category: 'AI & LLM Tooling', skills: ['LangChain'] }],
-  headline: 'Full-Stack Developer',
-  location: 'Kuala Lumpur, Malaysia',
-  career: [{ company: 'MerchantSpring', role: 'Senior AI Engineer', period: '2026 - Present', logo: '' }, { company: 'Bowiq', role: 'CAD Designer & 3D Printing Engineer', period: '2023 - Present', logo: '' }],
-  funFacts: ['Self-hosts on Proxmox + Unraid'],
-};
+const content = worldContent(corpus);
 let reducedMotion = true;
 let intersect: IntersectionObserverCallback;
 const providers = (children: ReactNode, store = makeStore()) => <Provider store={store}><ThemeProvider>{children}</ThemeProvider></Provider>;
@@ -117,31 +104,13 @@ describe('Hero interaction composition', () => {
     expect(document.querySelector('canvas')).not.toBeInTheDocument();
   });
 
-  it('reveals the centered Ask-Me composer and prompt routes only after activation', async () => {
+  it('leaves asking to the always-open Ask bar instead of a hero launcher', () => {
     render(providers(<Hero />));
 
-    const askRegion = screen.getByRole('region', { name: 'Ask-Me' });
-    expect(askRegion).toHaveAttribute('data-state', 'collapsed');
-    expect(askRegion).not.toHaveClass('hero-panel');
-    const launcher = screen.getByRole('button', { name: 'Open Ask-Me composer' });
-    expect(launcher).toHaveClass('ask-launcher-button');
-    expect(launcher).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByText('Ask this portfolio anything')).toBeVisible();
-    expect(screen.queryByRole('textbox', { name: 'Question for Noah' })).not.toBeInTheDocument();
-    expect(screen.queryByText('Where should we begin?')).not.toBeInTheDocument();
-
-    fireEvent.click(launcher);
-
-    expect(askRegion).toHaveAttribute('data-state', 'expanded');
-    expect(screen.getByRole('button', { name: 'Ask-Me composer is open' })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('heading', { level: 2, name: 'Where should we begin?' })).toBeVisible();
-    expect(screen.getByRole('textbox', { name: 'Question for Noah' })).toBeVisible();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse Ask-Me' }));
-
-    expect(screen.queryByRole('textbox', { name: 'Question for Noah' })).not.toBeInTheDocument();
-    const restoredLauncher = screen.getByRole('button', { name: 'Open Ask-Me composer' });
-    await waitFor(() => expect(restoredLauncher).toHaveFocus());
+    expect(screen.getByRole('heading', { level: 1, name: /Hi, I’m Noah Rijkaard/ })).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Ask-Me' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Ask-Me|ask this portfolio/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
   it('keeps a selected Spotify track tied to portrait tinting without restoring listening UI', () => {
@@ -172,45 +141,55 @@ describe('Hero interaction composition', () => {
 });
 
 describe('Character world sections', () => {
-  it('keeps every project, skill group and about fact readable as plain DOM in the portrait fallback', () => {
+  it('gives every lot a section in street order whose chapter facts are screen-reader text, not visible panels', () => {
     render(providers(<CharacterWorld content={content} />));
     expect(screen.getByTestId('character-world')).toHaveAttribute('data-status', 'fallback');
     expect(createScene).not.toHaveBeenCalled();
+    const sections = [...document.querySelectorAll('.character-world > section')];
+    expect(sections.map((section) => section.id)).toEqual(['hero', 'brief', 'built', 'toolbox', 'about', 'rig', 'say-hi']);
+    for (const section of sections.slice(1)) expect(section.firstElementChild).toHaveClass('sr-only');
 
-    const lab = screen.getByRole('region', { name: 'Things I’ve built' });
-    expect(lab).toHaveAttribute('id', 'lab');
+    const brief = screen.getByRole('region', { name: 'Noah, in brief' });
+    expect(brief).toHaveTextContent(content.brief);
+    expect(brief).toHaveTextContent('Full-Stack Developer in Kuala Lumpur, Malaysia.');
+    expect(brief).toHaveTextContent('6 yrs shipping software');
+
+    const built = screen.getByRole('region', { name: 'Things I’ve built' });
     for (const project of content.projects) {
-      const card = within(lab).getByRole('heading', { level: 3, name: project.title }).closest('li')!;
+      const card = within(built).getByRole('heading', { level: 3, name: project.title }).closest('li')!;
       expect(card).toHaveTextContent(project.description);
-      expect(card).toHaveTextContent(project.tech.join(' · '));
+      expect(card).toHaveTextContent(`Built with ${project.tech.map((tech) => tech.name).join(', ')}.`);
+      const link = within(card).getByRole('link', { name: `Visit ${project.title}` });
+      expect(link).toHaveAttribute('href', project.url);
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noreferrer noopener');
     }
-    expect(within(lab).getByRole('link', { name: /Visit Moodify/ })).toHaveAttribute('href', 'https://github.com/OriginalByteMe/Moodify');
-    expect(within(lab).queryByRole('link', { name: /Visit AI Image Cutout Tool/ })).not.toBeInTheDocument();
-    expect(within(lab).getByText('Databases').nextSibling).toHaveTextContent('PostgreSQL, Redis');
-    expect(within(lab).getByText('AI & LLM Tooling')).toBeInTheDocument();
-    expect(within(lab).queryByRole('button', { name: /Show me/ })).not.toBeInTheDocument();
 
-    const about = screen.getByRole('region', { name: 'About me' });
-    expect(about).toHaveAttribute('id', 'about');
-    expect(about).toHaveTextContent('Full-Stack Developer, based in Kuala Lumpur, Malaysia.');
-    expect(within(about).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
-      'Senior AI Engineer at MerchantSpring 2026 - Present',
-      'CAD Designer & 3D Printing Engineer at Bowiq 2023 - Present',
-      'Self-hosts on Proxmox + Unraid',
-    ]);
-    expect(within(about).getByRole('img', { name: 'Framed hero portrait of Noah Rijkaard' })).toHaveAttribute('src', '/hero.png');
+    const toolbox = screen.getByRole('region', { name: 'The toolbox' });
+    for (const group of content.skills) expect(within(toolbox).getByText(group.category).nextSibling).toHaveTextContent(group.skills.map((skill) => skill.name).join(', '));
+
+    const about = screen.getByRole('region', { name: 'About me and where I’ve been' });
+    const merchantSpring = within(about).getByRole('heading', { level: 3, name: 'Senior AI Engineer at MerchantSpring' }).closest('li')!;
+    expect(merchantSpring).toHaveTextContent('2026 - Present');
+    expect(merchantSpring).toHaveTextContent('Building marketplace analytics for e-commerce sellers and agencies');
+    expect(about).toHaveTextContent('Self-hosts on Proxmox + Unraid');
+
+    const rig = screen.getByRole('region', { name: 'The rig' });
+    expect(within(rig).getByText('Linux Environment').nextSibling).toHaveTextContent('Linux, Debian, Ubuntu');
+    expect(within(rig).getByRole('link', { name: 'Visit My blog!' })).toHaveAttribute('href', 'https://blog.noahrijkaard.com');
+    expect(rig).toHaveTextContent('3D Printing');
+
+    const sayHi = screen.getByRole('region', { name: 'Say hi' });
+    expect(within(sayHi).getByRole('link', { name: 'Email noahrijkaard@gmail.com' })).toHaveAttribute('href', 'mailto:noahrijkaard@gmail.com');
+    expect(within(sayHi).getByRole('link', { name: 'GitHub' })).toHaveAttribute('href', 'https://github.com/OriginalByteMe');
   });
 
-  it('offers Show me buttons only once the scene is live, sending him to that exhibit', async () => {
+  it('hands the scene its content and never offers Show me buttons once it is live', async () => {
     reducedMotion = false;
     render(providers(<CharacterWorld content={content} />));
     await act(async () => intersect([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver));
     await waitFor(() => expect(screen.getByTestId('character-world')).toHaveAttribute('data-status', 'ready'));
     expect(createScene.mock.calls[0][1].content).toBe(content);
-    fireEvent.click(screen.getByRole('button', { name: 'Show me Moodify' }));
-    expect(scene.visit).toHaveBeenLastCalledWith('project:moodify');
-    fireEvent.click(screen.getByRole('button', { name: 'Show me the skills wall' }));
-    expect(scene.visit).toHaveBeenLastCalledWith('skills');
-    for (const panel of document.querySelectorAll('.character-world__panel')) expect(panel).toHaveAttribute('data-character-ui');
+    expect(screen.queryByRole('button', { name: /Show me/ })).not.toBeInTheDocument();
   });
 });

@@ -12,7 +12,7 @@ const SHELF = { x: -2.9, z: -2.85, width: 2.2, top: .98 };
 const TABLE = { x: 3.3, z: -2.45, top: .82 };
 const COUCH = { x: -3.3, z: 1.2, seat: .56 };
 
-/** About Me diorama: Noah's framed portrait, a Kuala Lumpur skyline model and a career shelf around a couch he lands on. */
+/** About Me diorama, the gallery lot until it is rebuilt: Noah's framed portrait, a Kuala Lumpur skyline model, a career shelf and a couch. */
 export const createAbout: AreaBuilder = (origin, content) => {
   const group = new THREE.Group();
   group.name = 'about-area';
@@ -146,7 +146,7 @@ export const createAbout: AreaBuilder = (origin, content) => {
     return badge;
   });
 
-  // Couch he lands on, facing the camera from the front-left.
+  // Couch, facing the camera from the front-left.
   const couch = new THREE.Group(); couch.position.set(COUCH.x, 0, COUCH.z); group.add(couch);
   add(couch, box(1.8, .4, .85, .08), coral, 0, .2, 0);
   add(couch, box(1.8, .65, .24, .1), coral, 0, .625, -.305);
@@ -172,7 +172,7 @@ export const createAbout: AreaBuilder = (origin, content) => {
 
   let tilt = 0, swing = 0;
   return {
-    id: 'about',
+    id: 'gallery',
     group,
     bounds: { minX: -4.5, maxX: 4.5, minZ: -2.6, maxZ: 2.6 },
     obstacles: [
@@ -190,8 +190,7 @@ export const createAbout: AreaBuilder = (origin, content) => {
       { id: 'skyline', kind: 'watch', label: `Skyline model of ${content.location}`, stand: { x: TABLE.x, z: -1.6 }, heading: Math.PI, reach: { x: TABLE.x, y: 1, z: -2.2 } },
       { id: 'career', kind: 'watch', label: 'Career shelf', stand: { x: SHELF.x, z: -2.15 }, heading: Math.PI, reach: { x: SHELF.x, y: SHELF.top, z: -2.64 } },
     ],
-    exit: { x: 1.6, z: 2.3 },
-    landing: { x: COUCH.x + .3, y: COUCH.seat, z: COUCH.z + .1 },
+    entry: { x: 1.9, z: 2.3 },
     view: { center: { x: 0, y: 1.8, z: -.6 } },
     pick: (raycaster) => {
       const hit = raycaster.intersectObject(group, true).find((candidate) => candidate.object.visible);

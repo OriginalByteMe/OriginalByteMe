@@ -13,61 +13,76 @@ function run(tour: CharacterTourController, seconds: number, view: View, from = 
   return frames;
 }
 const starts = (frames: TimedFrame[]) => frames.flatMap((frame) => frame.started ? [[frame.started, +frame.time.toFixed(2)]] : []);
-describe('scroll tour between areas', () => {
-  it('goes down one area as chase, trip, fall, land, recover and joins the lower area when the fall ends', () => {
-    const frames = run(new CharacterTourController({ areas: 3 }), 6, 1);
-    expect(starts(frames)).toEqual([['chase', .35], ['trip', 1.25], ['fall', 1.7], ['land', 3], ['recover', 3.55], ['settled', 4.65]]);
-    const at = (time: number) => frames.find((frame) => Math.abs(frame.time - time) < 1e-6)!;
-    expect(at(2.95)).toMatchObject({ phase: 'fall', area: 0, from: 0, to: 1 });
-    expect(at(3)).toMatchObject({ phase: 'land', area: 1, from: 0, to: 1 });
-    expect(at(.3)).toMatchObject({ phase: 'settled', area: 0, from: 0, to: 0 });
-    expect(at(6)).toMatchObject({ phase: 'settled', area: 1, from: 1, to: 1, started: null });
-    expect(at(2.35).progress).toBeCloseTo(.5);
+const at = (frames: TimedFrame[], time: number) => frames.find((frame) => Math.abs(frame.time - time) < 1e-6)!;
+
+describe('walking along the street between lots', () => {
+  it('walks to the next lot in one timed trip and joins it on arrival', () => {
+    const frames = run(new CharacterTourController({ areas: 7 }), 4, 1);
+    // One lot: a 1 s walk out and in plus 1.5 s along the street, after the .35 s debounce.
+    expect(starts(frames)).toEqual([['travel', .35], ['settled', 2.85]]);
+    expect(at(frames, .3)).toMatchObject({ phase: 'settled', area: 0, from: 0, to: 0 });
+    expect(at(frames, 1)).toMatchObject({ phase: 'travel', area: 0, from: 0, to: 1 });
+    expect(at(frames, 1.6).progress).toBeCloseTo(.5);
+    expect(at(frames, 2.85)).toMatchObject({ phase: 'settled', area: 1, from: 1, to: 1 });
+    expect(frames.at(-1)).toMatchObject({ area: 1, from: 1, to: 1, phase: 'settled', progress: 0, started: null });
   });
 
-  it('goes up one area as jump, land, recover and joins the upper area when the jump ends', () => {
-    const frames = run(new CharacterTourController({ areas: 3, start: 1 }), 4, 0);
-    expect(starts(frames)).toEqual([['jump', .35], ['land', 1.55], ['recover', 2.1], ['settled', 3.2]]);
-    expect(frames.find((frame) => frame.phase === 'jump')).toMatchObject({ area: 1, from: 1, to: 0 });
-    expect(frames.find((frame) => frame.phase === 'land')?.area).toBe(0);
-  });
-
-  it('waits for the view to hold through the debounce and cancels on flicker back', () => {
-    const tour = new CharacterTourController({ areas: 3 });
-    const flicker = [...run(tour, .3, 1), ...run(tour, .05, 0), ...run(tour, .3, 1)];
-    expect(flicker.every((frame) => frame.phase === 'settled' && frame.started === null)).toBe(true);
-    expect(tour.tick(STEP, { viewArea: 1 }).started).toBe('chase');
-  });
-
-  it('moves one area per transition when the visitor is two areas away', () => {
-    const frames = run(new CharacterTourController({ areas: 3 }), 11, 2);
-    expect(starts(frames).map(([phase]) => phase)).toEqual([
-      'chase', 'trip', 'fall', 'land', 'recover', 'chase', 'trip', 'fall', 'land', 'recover', 'settled',
-    ]);
-    expect(starts(frames)[5]).toEqual(['chase', 4.65]);
-    expect(frames.every((frame) => Math.abs(frame.to - frame.from) <= 1)).toBe(true);
+  it('walks back to the previous lot the same way', () => {
+    const frames = run(new CharacterTourController({ areas: 7, start: 3 }), 4, 2);
+    expect(starts(frames)).toEqual([['travel', .35], ['settled', 2.85]]);
+    expect(at(frames, 1)).toMatchObject({ phase: 'travel', area: 3, from: 3, to: 2 });
     expect(frames.at(-1)).toMatchObject({ phase: 'settled', area: 2 });
   });
 
-  it('finishes the current step when the visitor scrolls back mid-transition, then heads back', () => {
-    const frames = run(new CharacterTourController({ areas: 3 }), 9, (time) => time <= 1 ? 1 : 0);
-    expect(starts(frames).map(([phase]) => phase)).toEqual([
-      'chase', 'trip', 'fall', 'land', 'recover', 'jump', 'land', 'recover', 'settled',
-    ]);
-    expect(frames.find((frame) => frame.phase === 'jump')).toMatchObject({ area: 1, from: 1, to: 0 });
+  it('passes several lots in one trip, capped at five seconds, without stopping on the way', () => {
+    const frames = run(new CharacterTourController({ areas: 7 }), 6, 6);
+    expect(starts(frames)).toEqual([['travel', .35], ['settled', 5.35]]);
+    const travel = frames.filter((frame) => frame.phase === 'travel');
+    expect(travel.every((frame) => frame.area === 0 && frame.from === 0 && frame.to === 6)).toBe(true);
+    expect(frames.at(-1)).toMatchObject({ phase: 'settled', area: 6 });
+  });
+
+  it('extends the trip when a fast scroll carries on past the lot he was heading to', () => {
+    const frames = run(new CharacterTourController({ areas: 7 }), 7, (time) => time <= .5 ? 1 : 4);
+    // The new view holds through the debounce from .55 s; he is a fifth of the way to lot 1 by then.
+    expect(starts(frames)).toEqual([['travel', .35], ['travel', .85], ['settled', 5.85]]);
+    expect(at(frames, .9).from).toBeCloseTo(.2);
+    expect(at(frames, .9)).toMatchObject({ phase: 'travel', area: 0, to: 4 });
+    expect(frames.some((frame) => frame.area === 1)).toBe(false);
+    expect(frames.at(-1)).toMatchObject({ phase: 'settled', area: 4 });
+  });
+
+  it('turns back mid-walk when the visitor scrolls back, from wherever he has got to', () => {
+    const frames = run(new CharacterTourController({ areas: 7 }), 6, (time) => time <= 1.5 ? 2 : 0);
+    expect(starts(frames).map(([phase]) => phase)).toEqual(['travel', 'travel', 'settled']);
+    const back = frames.find((frame) => frame.started === 'travel' && frame.to === 0)!;
+    expect(back.from).toBeGreaterThan(0); expect(back.from).toBeLessThan(2);
     expect(frames.at(-1)).toMatchObject({ phase: 'settled', area: 0 });
   });
 
-  it('jumpTo settles instantly, clamps the area and drops a pending or running transition', () => {
-    const tour = new CharacterTourController({ areas: 3 });
-    run(tour, 1, 1);
+  it('waits for the view to hold through the debounce and ignores a flicker', () => {
+    const tour = new CharacterTourController({ areas: 7 });
+    const flicker = [...run(tour, .3, 1), ...run(tour, .05, 0), ...run(tour, .3, 1)];
+    expect(flicker.every((frame) => frame.phase === 'settled' && frame.started === null)).toBe(true);
+    expect(tour.tick(STEP, { viewArea: 1 }).started).toBe('travel');
+    const travelling = new CharacterTourController({ areas: 7 });
+    run(travelling, .5, 3);
+    const steady = run(travelling, .3, 5).concat(run(travelling, .05, 3));
+    expect(steady.every((frame) => frame.started === null && frame.to === 3)).toBe(true);
+  });
+
+  it('starts settled at a deep-linked lot, and jumpTo settles instantly, clamps and drops a trip', () => {
+    expect(new CharacterTourController({ areas: 7, start: 4 }).tick(STEP, { viewArea: 4 }))
+      .toEqual({ area: 4, from: 4, to: 4, phase: 'settled', progress: 0, started: null });
+    const tour = new CharacterTourController({ areas: 7 });
+    run(tour, 1, 3);
     tour.jumpTo(2);
     expect(tour.tick(STEP, { viewArea: 2 })).toEqual({ area: 2, from: 2, to: 2, phase: 'settled', progress: 0, started: null });
     tour.jumpTo(9);
-    expect(tour.tick(STEP, { viewArea: 2 }).area).toBe(2);
+    expect(tour.tick(STEP, { viewArea: 6 }).area).toBe(6);
     tour.jumpTo(-3);
     expect(run(tour, 2, NaN).every((frame) => frame.phase === 'settled' && frame.area === 0)).toBe(true);
-    expect(run(tour, .35, 7).at(-1)).toMatchObject({ started: 'chase', to: 1 });
+    expect(run(tour, .35, 9).at(-1)).toMatchObject({ started: 'travel', to: 6 });
   });
 });
 
