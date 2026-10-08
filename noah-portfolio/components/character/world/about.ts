@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { STATION_LINES, type CharacterLine } from '@/lib/character/narrative';
-import type { AreaBuilder, Obstacle, Station, WorldArea } from './types';
+import { SAME_ORIGIN, type AreaBuilder, type Obstacle, type Station, type WorldArea } from './types';
 
 type V3 = [number, number, number];
 /** Animates one station from the clock, its 0..1 energy and the presentation's progress. */
@@ -425,7 +425,7 @@ export const createAbout: AreaBuilder = (origin, content) => {
     });
     const card = new THREE.Group(); card.position.set(0, CARD_Y, POST_Z); root.add(card);
     solid([piece(rounded(.98, .98, .04, .12), accent, [0, 0, -.01]), piece(rounded(.9, .9, .06, .1), CREAM, [0, 0, 0])], card);
-    if (job.logo.startsWith('/')) {
+    if (SAME_ORIGIN.test(job.logo)) {
       const logo = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ transparent: true, toneMapped: false }));
       logo.position.z = .04; logo.visible = false; card.add(logo);
       load(job.logo, (texture) => {

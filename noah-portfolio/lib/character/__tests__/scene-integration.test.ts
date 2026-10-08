@@ -814,4 +814,13 @@ describe('his motion', () => {
     await create(); advance(1); api!.skipIntro(); advance(14);
     expect(askPromoted).not.toHaveBeenCalled();
   });
+
+  it('promotes the Ask bar again when a remount before roaming replays the intro', async () => {
+    await create();
+    until(() => askPromoted.mock.calls.length === 1, 15);
+    // Portrait and back mid-intro: a fresh scene on the same page plays the intro again.
+    api!.dispose(); await create();
+    until(() => askPromoted.mock.calls.length === 2, 15);
+    expect(askPromoted).toHaveBeenCalledTimes(2);
+  });
 });

@@ -12,7 +12,6 @@ import {
 
 import { useTheme } from '@/components/ThemeProvider';
 import {
-  DEFAULT_BACKDROP_PRESET,
   resolveBackdropPreset,
   type BackdropPalette,
   type BackdropPreset,
@@ -143,16 +142,18 @@ function PresetShader({
  * and synchronous shader failure. Preset updates replace props on the single
  * mounted shader rather than overlapping canvases. On the home page it is the
  * sky behind the transparent character world, so a soundtrack pick retints the
- * default preset with the album palette; answers keep their own preset colours.
+ * home sky with the album palette; answers keep their own preset colours, even
+ * when an answer picks the home preset.
  */
 export function Backdrop() {
   const presetName = useSelector(selectBackdropPreset);
+  const home = useSelector((state: RootState) => state.backdrop.home);
   const selectedTrack = useSelector((state: RootState) => state.spotify.selectedTrack);
   const { theme } = useTheme();
   const preset = resolveBackdropPreset(presetName);
   const presetPalette = preset.palette[theme];
   let palette: BackdropPalette = presetPalette;
-  if (selectedTrack && preset.name === DEFAULT_BACKDROP_PRESET) {
+  if (selectedTrack && home) {
     const [ink] = presetPalette.colors;
     const tint = ditherPaletteFromTrack(selectedTrack.colourPalette, theme === 'dark', {
       colorFront: ink,

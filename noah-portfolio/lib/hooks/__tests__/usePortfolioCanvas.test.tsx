@@ -779,7 +779,7 @@ describe("usePortfolioCanvas", () => {
   it("keeps incomplete Stories unpublished and returns home without a legacy query", async () => {
     const stream = controlledStoryResponse();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(stream.response));
-    const store = makeStore({ backdrop: { preset: "nightMatte" } });
+    const store = makeStore({ backdrop: { preset: "nightMatte", home: false } });
     const { result } = renderHook(() => usePortfolioCanvas(), { wrapper: wrapperFor(store) });
     const partial = makeStory("Partial Story");
 

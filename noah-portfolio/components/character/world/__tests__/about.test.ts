@@ -151,11 +151,14 @@ describe('createAbout', () => {
     area.dispose();
   });
 
-  it('loads the portrait and each same-origin company logo once, and no remote logos', () => {
+  it('loads the portrait and each same-origin company logo once, and no remote or protocol-relative logos', () => {
     build().dispose();
     expect(loads.map((load) => load.url).sort()).toEqual(['/hero.png', '/logos/merchantspring.svg', '/logos/supa.png']);
     loads = [];
     build(EMPTY).dispose();
+    expect(loads.map((load) => load.url)).toEqual(['/hero.png']);
+    loads = [];
+    build({ ...EMPTY, career: [{ ...CONTENT.career[2], logo: '//example.com/logo.png' }] }).dispose();
     expect(loads.map((load) => load.url)).toEqual(['/hero.png']);
   });
 

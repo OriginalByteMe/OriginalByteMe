@@ -3,7 +3,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { STATION_LINES, type CharacterLine } from '@/lib/character/narrative';
 import { skillStationId } from '@/lib/character/world-content';
-import type { AreaBuilder, Obstacle, Station, WorldArea } from './types';
+import { SAME_ORIGIN, type AreaBuilder, type Obstacle, type Station, type WorldArea } from './types';
 
 type V3 = [number, number, number];
 /**
@@ -42,8 +42,6 @@ const FONT = 'ui-rounded, "Nunito", "Trebuchet MS", system-ui, sans-serif';
 const TAU = Math.PI * 2;
 const SKILLS = 'content/about-me/skills.md';
 const COUNTS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
-/** Only same-origin images may reach WebGL: a cross-origin picture taints its canvas and a cross-origin icon fails to upload. */
-const SAME_ORIGIN = /^\/(?!\/)/;
 
 const WALL_Z = -3.55; // back wall front face
 const WALL_H = 6.1;

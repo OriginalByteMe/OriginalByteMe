@@ -8,10 +8,13 @@ import {
 
 interface BackdropState {
   preset: BackdropPresetName;
+  /** True while the home sky shows: from a reset until an answer, the stream or a theme sets a preset. */
+  home: boolean;
 }
 
 const initialState: BackdropState = {
   preset: DEFAULT_BACKDROP_PRESET,
+  home: true,
 };
 
 export const backdropSlice = createSlice({
@@ -22,10 +25,12 @@ export const backdropSlice = createSlice({
     setBackdropPreset: (state, action: PayloadAction<string>) => {
       if (isBackdropPresetName(action.payload)) {
         state.preset = action.payload;
+        state.home = false;
       }
     },
     resetBackdropPreset: (state) => {
       state.preset = DEFAULT_BACKDROP_PRESET;
+      state.home = true;
     },
   },
 });

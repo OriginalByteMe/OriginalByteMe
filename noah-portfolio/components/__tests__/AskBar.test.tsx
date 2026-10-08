@@ -60,13 +60,21 @@ describe("AskBar", () => {
     expect(askMeState.ask).not.toHaveBeenCalled();
   });
 
-  it("offers the suggested questions in home mode", () => {
-    render(<AskBar />);
+  it("offers the suggested questions in home mode and keeps focus in the bar once they go", () => {
+    const { rerender } = render(<AskBar />);
 
-    fireEvent.click(screen.getByRole("button", { name: "What is Noah good at?" }));
+    const suggestion = screen.getByRole("button", { name: "What is Noah good at?" });
+    suggestion.focus();
+    fireEvent.click(suggestion);
     expect(askMeState.ask).toHaveBeenCalledWith("What is Noah good at?");
     expect(screen.getByRole("button", { name: "What does Noah do for a living?" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "How does the AI cutout tool work?" })).toBeEnabled();
+
+    askMeState.mode = "streaming";
+    askMeState.question = "What is Noah good at?";
+    rerender(<AskBar />);
+    expect(suggestion).not.toBeInTheDocument();
+    expect(textbox()).toHaveFocus();
   });
 
   it("accepts a newer question while a Story is still streaming", async () => {

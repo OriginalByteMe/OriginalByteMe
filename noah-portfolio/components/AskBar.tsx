@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Loader2, Send } from "lucide-react";
 import { useAskMe } from "./AskMeProvider";
 
@@ -20,6 +20,7 @@ const SUGGESTIONS = [
 export default function AskBar() {
   const { ask, mode, goHome, question, askPromoted } = useAskMe();
   const [value, setValue] = useState("");
+  const input = useRef<HTMLInputElement>(null);
   const loading = mode === "streaming";
 
   function onSubmit(event: React.FormEvent) {
@@ -43,6 +44,7 @@ export default function AskBar() {
       )}
       <form onSubmit={onSubmit} className="ask-bar__form" aria-busy={loading}>
         <input
+          ref={input}
           type="text"
           value={value}
           onChange={(event) => setValue(event.target.value)}
@@ -68,7 +70,8 @@ export default function AskBar() {
         )}
         {mode === "home" &&
           SUGGESTIONS.map((suggestion) => (
-            <button key={suggestion} type="button" onClick={() => void ask(suggestion)} className="ask-bar__route">
+            // Asking unmounts the suggestions, so keep focus in the bar instead of dropping it to the page.
+            <button key={suggestion} type="button" onClick={() => { input.current?.focus(); void ask(suggestion); }} className="ask-bar__route">
               {suggestion}
             </button>
           ))}

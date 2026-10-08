@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Backdrop from "@/components/Backdrop";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { makeStore } from "@/lib/store";
-import { setBackdropPreset } from "@/lib/store/slices/backdrop-slice";
+import { resetBackdropPreset, setBackdropPreset } from "@/lib/store/slices/backdrop-slice";
 
 vi.mock("@paper-design/shaders-react", () => ({
   GrainGradient: (props: { shape?: string }) => (
@@ -215,7 +215,7 @@ describe("Backdrop", () => {
     expect(screen.getByTestId("dither")).toHaveAttribute("data-colorfront", "#3d374b");
   });
 
-  it("keeps an answer's own preset palette while a track is picked", () => {
+  it("keeps an answer's own preset palette while a track is picked, even when the answer picks the home preset", () => {
     const { store } = renderBackdrop();
     act(() => store.dispatch({
       type: "spotify/setSelectedTrack",
@@ -226,5 +226,12 @@ describe("Backdrop", () => {
     expect(screen.getByTestId("dither")).toHaveAttribute("data-shape", "wave");
     expect(screen.getByTestId("dither")).not.toHaveAttribute("data-colorfront", "#9d8ff2");
     expect(screen.getByTestId("dither")).toHaveAttribute("data-colorback", "#1a1721");
+
+    act(() => store.dispatch(setBackdropPreset("ambientLava")));
+    expect(screen.getByTestId("dither")).toHaveAttribute("data-colorback", "#17151d");
+    expect(screen.getByTestId("dither")).toHaveAttribute("data-colorfront", "#3d374b");
+
+    act(() => store.dispatch(resetBackdropPreset()));
+    expect(screen.getByTestId("dither")).toHaveAttribute("data-colorfront", "#9d8ff2");
   });
 });

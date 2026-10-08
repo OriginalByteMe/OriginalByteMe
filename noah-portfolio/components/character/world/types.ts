@@ -6,6 +6,9 @@ import type { WorldContent } from '@/lib/character/world-content';
 export type AreaId = 'bedroom' | 'lab' | 'about';
 export type Vec3 = { x: number; y: number; z: number };
 
+/** Only same-origin paths may reach WebGL: a cross-origin picture taints its canvas and a cross-origin texture fails to upload. Rejects `//host` too. */
+export const SAME_ORIGIN = /^\/(?!\/)/;
+
 /** Circle collider on the area floor, the shape controller.ts already resolves against. */
 export type Obstacle = { id: string; x: number; z: number; radius: number };
 

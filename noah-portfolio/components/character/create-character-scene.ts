@@ -40,7 +40,7 @@ export type CharacterSceneOptions = {
   onPhase: (phase: IntroPhase) => void;
   /** The Visit sign while he presents a station with a url; null takes it down. */
   onSign: (sign: CharacterSign | null) => void;
-  /** He has just turned to point at the Ask bar at the end of the intro; called at most once per page load. */
+  /** He has just turned to point at the Ask bar at the end of the intro; called once each time the intro plays. */
   onAskPromoted: () => void;
   onError: () => void;
 };
@@ -49,7 +49,6 @@ type SpeechKind = 'idle' | 'chat' | 'event';
 let sessionGreetingCount = 0;
 let sessionTidbitCount = 0;
 let sessionSkippedIntro = false;
-let askPromoted = false;
 const BUILDERS = [createBedroom, createLab, createAbout];
 /** Area origins stack 18 units apart: bedroom, lab, about. */
 const AREA_Y = [0, -18, -36];
@@ -565,7 +564,7 @@ export async function createCharacterScene(host: HTMLElement, options: Character
       // Roaming starts exactly where the intro left him: no jump.
       if (phase === 'roam') { state = createCharacterState({ x: actor.position.x - origins[0].x, z: actor.position.z - origins[0].z }, actor.rotation.y); lastBump = 0; sessionSkippedIntro = true; if (door) door.rotation.y = 0; }
       options.onPhase(phase);
-      if (phase === 'point' && !askPromoted) { askPromoted = true; options.onAskPromoted(); }
+      if (phase === 'point') options.onAskPromoted();
     }
     if (story.dialogueStarted) say(story.dialogueStarted.line, phase === 'recoil' ? 'bonk' : 'greeting', 'event', story.dialogueStarted.duration);
     wrapper.style.setProperty('--intro-black', String(story.blackOpacity));
