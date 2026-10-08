@@ -1,6 +1,6 @@
-# Full-viewport Good Vibes hero experiment
+# Good Vibes character world experiment
 
-Branch: `experiment/threejs-character-hero` · Draft PR #76
+Branch: `experiment/character-world`, stacked on draft PR #76 (`experiment/threejs-character-hero`).
 
 ## Run locally
 
@@ -10,46 +10,45 @@ npm ci
 npm run dev
 ```
 
-Open localhost:3000. No live AI key is needed to view the hero. Real Ask-Me generation still needs the existing environment setup in `.env.local.example`.
+Open localhost:3000. No live AI key is needed to view the world. Real Ask-Me generation still needs the existing environment setup in `.env.local.example`.
 
 ## The experience
 
-The entire hero is a small white 3D world, with readable identity/contact/Ask-Me content layered over it. Once the actual V5 model is ready, a timed introduction plays:
+The top of the home page is a small 3D world of three floating pastel dioramas, stacked 18 units apart, behind one sticky full-screen viewport. The hero, lab and about sections scroll over it as DOM panels on the left (stacked on narrow screens) while the camera eases from room to room on the right. The existing Story sections (`#story`, PortfolioCanvas) follow unchanged.
 
-1. Black opening: “Hi, I’m Noah Rijkaard”
-2. Fade into the white world, then run toward the lens: “Hi hi hi hi”
-3. Lens bonk/camera shake, a fall/recoil and “Ow”
-4. Recover, explain click-to-move, and enter the free environment
-5. Click or tap a floor destination to move there; hover never commands movement
-6. Without a command, pick up/toss/catch a striped ball, then sit and read an open book
+1. **Bedroom (`#hero`).** The timed intro still plays when the page opens at the top: black title, run to the lens, bonk, "Ow", recover. Then he lives in a mini bedroom with a corner desk and MacBook, a 3D printer, a server rack, a ball on a toy basket and a bed. Without commands he cycles those stations: sits at the desk and types, leans in to watch the printer, pokes the rack, tosses and catches the ball, sits on the bed and reads.
+2. **Tech lab (`#lab`).** One exhibit per corpus project plus a skills wall. The DOM panel lists every project (title, description, tech, link) and every skill group. Each project's "Show me" button sends him to its exhibit, where he plays with it.
+3. **About me (`#about`).** The panel shows the headline, location, career, fun facts and the hero portrait. In the room the same portrait hangs on the wall; he admires it ("Huh. Maybe that's what I'd look like.") and straightens the frame, and also visits a Kuala Lumpur skyline model and a career shelf.
 
-The intro takes about 12 active seconds. Page scrolling is ordinary scrolling and never drives or rewinds animation. Skip intro enters free play immediately. Focus the world and use arrow keys to move, Space to say hi, or Escape to stop. Pause, Reset and reversible Portrait mode are available. Clicks on links/forms/controls and touch-scroll gestures are ignored by movement input. A new click interrupts an activity, releases its prop, and redirects the character; props ease back to their rests.
+Scrolling never scrubs the character. When the viewed room changes and holds for a moment, he runs to the room's open front edge ("Hey, wait for me!"), trips, tumbles down onto a landing object in the next room ("Ow"), hops down and says an arrival line. Scrolling back up makes him jump back up a room. He moves one room at a time and follows on if you scrolled further. Opening the page mid-way (for example `/#about`) skips the intro and puts him straight in the viewed room.
 
-Activities use the repaired model's arm bones for reversible hand contact and the real `08_Sit_Relaxed` clip, scrubbed into a held seated pose rather than looping stand/sit. Controller clocks freeze when hidden, paused or offscreen. Destinations inside solid props are projected to reachable surfaces so commands finish and autonomous activities can resume.
+Input: click or tap the floor to walk there; click a station's object to send him to it; click his afro and he stops, covers it and says "Stop, don't do that." (further pokes escalate). The afro wins over the floor behind it. Panels, links and buttons never become scene clicks, and clicks are ignored while he is mid-transition. Focus the world for arrow keys, Space to say hi and Escape to stop. Pause, Reset and the reversible Portrait mode remain.
 
-The existing public Story, Ask-Me, listening controls and other site sections remain. The character pauses when its hero world leaves view. This is a hero-world experiment, not a character covering every later Story section.
+## Speech and sound
 
-## Personality and audio
+All lines come from `lib/character/narrative.ts` and only state public facts from `content/about-me/`: a line when a station routine starts (rotated and spaced out unless you asked for that station), room arrival lines, idle tidbits from the current room's pool, the afro and portrait lines. Captions show in the speech bubble; the mouth flaps for the babble's length.
 
-Natural seeded blinks, a tiny bob and subtle mouth motion add idle life. Two occasional idle lines are capped per session:
+Everything audible is synthesized with WebAudio in `lib/character/audio.ts`: an Animal Crossing style babble voice (greeting, fact, annoyed, wonder and bonk kinds), sound effects (footsteps in step with the walk and run clips, ball pickup/toss/catch, typing, printer and rack beeps, skill-key pokes, sparkles at the portrait and exhibits, bumps, trip, fall, land and jump) and an original chiptune loop. Sound (voice and effects) and Music are separate buttons, both off until clicked. Pausing, hiding the tab or scrolling the world offscreen suspends audio.
 
-- “Hey, my name is Noah. Ask me a question down here.”
-- “Hi, you see me? Do you see me? Oh, hello.”
+## How it is built
 
-A separate three-fact cap and 25-second quiet gaps apply to playful facts while stationary in roaming mode. Facts are sourced only from the public portfolio corpus, with source paths stored alongside each line: CAD/3D printing, Proxmox/Unraid, marketplace analytics and the LLM Comparison project. No private user context is included.
+| Piece | Where |
+|---|---|
+| Page wiring | `app/page.tsx` passes `worldContent(corpus)` through `SiteShell` to `components/character/CharacterWorld.tsx` (sticky viewport, `#hero`, `#lab`, `#about`) |
+| Scene orchestration | `components/character/create-character-scene.ts`: one renderer, one model, three areas, scroll camera, tour poses, input priority, speech and sound |
+| Rooms | `components/character/world/{bedroom,lab,about}.ts`, contract in `world/types.ts` |
+| Domain logic | `lib/character/{tour,activities,narrative,controller,intro,idle}.ts` |
+| Contact poses | `lib/character/activity-props.ts`: ball and book on the bedroom's rest spots, IK for typing, poking, playing, admiring and guarding the afro |
+| Afro hit test | `rayHitsSphere` in `lib/character/input.ts`, a sphere on the head bone sized from the model |
 
-Sound starts off. The explicit Sound button unlocks original quiet WebAudio meeps after a user gesture. The voice is synthesized nonverbal sound, with readable captions, not a sampled game voice or a clone. Mute, a new movement command, pause, hidden tabs, offscreen state and teardown cancel scheduled tones. Say hi can request another greeting manually.
-
-The face layer samples the original baked Talk clip’s complete 20-weight mouth vectors, including all face-surface correctives. Speech is given a clearly visible blend instead of being attenuated twice against the default grin. Natural blinks include a short closed-eye hold at the 30fps render rate, and remain enabled during movement and activities. It never drives the Talk target alone or overwrites shoulder corrections; stale overlays are removed without fighting mixer caching. Actual loaded-GLB vertex/morph regression checks complement controller tests.
+Seats: the held `08_Sit_Relaxed` frame sits on the floor, so seated stations lift him by the station's seat height (measured: the pelvis ends 0.15 above his feet and the seat contact about 0.13 below that). Bumping into furniture always plays a bonk, but the apology line is rate limited. Multi-circle furniture against a wall is routed round its open end (`chooseSide` in `controller.ts` scores arcs through neighbouring circles as closed).
 
 ## Performance and fallback
 
 - Lazy Three.js/GLB loading near the viewport
-- Reduced-motion and Save-Data visitors retain a static original portrait and usable content; no Three.js/model/audio download
-- 30fps render cap, DPR ≤1.5, cheap contact shadow, no extra skinned shadow pass
-- Explicit texture/geometry/skeleton/context/audio disposal
-- WebGL/load/context-loss fallback to the portrait
-- Original repaired V5 character, all 54 unique joints, 84 morphs and 10 animation clips
+- Reduced-motion and Save-Data visitors, WebGL or load failure and Portrait mode keep the static original portrait in the hero; the lab and about panels stay fully readable plain DOM without "Show me" buttons; no Three.js, model or audio download for reduced motion and Save-Data
+- One WebGL renderer for all rooms, 30fps render cap, DPR ≤1.5, transparent clear over a CSS gradient, cheap contact shadow, no shadow maps; rooms two floors from the camera are not drawn
+- Explicit disposal of rooms, textures, geometry, skeleton, context and audio
 
 `public/models/good-vibes-hero.glb` is a derived runtime copy: 3,776,512 bytes / 172,813 triangles, down from 23,100,220 bytes / 388,427 triangles. Morph-bearing topology is unchanged. Only dense non-morph meshes were simplified with locked borders; textures use 1024px WebP and geometry uses Meshopt. The original editing files are unchanged. Reproduction tools are in `scripts/character-assets/`.
 
@@ -65,10 +64,6 @@ PLAYWRIGHT_TEST_MODE=1 OPENROUTER_API_KEY=test-key-not-used npm run build
 npm run e2e -- e2e/character-hero.spec.ts e2e/profile-first-hero.spec.ts
 ```
 
-The final revision passes 452 tests across 51 files, ESLint, TypeScript, and the optimized Next.js build. Eight integration tests load the actual compressed V5 GLB and run the actual scene/mixer/face/activity logic with only WebGL drawing and texture decoding mocked.
+`lib/character/__tests__/scene-integration.test.ts` loads the real compressed GLB and the three real rooms and runs the real scene, mixer, tour, activities, face and props with only WebGL drawing, embedded image decoding and 2D canvas mocked. It covers: all three rooms built and every room geometry disposed; pause, hidden tab and offscreen freezing time; a floor click moving him while UI and panel clicks do not; an afro click answering "Stop, don't do that." without moving him; a station click starting that station's routine; a scroll to the lab running chase, trip, fall, land, recover with a mid-flight click ignored, a queued Show me taken on arrival, and a jump back up; starting mid-page in the viewed room; and the ball and bed routines. `lib/character/__tests__/hero-world.test.ts` walks the real controller between every pair of stations in every room.
 
-The test build uses a placeholder key and does not call a live model. Unit/component coverage includes movement/collisions, full-world routes, timed phase continuity, skip/repeated entry, pause/reduced motion, inherited browser pointer events, prop-center destinations, activity interruption/ownership, seated clip holding, public-source facts, greeting caps, audio gesture gating/cancellation/cleanup, actual GLB face binding, and portrait fallback.
-
-Browser E2E and final website visual QA were not completed in this task. Offline model face renders are separate evidence, not website screenshots. Local Chromium fails at `socket() failed: Operation not permitted`; cloud browser loopback navigation returns `net::ERR_BLOCKED_BY_CLIENT`. The Vercel preview is protected and redirects to login. Authentication was stopped at the user’s request without entering an identifier or credentials. Protection remains unchanged. Tests and geometry checks do not prove the final in-browser appearance; the draft is ready for the user’s visual review.
-
-No main merge, production deployment or security-setting change is part of this experiment.
+Not verified when this was written: the camera framing, panel layout, poses, seat heights and tour choreography have not been looked at in a real browser; the e2e scenarios were updated but not run; the sound mix was rendered offline by the audio work, not listened to on the page. The coordinator's browser pass and Noah's visual and sound review are still needed. No main merge, production deployment or security-setting change is part of this experiment.

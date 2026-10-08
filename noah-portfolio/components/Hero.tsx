@@ -7,7 +7,6 @@ import { motion, useAnimationFrame, useMotionValue, useReducedMotion, useSpring 
 import { useSelector } from 'react-redux';
 import { Github, Linkedin, Mail, X } from 'lucide-react';
 import ChatBox from './ChatBox';
-import HeroCharacter from './character/HeroCharacter';
 import { AskLauncherButton } from './AskDock';
 import { useTheme } from './ThemeProvider';
 import { ditherPaletteFromTrack, type DitherPalette } from '@/lib/dither-palette';
@@ -35,7 +34,8 @@ class DitherBoundary extends Component<{ fallback: ReactNode; children: ReactNod
  */
 const DITHER_REST = { scale: 1.08, rotation: 0, size: 2 };
 
-function HeroPortrait() {
+/** The original portrait: the character world's fallback for reduced motion, Save-Data, WebGL failure and Portrait mode. */
+export function HeroPortrait() {
   const { theme } = useTheme();
   const reducedMotion = useReducedMotion();
   const selectedTrack = useSelector((state: RootState) => state.spotify.selectedTrack);
@@ -202,26 +202,24 @@ function HeroAskLauncher() {
   );
 }
 
+/** First section of the character world: identity, contacts and Ask-Me over the bedroom diorama. */
 export default function Hero() {
   return (
     <section id="hero" aria-labelledby="profile-heading" className="immersive-hero">
-      <div className="immersive-hero__sticky">
-        <HeroCharacter fallback={<HeroPortrait />} />
-        <div className="immersive-hero__copy">
-          <header className="immersive-hero__identity">
-            <p className="immersive-hero__eyebrow">Welcome to my little world</p>
-            <h1 id="profile-heading" aria-label="Hi, I’m Noah Rijkaard">Hi, I’m Noah<br /><em>Rijkaard.</em></h1>
-            <p className="immersive-hero__intro">Full-stack developer building calm interfaces, self-hosted systems, and portfolio pages that answer back.</p>
-          </header>
-          <nav className="immersive-hero__contacts" aria-label="Contact destinations">
-            <a href="mailto:noahrijkaard@gmail.com" aria-label="Email Noah"><Mail {...ICON} aria-hidden /><span>Email</span></a>
-            <a href="https://github.com/OriginalByteMe" target="_blank" rel="noreferrer noopener" aria-label="Visit Noah on GitHub"><Github {...ICON} aria-hidden /><span>GitHub</span></a>
-            <a href="https://www.linkedin.com/in/noah-rijkaard/" target="_blank" rel="noreferrer noopener" aria-label="Visit Noah on LinkedIn"><Linkedin {...ICON} aria-hidden /><span>LinkedIn</span></a>
-          </nav>
-        </div>
-        <div className="immersive-hero__ask"><HeroAskLauncher /></div>
-        <p className="immersive-hero__scroll" aria-hidden="true">Scroll into the story <span>↓</span></p>
+      <div className="immersive-hero__copy">
+        <header className="immersive-hero__identity">
+          <p className="immersive-hero__eyebrow">Welcome to my little world</p>
+          <h1 id="profile-heading" aria-label="Hi, I’m Noah Rijkaard">Hi, I’m Noah<br /><em>Rijkaard.</em></h1>
+          <p className="immersive-hero__intro">Full-stack developer building calm interfaces, self-hosted systems, and portfolio pages that answer back.</p>
+        </header>
+        <nav className="immersive-hero__contacts" aria-label="Contact destinations">
+          <a href="mailto:noahrijkaard@gmail.com" aria-label="Email Noah"><Mail {...ICON} aria-hidden /><span>Email</span></a>
+          <a href="https://github.com/OriginalByteMe" target="_blank" rel="noreferrer noopener" aria-label="Visit Noah on GitHub"><Github {...ICON} aria-hidden /><span>GitHub</span></a>
+          <a href="https://www.linkedin.com/in/noah-rijkaard/" target="_blank" rel="noreferrer noopener" aria-label="Visit Noah on LinkedIn"><Linkedin {...ICON} aria-hidden /><span>LinkedIn</span></a>
+        </nav>
       </div>
+      <div className="immersive-hero__ask"><HeroAskLauncher /></div>
+      <p className="immersive-hero__scroll" aria-hidden="true">Scroll down, I’ll follow <span>↓</span></p>
     </section>
   );
 }

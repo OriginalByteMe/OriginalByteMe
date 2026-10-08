@@ -17,12 +17,12 @@ async function gotoHero(page: Page, viewport: { width: number; height: number } 
   await expect(page.getByTestId("listening-easter-egg")).toBeVisible();
 }
 
-test("the immersive hero surrounds readable, independent content at each viewport", async ({ page }) => {
+test("the character world surrounds readable, independent content at each viewport", async ({ page }) => {
   for (const viewport of [...VIEWPORTS, { width: 390, height: 667 }]) {
     await gotoHero(page, viewport);
     await expect(page.getByTestId("character-hero")).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
     const layout = await page.evaluate(() => {
-      const sticky = document.querySelector<HTMLElement>(".immersive-hero__sticky")!.getBoundingClientRect();
+      const sticky = document.querySelector<HTMLElement>(".character-world__viewport")!.getBoundingClientRect();
       const world = document.querySelector<HTMLElement>(".character-stage")!.getBoundingClientRect();
       const ask = document.querySelector<HTMLElement>(".immersive-hero__ask")!.getBoundingClientRect();
       const controls = document.querySelector<HTMLElement>(".character-hero__controls")!.getBoundingClientRect();

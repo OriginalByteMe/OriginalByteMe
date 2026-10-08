@@ -161,6 +161,19 @@ describe("character circle collisions", () => {
     }
   });
 
+  it("routes round the open end of furniture built from overlapping circles against a wall", () => {
+    // The about room's couch: two overlapping circles, the left one nearly touching the wall.
+    const bounds = { minX: -4.5, maxX: 4.5, minZ: -2.6, maxZ: 2.6 };
+    const obstacles = [{ id: "couch-left", x: -3.75, z: 1.2, radius: 0.55 }, { id: "couch-right", x: -2.85, z: 1.2, radius: 0.55 }];
+    const target = { x: -2.9, z: -2.15 };
+    const state = createCharacterState({ x: -3, z: 2.2 });
+    for (let index = 0; index < 60 * 20; index += 1) {
+      stepCharacter(state, target, 1 / 60, obstacles, bounds);
+      for (const obstacle of obstacles) expect(distance(state.position, obstacle)).toBeGreaterThanOrEqual(obstacle.radius + CONFIG.radius - 1e-6);
+    }
+    expect(distance(state.position, target)).toBeLessThan(CONFIG.arrivalRadius + 0.002);
+  });
+
   it("does not retrigger bump events every frame during sustained contact", () => {
     const obstacles = [{ x: 0, z: 0, radius: 0.34 }];
     const state = createCharacterState({ x: -0.58, z: 0 });

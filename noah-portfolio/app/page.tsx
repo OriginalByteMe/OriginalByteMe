@@ -3,7 +3,8 @@ import { JsonUiProvider } from "@/components/JsonUiProvider";
 import BackdropSceneSync from "@/components/BackdropSceneSync";
 import SiteShell from "@/components/SiteShell";
 import { AskMeProvider } from "@/components/AskMeProvider";
-import { corpusState } from "@/lib/corpus";
+import { corpus, corpusState } from "@/lib/corpus";
+import { worldContent } from "@/lib/character/world-content";
 
 export default function Home() {
   return (
@@ -13,7 +14,7 @@ export default function Home() {
         <div className="relative z-10">
           <AskMeProvider>
             <BackdropSceneSync />
-            <SiteShell />
+            <SiteShell content={worldContent(corpus)} />
           </AskMeProvider>
         </div>
       </main>

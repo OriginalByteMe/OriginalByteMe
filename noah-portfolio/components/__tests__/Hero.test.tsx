@@ -1,11 +1,19 @@
-import { createElement, type ComponentProps } from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { createElement, type ComponentProps, type ReactNode } from 'react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import Hero from '@/components/Hero';
+import CharacterWorld from '@/components/character/CharacterWorld';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { makeStore } from '@/lib/store';
+import type { WorldContent } from '@/lib/character/world-content';
+
+const { createScene, scene } = vi.hoisted(() => ({
+  scene: { dispose: vi.fn(), visit: vi.fn(), setPaused: vi.fn(), key: vi.fn(), wave: vi.fn(), reset: vi.fn(), skipIntro: vi.fn(), setSoundEnabled: vi.fn(), setMusicEnabled: vi.fn() },
+  createScene: vi.fn(),
+}));
+vi.mock('@/components/character/create-character-scene', () => ({ createCharacterScene: createScene }));
 
 vi.mock('next/image', () => ({
   default: (rawProps: ComponentProps<'img'> & {
@@ -29,13 +37,30 @@ vi.mock('@/components/ChatBox', () => ({
   default: () => <label>Question for Noah<input aria-label="Question for Noah" /></label>,
 }));
 
+const content: WorldContent = {
+  projects: [
+    { slug: 'moodify', title: 'Moodify', description: 'Playlists that follow your mood.', url: 'https://github.com/OriginalByteMe/Moodify', image: '', tech: ['Next.js', 'Spotify API'] },
+    { slug: 'ai-image-cutout', title: 'AI Image Cutout Tool', description: 'Cuts subjects out of photos.', url: '', image: '', tech: ['Python'] },
+  ],
+  skills: [{ category: 'Databases', skills: ['PostgreSQL', 'Redis'] }, { category: 'AI & LLM Tooling', skills: ['LangChain'] }],
+  headline: 'Full-Stack Developer',
+  location: 'Kuala Lumpur, Malaysia',
+  career: [{ company: 'MerchantSpring', role: 'Senior AI Engineer', period: '2026 - Present', logo: '' }, { company: 'Bowiq', role: 'CAD Designer & 3D Printing Engineer', period: '2023 - Present', logo: '' }],
+  funFacts: ['Self-hosts on Proxmox + Unraid'],
+};
+let reducedMotion = true;
+let intersect: IntersectionObserverCallback;
+const providers = (children: ReactNode, store = makeStore()) => <Provider store={store}><ThemeProvider>{children}</ThemeProvider></Provider>;
+
 beforeEach(() => {
+  reducedMotion = true;
+  createScene.mockResolvedValue(scene);
   vi.stubGlobal('localStorage', {
     getItem: vi.fn(() => null),
     setItem: vi.fn(),
   });
   vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
-    matches: query.includes('prefers-reduced-motion'),
+    matches: query.includes('prefers-reduced-motion') && reducedMotion,
     media: query,
     onchange: null,
     addEventListener: vi.fn(),
@@ -44,23 +69,22 @@ beforeEach(() => {
     removeListener: vi.fn(),
     dispatchEvent: vi.fn(),
   })));
+  vi.stubGlobal('IntersectionObserver', class {
+    constructor(callback: IntersectionObserverCallback) { intersect = callback; }
+    observe() {} disconnect() {} unobserve() {}
+  });
 });
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  vi.clearAllMocks();
 });
 
 describe('Hero interaction composition', () => {
   it('surrounds the portrait with independent destinations outside its pointer surface', () => {
-    render(
-      <Provider store={makeStore()}>
-        <ThemeProvider>
-          <Hero />
-        </ThemeProvider>
-      </Provider>,
-    );
+    render(providers(<CharacterWorld content={content} />));
 
     expect(screen.getByRole('heading', { level: 1, name: /Hi, I’m Noah Rijkaard/ })).toHaveAttribute('id', 'profile-heading');
     const portrait = screen.getByRole('img', { name: 'Portrait of Noah Rijkaard' });
@@ -94,13 +118,7 @@ describe('Hero interaction composition', () => {
   });
 
   it('reveals the centered Ask-Me composer and prompt routes only after activation', async () => {
-    render(
-      <Provider store={makeStore()}>
-        <ThemeProvider>
-          <Hero />
-        </ThemeProvider>
-      </Provider>,
-    );
+    render(providers(<Hero />));
 
     const askRegion = screen.getByRole('region', { name: 'Ask-Me' });
     expect(askRegion).toHaveAttribute('data-state', 'collapsed');
@@ -144,17 +162,55 @@ describe('Hero interaction composition', () => {
       },
     });
 
-    render(
-      <Provider store={store}>
-        <ThemeProvider>
-          <Hero />
-        </ThemeProvider>
-      </Provider>,
-    );
+    render(providers(<CharacterWorld content={content} />, store));
 
     expect(screen.getByText(/tinted by Night Drive/)).toBeVisible();
     expect(screen.queryByRole('region', { name: 'Listening context' })).not.toBeInTheDocument();
     expect(screen.queryByText('The Operators')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: "Show Noah's listening context" })).not.toBeInTheDocument();
+  });
+});
+
+describe('Character world sections', () => {
+  it('keeps every project, skill group and about fact readable as plain DOM in the portrait fallback', () => {
+    render(providers(<CharacterWorld content={content} />));
+    expect(screen.getByTestId('character-world')).toHaveAttribute('data-status', 'fallback');
+    expect(createScene).not.toHaveBeenCalled();
+
+    const lab = screen.getByRole('region', { name: 'Things I’ve built' });
+    expect(lab).toHaveAttribute('id', 'lab');
+    for (const project of content.projects) {
+      const card = within(lab).getByRole('heading', { level: 3, name: project.title }).closest('li')!;
+      expect(card).toHaveTextContent(project.description);
+      expect(card).toHaveTextContent(project.tech.join(' · '));
+    }
+    expect(within(lab).getByRole('link', { name: /Visit Moodify/ })).toHaveAttribute('href', 'https://github.com/OriginalByteMe/Moodify');
+    expect(within(lab).queryByRole('link', { name: /Visit AI Image Cutout Tool/ })).not.toBeInTheDocument();
+    expect(within(lab).getByText('Databases').nextSibling).toHaveTextContent('PostgreSQL, Redis');
+    expect(within(lab).getByText('AI & LLM Tooling')).toBeInTheDocument();
+    expect(within(lab).queryByRole('button', { name: /Show me/ })).not.toBeInTheDocument();
+
+    const about = screen.getByRole('region', { name: 'About me' });
+    expect(about).toHaveAttribute('id', 'about');
+    expect(about).toHaveTextContent('Full-Stack Developer, based in Kuala Lumpur, Malaysia.');
+    expect(within(about).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      'Senior AI Engineer at MerchantSpring 2026 - Present',
+      'CAD Designer & 3D Printing Engineer at Bowiq 2023 - Present',
+      'Self-hosts on Proxmox + Unraid',
+    ]);
+    expect(within(about).getByRole('img', { name: 'Framed hero portrait of Noah Rijkaard' })).toHaveAttribute('src', '/hero.png');
+  });
+
+  it('offers Show me buttons only once the scene is live, sending him to that exhibit', async () => {
+    reducedMotion = false;
+    render(providers(<CharacterWorld content={content} />));
+    await act(async () => intersect([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver));
+    await waitFor(() => expect(screen.getByTestId('character-world')).toHaveAttribute('data-status', 'ready'));
+    expect(createScene.mock.calls[0][1].content).toBe(content);
+    fireEvent.click(screen.getByRole('button', { name: 'Show me Moodify' }));
+    expect(scene.visit).toHaveBeenLastCalledWith('project:moodify');
+    fireEvent.click(screen.getByRole('button', { name: 'Show me the skills wall' }));
+    expect(scene.visit).toHaveBeenLastCalledWith('skills');
+    for (const panel of document.querySelectorAll('.character-world__panel')) expect(panel).toHaveAttribute('data-character-ui');
   });
 });

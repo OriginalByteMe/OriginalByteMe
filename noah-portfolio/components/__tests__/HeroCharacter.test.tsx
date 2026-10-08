@@ -1,9 +1,15 @@
+import { createRef, type MutableRefObject } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import HeroCharacter from '@/components/character/HeroCharacter';
+import type { CharacterScene } from '@/components/character/create-character-scene';
+import type { WorldContent } from '@/lib/character/world-content';
 
 const { createScene, api } = vi.hoisted(() => ({
-  api: { dispose: vi.fn(), wave: vi.fn(), skipIntro: vi.fn(), reset: vi.fn(), key: vi.fn(() => true), setPaused: vi.fn(), setSoundEnabled: vi.fn(async (enabled: boolean) => enabled) },
+  api: {
+    dispose: vi.fn(), wave: vi.fn(), skipIntro: vi.fn(), reset: vi.fn(), key: vi.fn(() => true), setPaused: vi.fn(), visit: vi.fn(),
+    setSoundEnabled: vi.fn(async (enabled: boolean) => enabled), setMusicEnabled: vi.fn(async (enabled: boolean) => enabled),
+  },
   createScene: vi.fn(),
 }));
 vi.mock('@/components/character/create-character-scene', () => ({ createCharacterScene: createScene }));
@@ -11,6 +17,8 @@ let intersect: IntersectionObserverCallback;
 let preferenceChanged: () => void;
 let reduce = false;
 const fallback = <figure data-testid="fallback">Original portrait</figure>;
+const content: WorldContent = { projects: [], skills: [], headline: 'Full-Stack Developer', location: 'Kuala Lumpur, Malaysia', career: [], funFacts: [] };
+const visibleNow = () => act(async () => intersect([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver));
 
 beforeEach(() => {
   vi.clearAllMocks(); reduce = false;
@@ -22,30 +30,44 @@ beforeEach(() => {
   });
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
-async function load() {
-  render(<HeroCharacter fallback={fallback} />);
-  await act(async () => intersect([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver));
+async function load(props: Partial<Parameters<typeof HeroCharacter>[0]> = {}) {
+  render(<HeroCharacter fallback={fallback} content={content} {...props} />);
+  await visibleNow();
   await waitFor(() => expect(screen.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready'));
 }
 describe('HeroCharacter progressive enhancement', () => {
-  it('keeps the portrait until visible and replaces it only after loading', async () => {
-    render(<HeroCharacter fallback={fallback} />);
+  it('keeps the portrait until visible and replaces it only after loading the world content', async () => {
+    render(<HeroCharacter fallback={fallback} content={content} />);
     expect(screen.getByTestId('fallback')).toBeVisible(); expect(createScene).not.toHaveBeenCalled();
-    await act(async () => intersect([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver));
+    await visibleNow();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Pause' })).toBeVisible());
     expect(screen.queryByTestId('fallback')).not.toBeInTheDocument();
+    expect(createScene.mock.calls[0][1].content).toBe(content);
   });
-  it('does not import/create a scene for reduced motion', () => {
-    reduce = true; render(<HeroCharacter fallback={fallback} />);
+  it('does not import/create a scene for reduced motion and reports the fallback', () => {
+    reduce = true;
+    const onStatus = vi.fn();
+    render(<HeroCharacter fallback={fallback} content={content} onStatus={onStatus} />);
     expect(screen.getByTestId('character-hero')).toHaveAttribute('data-status', 'fallback');
+    expect(onStatus).toHaveBeenLastCalledWith('fallback');
     expect(createScene).not.toHaveBeenCalled(); expect(screen.getByTestId('fallback')).toBeVisible();
   });
   it('falls back cleanly on load or WebGL failure', async () => {
     createScene.mockRejectedValue(new Error('WebGL unavailable'));
-    render(<HeroCharacter fallback={fallback} />);
-    await act(async () => intersect([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver));
+    render(<HeroCharacter fallback={fallback} content={content} />);
+    await visibleNow();
     expect(screen.getByTestId('character-hero')).toHaveAttribute('data-status', 'fallback');
     expect(screen.getByTestId('fallback')).toBeVisible();
+  });
+  it('shares the live scene with the world panels and reports readiness', async () => {
+    const sceneRef = createRef<CharacterScene>() as MutableRefObject<CharacterScene | null>;
+    const onStatus = vi.fn();
+    await load({ sceneRef, onStatus });
+    expect(sceneRef.current).toBe(api);
+    expect(onStatus).toHaveBeenLastCalledWith('ready');
+    fireEvent.click(screen.getByRole('button', { name: 'Portrait' }));
+    expect(sceneRef.current).toBeNull();
+    expect(onStatus).toHaveBeenLastCalledWith('fallback');
   });
   it('supports pause, resume, wave, keyboard, reset and reversible portrait mode', async () => {
     await load();
@@ -57,25 +79,41 @@ describe('HeroCharacter progressive enhancement', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Portrait' })); expect(api.dispose).toHaveBeenCalledOnce();
     expect(screen.getByTestId('fallback')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Back to playground' }));
-    await act(async () => intersect([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver));
+    await visibleNow();
     await waitFor(() => expect(createScene).toHaveBeenCalledTimes(2));
   });
-  it('keeps sound off until a deliberate click and exposes mute', async () => {
+  it('keeps sound and music off until their own deliberate clicks', async () => {
     await load();
     const sound = screen.getByRole('button', { name: 'Enable character sound' });
-    expect(sound).toHaveAttribute('aria-pressed', 'false');
+    const music = screen.getByRole('button', { name: 'Play music' });
+    expect(sound).toHaveAttribute('aria-pressed', 'false'); expect(music).toHaveAttribute('aria-pressed', 'false');
+    expect(api.setSoundEnabled).not.toHaveBeenCalled(); expect(api.setMusicEnabled).not.toHaveBeenCalled();
+    fireEvent.click(music);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Stop music' })).toHaveAttribute('aria-pressed', 'true'));
+    expect(api.setMusicEnabled).toHaveBeenCalledWith(true);
     expect(api.setSoundEnabled).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Enable character sound' })).toHaveAttribute('aria-pressed', 'false');
     fireEvent.click(sound);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Mute character sound' })).toHaveAttribute('aria-pressed', 'true'));
     expect(api.setSoundEnabled).toHaveBeenCalledWith(true);
     fireEvent.click(screen.getByRole('button', { name: 'Mute character sound' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Enable character sound' })).toHaveAttribute('aria-pressed', 'false'));
     expect(api.setSoundEnabled).toHaveBeenLastCalledWith(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Stop music' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Play music' })).toHaveAttribute('aria-pressed', 'false'));
+    expect(api.setMusicEnabled).toHaveBeenLastCalledWith(false);
+  });
+  it('leaves music off when the browser refuses audio', async () => {
+    api.setMusicEnabled.mockResolvedValueOnce(false);
+    await load();
+    fireEvent.click(screen.getByRole('button', { name: 'Play music' }));
+    await waitFor(() => expect(api.setMusicEnabled).toHaveBeenCalledWith(true));
+    expect(screen.getByRole('button', { name: 'Play music' })).toHaveAttribute('aria-pressed', 'false');
   });
   it('shows greeting text in a polite, non-blocking speech bubble', async () => {
     await load();
-    act(() => createScene.mock.calls[0][1].onGreeting('Hey, my name is Noah. Ask me a question down here.'));
-    expect(screen.getByRole('status')).toHaveTextContent('Hey, my name is Noah. Ask me a question down here.');
+    act(() => createScene.mock.calls[0][1].onGreeting("Stop, don't do that."));
+    expect(screen.getByRole('status')).toHaveTextContent("Stop, don't do that.");
     act(() => createScene.mock.calls[0][1].onGreeting(null));
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
@@ -84,9 +122,9 @@ describe('HeroCharacter progressive enhancement', () => {
     expect(api.dispose).toHaveBeenCalledOnce(); expect(screen.getByTestId('fallback')).toBeVisible();
   });
   it('disposes a late asset completion after unmount', async () => {
-    let resolve!: (value: typeof api) => void;
-    createScene.mockReturnValue(new Promise((done) => { resolve = done; }));
-    const result = render(<HeroCharacter fallback={fallback} />);
+    const { promise, resolve } = Promise.withResolvers<typeof api>();
+    createScene.mockReturnValue(promise);
+    const result = render(<HeroCharacter fallback={fallback} content={content} />);
     act(() => { void intersect([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver); });
     await waitFor(() => expect(createScene).toHaveBeenCalledOnce());
     result.unmount(); await act(async () => resolve(api)); expect(api.dispose).toHaveBeenCalledOnce();

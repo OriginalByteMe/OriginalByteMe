@@ -1,18 +1,28 @@
 import * as THREE from 'three';
-import { ACTIVITY_STATIONS, type ActivityFrame, type ActivityPropMode } from './activities';
+import type { ActivityFrame, ActivityPropMode } from './activities';
+import type { StationKind, Vec3 } from '@/components/character/world/types';
 
-export const ACTIVITY_PROP_LAYOUT = {
-  ball: { x: ACTIVITY_STATIONS.ball.x - .3, y: .60, z: ACTIVITY_STATIONS.ball.z + .36 },
-  book: { x: ACTIVITY_STATIONS.book.x + .12, y: .43, z: ACTIVITY_STATIONS.book.z + .43 },
-  ballRadius: .15,
-} as const;
+const BALL_RADIUS = .15;
 
+/** World-space arm/head overlay for a station kind, or both hands guarding the afro. */
+export type StationPose = {
+  kind: StationKind | 'afro';
+  /** World point the hands or eyes go to (keyboard, rack button, frame corner, afro centre). */
+  reach: THREE.Vector3;
+  /** 0 leaves the clip untouched, 1 is full contact. */
+  weight: number;
+  time: number;
+  /** 0..1 through the perform; admire looks first, then reaches. */
+  progress: number;
+};
 export type ActivityProps = {
   group: THREE.Group;
   /** Remove the last IK overlay BEFORE mixer.update, including constant clip tracks. */
   beforeMixer(): void;
   /** Call after actor transforms and mixer.update. Never changes the actor root. */
   apply(frame: ActivityFrame): void;
+  /** Call after apply(); layers a station or afro pose onto the same reversible overlay. */
+  pose(pose: StationPose): void;
   reset(): void;
   dispose(): void;
 };
@@ -26,34 +36,25 @@ type Prop = {
   tossOrigin: THREE.Vector3;
 };
 const smooth = (t: number) => { const p = THREE.MathUtils.clamp(t, 0, 1); return p * p * (3 - 2 * p); };
-const vector = (v: { x: number; y: number; z: number }) => new THREE.Vector3(v.x, v.y, v.z);
+const vector = (v: Vec3) => new THREE.Vector3(v.x, v.y, v.z);
 
-/** Low-poly, texture-free props plus a reversible FK/IK contact overlay for V5. */
-export function createActivityProps(world: THREE.Object3D, actor: THREE.Object3D, model: THREE.Object3D): ActivityProps {
+/** Low-poly, texture-free ball and book resting on the area's own furniture, plus a reversible FK/IK contact overlay for V5. */
+export function createActivityProps(area: THREE.Object3D, actor: THREE.Object3D, model: THREE.Object3D, rests: { ball: Vec3; book: Vec3 }): ActivityProps {
   const group = new THREE.Group();
   group.name = 'autonomous-activity-props';
-  world.add(group);
+  area.add(group);
   const material = (color: number) => new THREE.MeshStandardMaterial({ color, roughness: .72 });
   const peach = material(0xe7987d), cream = material(0xfff1ce), plum = material(0x745387), green = material(0x9cab90);
   const geometry = (parent: THREE.Object3D, shape: THREE.BufferGeometry, surface: THREE.Material, x = 0, y = 0, z = 0) => {
     const mesh = new THREE.Mesh(shape, surface); mesh.position.set(x, y, z); parent.add(mesh); return mesh;
   };
 
-  const ballRest = geometry(group, new THREE.CylinderGeometry(.23, .27, .45, 20), plum,
-    ACTIVITY_PROP_LAYOUT.ball.x, .225, ACTIVITY_PROP_LAYOUT.ball.z);
-  ballRest.name = 'ball-rest';
   const ballObject = new THREE.Group(); ballObject.name = 'activity-ball'; group.add(ballObject);
-  geometry(ballObject, new THREE.SphereGeometry(ACTIVITY_PROP_LAYOUT.ballRadius, 20, 14), peach);
+  geometry(ballObject, new THREE.SphereGeometry(BALL_RADIUS, 20, 14), peach);
   const stripe = geometry(ballObject, new THREE.TorusGeometry(.151, .012, 5, 32), cream);
   stripe.rotation.x = Math.PI / 2;
   geometry(ballObject, new THREE.TorusGeometry(.151, .009, 5, 32), plum).rotation.y = Math.PI / 2;
 
-  const bookRest = geometry(group, new THREE.BoxGeometry(.48, .37, .36), green,
-    ACTIVITY_PROP_LAYOUT.book.x, .185, ACTIVITY_PROP_LAYOUT.book.z);
-  bookRest.name = 'book-rest';
-  const mat = geometry(group, new THREE.CylinderGeometry(.52, .54, .025, 32), cream,
-    ACTIVITY_STATIONS.book.x, .012, ACTIVITY_STATIONS.book.z - .03);
-  mat.scale.set(1, 1, .78); mat.name = 'reading-mat';
   const bookObject = new THREE.Group(); bookObject.name = 'activity-book'; group.add(bookObject);
   const closed = new THREE.Group(); const opened = new THREE.Group(); bookObject.add(closed, opened);
   geometry(closed, new THREE.BoxGeometry(.34, .075, .27), plum);
@@ -69,8 +70,8 @@ export function createActivityProps(world: THREE.Object3D, actor: THREE.Object3D
     }
   }
   const makeProp = (object: THREE.Group, home: THREE.Vector3): Prop => ({ object, home, mode: 'home', release: null, tossOrigin: home.clone() });
-  const ball = makeProp(ballObject, vector(ACTIVITY_PROP_LAYOUT.ball));
-  const book = makeProp(bookObject, vector(ACTIVITY_PROP_LAYOUT.book));
+  const ball = makeProp(ballObject, vector(rests.ball));
+  const book = makeProp(bookObject, vector(rests.book));
   const overlays: BonePose[] = [];
   const find = (name: string) => model.getObjectByName(name) ?? model.getObjectByName(name.replace('.', '')) ?? model.getObjectByName(name.replace('.', '_'));
   const arms: Arm[] = [];
@@ -118,6 +119,16 @@ export function createActivityProps(world: THREE.Object3D, actor: THREE.Object3D
     const elbowTarget = root.clone().addScaledVector(direction, along).addScaledVector(bend, Math.sqrt(Math.max(0, l1 * l1 - along * along)));
     rotateToward(arm.upper, arm.forearm, elbowTarget);
     rotateToward(arm.forearm, arm.hand, target);
+  };
+  /** Rotates a bone in world space by part of the turn that takes the actor's facing to the target, so the face follows whatever the rig's local axes are. */
+  const turnToward = (bone: THREE.Object3D, target: THREE.Vector3, amount: number) => {
+    save(bone);
+    const to = target.clone().sub(bone.getWorldPosition(new THREE.Vector3())).normalize();
+    if (!to.lengthSq()) return;
+    const facing = new THREE.Vector3(0, 0, 1).transformDirection(actor.matrixWorld);
+    const q = new THREE.Quaternion().slerp(new THREE.Quaternion().setFromUnitVectors(facing, to), amount).multiply(bone.getWorldQuaternion(new THREE.Quaternion()));
+    const parentQ = bone.parent?.getWorldQuaternion(new THREE.Quaternion()) ?? new THREE.Quaternion();
+    bone.quaternion.copy(parentQ.invert().multiply(q)); bone.updateWorldMatrix(false, true);
   };
   const reset = () => {
     beforeMixer();
@@ -187,7 +198,7 @@ export function createActivityProps(world: THREE.Object3D, actor: THREE.Object3D
         const arm = arms.find((entry) => entry.side === -1);
         if (arm) {
           const contact = frame.ball.mode === 'toss' ? ballHeld.clone() : ball.object.getWorldPosition(new THREE.Vector3());
-          contact.y -= ACTIVITY_PROP_LAYOUT.ballRadius * .8;
+          contact.y -= BALL_RADIUS * .8;
           if (frame.ball.mode === 'toss') contact.y += Math.sin(frame.ball.progress * Math.PI * 2) * .09;
           const weight = frame.phase === 'pickup-ball' ? smooth(Math.min(1, frame.progress * 4))
             : frame.phase === 'return-ball' ? 1 - smooth(Math.max(0, (frame.progress - .8) / .2)) : 1;
@@ -203,6 +214,35 @@ export function createActivityProps(world: THREE.Object3D, actor: THREE.Object3D
           poseArm(arm, centre.clone().add(offset), weight);
         }
         if (head && open) { save(head); head.rotateX(.18); }
+      }
+      model.updateWorldMatrix(false, true);
+    },
+    pose({ kind, reach, weight, time, progress }) {
+      if (disposed || weight <= 0) return;
+      actor.updateWorldMatrix(true, true);
+      const across = new THREE.Vector3(1, 0, 0).transformDirection(actor.matrixWorld);
+      const hands = (spread: number, lift: (side: number) => number) => {
+        for (const arm of arms) poseArm(arm, reach.clone().addScaledVector(across, arm.side * spread).setY(reach.y + lift(arm.side)), weight);
+      };
+      const look = (amount: number, target = reach) => { if (head) turnToward(head, target, amount * weight); };
+      if (kind === 'type') {
+        // Alternating taps: each hand dips only on its half of the cycle.
+        hands(.11, (side) => .025 * Math.max(0, Math.sin(time * 16 + (side > 0 ? Math.PI : 0))));
+        look(.35);
+      } else if (kind === 'tinker') {
+        const arm = arms.find((entry) => entry.side === -1);
+        if (arm) poseArm(arm, reach.clone().lerp(arm.upper.getWorldPosition(new THREE.Vector3()), .09 * (1 - Math.cos(time * 9)) / 2), weight);
+        look(.6);
+      } else if (kind === 'watch') {
+        if (spine) { save(spine); spine.rotateX(.14 * weight); spine.updateWorldMatrix(false, true); }
+        look(.85);
+      } else if (kind === 'admire' && progress < .45) {
+        look(.9, reach.clone().setY(reach.y + 1.2));
+      } else if (kind === 'afro') {
+        hands(.2, () => 0);
+      } else {
+        hands(.12, () => .04 * Math.sin(time * 7));
+        look(.5);
       }
       model.updateWorldMatrix(false, true);
     },

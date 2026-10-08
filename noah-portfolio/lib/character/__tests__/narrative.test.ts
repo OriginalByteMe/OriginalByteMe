@@ -1,18 +1,25 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  AFRO_LINES,
+  AREA_ARRIVAL_LINES,
+  BUMP_LINE,
+  CHASE_LINE,
   CharacterNarrativeController,
-  NarrativeFactController,
-  NARRATIVE_FACT_CONFIG,
-  type NarrativeFactFrame,
-  type NarrativeFactTickOptions,
+  CharacterTidbitController,
+  type CharacterLine,
   heroScrollProgress,
+  JUMP_LINE,
   NARRATIVE_DIALOGUE,
   NARRATIVE_PHASE_START,
-  PUBLIC_CHARACTER_FACTS,
+  PORTRAIT_LINE,
   sampleNarrative,
+  STATION_LINES,
+  TIDBIT_CONFIG,
+  TIDBIT_LINES,
   type NarrativePhase,
+  type TidbitInput,
 } from "../narrative";
 
 describe("scroll narrative sampler", () => {
@@ -182,7 +189,7 @@ describe("one-shot cinematic dialogue", () => {
   });
 });
 
-describe("hero geometry and public fact provenance", () => {
+describe("hero geometry", () => {
   it("derives progress from current hero geometry after scrolling or resize", () => {
     expect(heroScrollProgress({ top: 100, height: 3000 }, 1000)).toBe(0);
     expect(heroScrollProgress({ top: -1000, height: 3000 }, 1000)).toBe(0.5);
@@ -192,108 +199,110 @@ describe("hero geometry and public fact provenance", () => {
     expect(heroScrollProgress({ top: NaN, height: 3000 }, 1000)).toBe(0);
     expect(heroScrollProgress({ top: -100, height: 3000 }, 0)).toBe(0);
   });
+});
 
-  it("includes only four brief facts linked to real, public corpus files", () => {
-    expect(PUBLIC_CHARACTER_FACTS).toHaveLength(4);
-    expect(new Set(PUBLIC_CHARACTER_FACTS.map((fact) => fact.id)).size).toBe(4);
-    const evidence = ["3D printing / CAD", "Proxmox + Unraid", "Building marketplace analytics", "pit two LLMs against each other"];
-    PUBLIC_CHARACTER_FACTS.forEach((fact, index) => {
-      expect(fact.source).toMatch(/^content\/about-me\/(?:projects\/)?[a-z-]+\.md$/);
-      expect(fact.line.length).toBeLessThan(100);
-      expect(fact.duration).toBeGreaterThan(0);
-      expect(readFileSync(resolve(process.cwd(), fact.source), "utf8")).toContain(evidence[index]);
-    });
+const projectSlugs = readdirSync(resolve(process.cwd(), "content/about-me/projects")).map((file) => file.replace(/\.md$/, ""));
+const allLines: CharacterLine[] = [
+  ...Object.values(STATION_LINES).flat(), ...Object.values(AREA_ARRIVAL_LINES), ...Object.values(TIDBIT_LINES).flat(),
+  CHASE_LINE, JUMP_LINE, BUMP_LINE, PORTRAIT_LINE, ...AFRO_LINES,
+];
+
+describe("character lines", () => {
+  it("has lines for every contract station id, including one exhibit per corpus project", () => {
+    expect(projectSlugs).toHaveLength(5);
+    expect(Object.keys(STATION_LINES).sort()).toEqual([
+      "desk", "printer", "rack", "ball", "bed", ...projectSlugs.map((slug) => `project:${slug}`), "skills", "portrait", "skyline", "career",
+    ].sort());
+    for (const lines of Object.values(STATION_LINES)) expect(lines.length).toBeGreaterThan(0);
+    for (const slug of projectSlugs) {
+      expect(STATION_LINES[`project:${slug}`].map((line) => line.source)).toContain(`content/about-me/projects/${slug}.md`);
+    }
+  });
+
+  it("keeps every line short, uniquely identified, and every fact sourced from a real public corpus file", () => {
+    const unique = new Map(allLines.map((line) => [line.id, line]));
+    expect([...unique.values()]).toEqual([...new Set(allLines)]);
+    for (const { line, source } of allLines) {
+      expect(line.length).toBeGreaterThan(0);
+      expect(line.length).toBeLessThanOrEqual(70);
+      if (source) {
+        expect(source).toMatch(/^content\/about-me\/(?:projects\/)?[a-z-]+\.md$/);
+        expect(existsSync(resolve(process.cwd(), source)), source).toBe(true);
+      }
+    }
+    for (const pool of Object.values(TIDBIT_LINES)) {
+      expect(pool.length).toBeGreaterThanOrEqual(3);
+      expect(pool.every((line) => line.source)).toBe(true);
+    }
+  });
+
+  it("uses the exact afro, portrait, and chase lines", () => {
+    expect(AFRO_LINES[0].line).toBe("Stop, don't do that.");
+    expect(AFRO_LINES.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(AFRO_LINES.map((line) => line.line)).size).toBe(AFRO_LINES.length);
+    expect(PORTRAIT_LINE.line).toBe("Huh. Maybe that's what I'd look like.");
+    expect(STATION_LINES.portrait[0]).toBe(PORTRAIT_LINE);
+    expect(CHASE_LINE.line).toBe("Hey, wait for me!");
+    expect(AREA_ARRIVAL_LINES.lab.line).toMatch(/welcome to my lab/i);
+    expect(AREA_ARRIVAL_LINES.about.line).toMatch(/about me/i);
   });
 });
 
-
-function advanceFacts(controller: NarrativeFactController, seconds: number,
-  options: NarrativeFactTickOptions = { phase: "roam", stationary: true }) {
-  const frames: NarrativeFactFrame[] = [];
-  for (let index = 0; index < Math.round(seconds * 60); index += 1) {
-    frames.push(controller.tick(1 / 60, options));
+type Spoken = { time: number; line: CharacterLine; area: TidbitInput["area"] };
+function listen(controller: CharacterTidbitController, seconds: number, input: TidbitInput | ((time: number) => TidbitInput), from = 0) {
+  const spoken: Spoken[] = [];
+  for (let index = 1; index <= Math.round(seconds * 20); index += 1) {
+    const time = from + index / 20;
+    const current = typeof input === "function" ? input(time) : input;
+    const line = controller.tick(1 / 20, current);
+    if (line) spoken.push({ time, line, area: current.area });
   }
-  return frames;
+  return spoken;
 }
 
-describe("roaming fact asides", () => {
-  it("requires roaming and three uninterrupted stationary seconds", () => {
-    const controller = new NarrativeFactController();
-    expect(advanceFacts(controller, 20, { phase: "invitation", stationary: true })
-      .every((frame) => frame.factStarted === null)).toBe(true);
-    expect(advanceFacts(controller, 2.9).some((frame) => frame.factStarted)).toBe(false);
-    advanceFacts(controller, 1, { phase: "roam", stationary: false });
-    expect(advanceFacts(controller, 2.9).some((frame) => frame.factStarted)).toBe(false);
-    const start = advanceFacts(controller, 0.2).find((frame) => frame.factStarted);
-    expect(start?.factStarted).toEqual(PUBLIC_CHARACTER_FACTS[0]);
-    expect(start?.count).toBe(1);
-  });
-
-  it("leaves 25 active seconds of quiet after completion and caps at three per session", () => {
-    const controller = new NarrativeFactController();
-    const frames = advanceFacts(controller, 180);
-    const starts = frames.flatMap((frame, index) => frame.factStarted ? [index] : []);
-    expect(starts).toHaveLength(3);
-    starts.slice(1).forEach((index, previous) => {
-      expect((index - starts[previous]) / 60).toBeGreaterThanOrEqual(
-        PUBLIC_CHARACTER_FACTS[previous].duration + NARRATIVE_FACT_CONFIG.minimumQuietGap,
-      );
+describe("idle tidbits", () => {
+  it("speaks from the current area's pool, spaced by the quiet gap, up to the session cap", () => {
+    const controller = new CharacterTidbitController();
+    const spoken = listen(controller, 900, (time) => ({ area: time < 100 ? "bedroom" : time < 200 ? "lab" : "about", ready: true }));
+    expect(spoken).toHaveLength(TIDBIT_CONFIG.maximumLines);
+    expect(controller.spoken).toBe(TIDBIT_CONFIG.maximumLines);
+    expect(spoken[0].time).toBeGreaterThanOrEqual(18);
+    spoken.slice(1).forEach(({ time }, index) => {
+      expect(time - spoken[index].time).toBeGreaterThanOrEqual(18 - 1e-6);
+      expect(time - spoken[index].time).toBeLessThanOrEqual(25 + 1e-6);
     });
-    expect(frames.at(-1)?.count).toBe(3);
-    expect(frames.at(-1)?.activeFact).toBeNull();
+    for (const { line, area } of spoken) expect(TIDBIT_LINES[area]).toContain(line);
+    expect(new Set(spoken.map(({ area }) => area))).toEqual(new Set(["bedroom", "lab", "about"]));
   });
 
-  it("cancels on movement without refund and requires stationary time before the next fact", () => {
-    const controller = new NarrativeFactController();
-    advanceFacts(controller, 3.1);
-    const cancelled = controller.tick(1 / 60, { phase: "roam", stationary: false });
-    expect(cancelled.factEnded).toBe(true);
-    expect(cancelled.activeFact).toBeNull();
-    expect(cancelled.count).toBe(1);
-    expect(controller.tick(0, { phase: "roam", stationary: false }).factEnded).toBe(false);
-    advanceFacts(controller, 30, { phase: "roam", stationary: false });
-    expect(advanceFacts(controller, 2.9).some((frame) => frame.factStarted)).toBe(false);
-    expect(advanceFacts(controller, 0.2).find((frame) => frame.factStarted)?.factStarted)
-      .toEqual(PUBLIC_CHARACTER_FACTS[1]);
+  it("never repeats the previous line and works through a pool before reusing it", () => {
+    const spoken = listen(new CharacterTidbitController({ seed: 7 }), 400, { area: "lab", ready: true }).map(({ line }) => line.id);
+    spoken.slice(1).forEach((id, index) => expect(id).not.toBe(spoken[index]));
+    const pool = TIDBIT_LINES.lab.length;
+    expect(new Set(spoken.slice(0, pool)).size).toBe(pool);
   });
 
-  it("does not advance while paused or outside roam and cancels current text once", () => {
-    const controller = new NarrativeFactController();
-    advanceFacts(controller, 3.1);
-    const paused = advanceFacts(controller, 100, { phase: "roam", stationary: true, paused: true });
-    expect(paused[0].factEnded).toBe(true);
-    expect(paused.slice(1).every((frame) => !frame.factEnded && !frame.factStarted)).toBe(true);
-    expect(advanceFacts(controller, 24).some((frame) => frame.factStarted)).toBe(false);
-    expect(advanceFacts(controller, 1.1).some((frame) => frame.factStarted)).toBe(true);
-    const leftRoam = controller.tick(0, { phase: "intro", stationary: true });
-    expect(leftRoam.factEnded).toBe(true);
-    expect(leftRoam.activeFact).toBeNull();
-    expect(advanceFacts(controller, 100, { phase: "intro", stationary: true })
-      .every((frame) => !frame.factStarted)).toBe(true);
+  it("waits for three uninterrupted ready seconds and does not advance while paused", () => {
+    const controller = new CharacterTidbitController();
+    expect(listen(controller, 30, { area: "bedroom", ready: false })).toEqual([]);
+    expect(listen(controller, 2.5, { area: "bedroom", ready: true })).toEqual([]);
+    expect(listen(controller, 1, { area: "bedroom", ready: false })).toEqual([]);
+    expect(listen(controller, 2.9, { area: "bedroom", ready: true })).toEqual([]);
+    expect(listen(controller, 100, { area: "bedroom", ready: true, paused: true })).toEqual([]);
+    expect(listen(controller, .15, { area: "bedroom", ready: true })).toHaveLength(1);
+    const paused = new CharacterTidbitController();
+    listen(paused, 300, { area: "bedroom", ready: true, paused: true });
+    expect(listen(paused, 17.9, { area: "bedroom", ready: true })).toEqual([]);
   });
 
-  it("restores the count and a conservative quiet gap after a scene remount", () => {
-    const restored = new NarrativeFactController({ factsShown: 2 });
-    expect(advanceFacts(restored, 24.9).some((frame) => frame.factStarted)).toBe(false);
-    const starts = advanceFacts(restored, 120).filter((frame) => frame.factStarted);
-    expect(starts).toHaveLength(1);
-    expect(starts[0].factStarted).toEqual(PUBLIC_CHARACTER_FACTS[2]);
-    const exhausted = new NarrativeFactController({ factsShown: 100 });
-    expect(advanceFacts(exhausted, 120).every((frame) => frame.count === 3 && !frame.factStarted)).toBe(true);
-  });
-
-  it("ignores invalid deltas, limits resume spikes, and never speaks from a zero tick", () => {
-    const controller = new NarrativeFactController({ factsShown: NaN });
-    for (const delta of [NaN, Infinity, -1, 0, 1000]) {
-      const frame = controller.tick(delta, { phase: "roam", stationary: true });
-      expect(frame.factStarted).toBeNull();
-      expect(frame.count).toBe(0);
-    }
-    advanceFacts(controller, 2.8);
-    expect(controller.tick(0, { phase: "roam", stationary: true }).factStarted).toBeNull();
-    expect(advanceFacts(controller, 0.2).some((frame) => frame.factStarted)).toBe(true);
-    controller.cancel();
-    expect(controller.tick(0, { phase: "roam", stationary: true }).factEnded).toBe(true);
-    expect(controller.tick(0, { phase: "roam", stationary: true }).factEnded).toBe(false);
+  it("restores the session count, ignores bad deltas, and never speaks from a zero tick", () => {
+    expect(listen(new CharacterTidbitController({ spoken: 99 }), 300, { area: "about", ready: true })).toEqual([]);
+    const restored = new CharacterTidbitController({ spoken: TIDBIT_CONFIG.maximumLines - 1 });
+    expect(listen(restored, 300, { area: "about", ready: true })).toHaveLength(1);
+    const controller = new CharacterTidbitController({ spoken: NaN });
+    expect(controller.spoken).toBe(0);
+    for (const delta of [NaN, Infinity, -1, 0, 1000]) expect(controller.tick(delta, { area: "lab", ready: true })).toBeNull();
+    listen(controller, 40, { area: "lab", ready: true });
+    expect(controller.tick(0, { area: "lab", ready: true })).toBeNull();
   });
 });

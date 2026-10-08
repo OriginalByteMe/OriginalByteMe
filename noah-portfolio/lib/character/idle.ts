@@ -1,42 +1,25 @@
 /** Pure active-scene clock. Do not tick while paused, hidden, or offscreen. */
 export type GreetingId = "intro" | "hello";
 export type CharacterGreeting = Readonly<{ id: GreetingId; line: string; duration: number }>;
-export type GreetingBeat = Readonly<{ at: number; duration: number; pitch: number }>;
+export type GreetingBeat = Readonly<{ at: number; duration: number }>;
 
 export const CHARACTER_GREETINGS: readonly CharacterGreeting[] = [
   { id: "intro", line: "Hey, my name is Noah. Ask me a question down here.", duration: 5.2 },
   { id: "hello", line: "Hi, you see me? Do you see me? Oh, hello.", duration: 4.8 },
 ];
 
-/** Original nonverbal syllable rhythms shared by the face and synthesized voice. */
+/** Original nonverbal syllable rhythms that drive the mouth during an idle greeting. */
 export const GREETING_BEATS: Readonly<Record<GreetingId, readonly GreetingBeat[]>> = {
   intro: [
-    { at: 0.12, duration: 0.22, pitch: 440 },
-    { at: 0.52, duration: 0.13, pitch: 392 },
-    { at: 0.76, duration: 0.2, pitch: 494 },
-    { at: 1.08, duration: 0.12, pitch: 440 },
-    { at: 1.32, duration: 0.22, pitch: 523 },
-    { at: 1.61, duration: 0.25, pitch: 466 },
-    { at: 2.26, duration: 0.19, pitch: 494 },
-    { at: 2.57, duration: 0.15, pitch: 440 },
-    { at: 2.84, duration: 0.13, pitch: 392 },
-    { at: 3.12, duration: 0.19, pitch: 523 },
-    { at: 3.39, duration: 0.15, pitch: 494 },
-    { at: 3.88, duration: 0.22, pitch: 440 },
-    { at: 4.26, duration: 0.29, pitch: 392 },
+    { at: 0.12, duration: 0.22 }, { at: 0.52, duration: 0.13 }, { at: 0.76, duration: 0.2 }, { at: 1.08, duration: 0.12 },
+    { at: 1.32, duration: 0.22 }, { at: 1.61, duration: 0.25 }, { at: 2.26, duration: 0.19 }, { at: 2.57, duration: 0.15 },
+    { at: 2.84, duration: 0.13 }, { at: 3.12, duration: 0.19 }, { at: 3.39, duration: 0.15 }, { at: 3.88, duration: 0.22 },
+    { at: 4.26, duration: 0.29 },
   ],
   hello: [
-    { at: 0.12, duration: 0.24, pitch: 523 },
-    { at: 0.68, duration: 0.13, pitch: 440 },
-    { at: 0.94, duration: 0.18, pitch: 494 },
-    { at: 1.26, duration: 0.25, pitch: 587 },
-    { at: 1.92, duration: 0.12, pitch: 440 },
-    { at: 2.16, duration: 0.13, pitch: 494 },
-    { at: 2.4, duration: 0.19, pitch: 523 },
-    { at: 2.71, duration: 0.25, pitch: 587 },
-    { at: 3.41, duration: 0.24, pitch: 466 },
-    { at: 3.94, duration: 0.16, pitch: 523 },
-    { at: 4.22, duration: 0.29, pitch: 440 },
+    { at: 0.12, duration: 0.24 }, { at: 0.68, duration: 0.13 }, { at: 0.94, duration: 0.18 }, { at: 1.26, duration: 0.25 },
+    { at: 1.92, duration: 0.12 }, { at: 2.16, duration: 0.13 }, { at: 2.4, duration: 0.19 }, { at: 2.71, duration: 0.25 },
+    { at: 3.41, duration: 0.24 }, { at: 3.94, duration: 0.16 }, { at: 4.22, duration: 0.29 },
   ],
 };
 

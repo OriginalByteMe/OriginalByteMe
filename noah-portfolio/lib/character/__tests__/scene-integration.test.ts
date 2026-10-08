@@ -1,11 +1,18 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Vector3, type Mesh, type PerspectiveCamera, type Scene } from 'three';
+import { Raycaster, Vector2, Vector3, type BufferGeometry, type Mesh, type Object3D, type PerspectiveCamera, type Scene } from 'three';
 import type { CharacterScene } from '@/components/character/create-character-scene';
+import { createBedroom } from '@/components/character/world/bedroom';
+import { createLab } from '@/components/character/world/lab';
+import { corpus } from '@/lib/corpus';
+import { worldContent } from '@/lib/character/world-content';
+import { rayHitsSphere } from '@/lib/character/input';
+import { AFRO_LINES, AREA_ARRIVAL_LINES, CHASE_LINE } from '@/lib/character/narrative';
+import { stubCanvas2d } from './canvas-stub';
 
-// Real asset, real mixer, real scene/controller/face/prop code. Only WebGL and
-// embedded image decoding are replaced. This does not claim browser visual QA.
+// Real asset, real mixer, real areas, real scene/controller/tour/face/prop code. Only WebGL
+// drawing, embedded image decoding and 2D canvas are replaced. This does not claim browser visual QA.
 const capture = vi.hoisted(() => ({ scene: null as Scene | null, camera: null as PerspectiveCamera | null, renders: 0 }));
 vi.mock('three', async (importOriginal) => {
   const actual = await importOriginal<typeof import('three')>();
@@ -31,17 +38,18 @@ vi.mock('three/addons/loaders/GLTFLoader.js', async (importOriginal) => {
   } };
 });
 
+const content = worldContent(corpus);
 let api: CharacterScene | undefined;
 let host: HTMLDivElement;
-let hero: HTMLElement;
+let world: HTMLElement;
 let wrapper: HTMLDivElement;
 let now: number;
 let width: number;
 let height: number;
+let scrollTop: number;
 let rafId: number;
 let frames: Map<number, FrameRequestCallback>;
 let visibilityCallback: IntersectionObserverCallback;
-let resizeCallback: ResizeObserverCallback;
 let hidden = false;
 const message = vi.fn();
 const greeting = vi.fn();
@@ -49,28 +57,39 @@ const phase = vi.fn();
 
 beforeEach(() => {
   vi.resetModules();
-  now = 100; rafId = 0; width = 1200; height = 800; hidden = false;
+  now = 100; rafId = 0; width = 1200; height = 800; scrollTop = 0; hidden = false;
   frames = new Map();
   capture.scene = null; capture.camera = null; capture.renders = 0;
   message.mockClear(); greeting.mockClear(); phase.mockClear();
   sessionStorage.clear();
-  document.body.innerHTML = '<section id="hero"><div class="character-hero"><div id="scene-host"></div></div><button id="ui">UI</button></section>';
-  hero = document.querySelector('#hero')!;
+  document.body.innerHTML = `<div class="character-world">
+    <div class="character-hero"><div id="scene-host"></div></div>
+    <section id="hero"><button id="ui">UI</button></section>
+    <section id="lab"><div id="panel" data-character-ui>Lab panel</div></section>
+    <section id="about"></section>
+  </div>`;
+  world = document.querySelector('.character-world')!;
   wrapper = document.querySelector('.character-hero')!;
   host = document.querySelector('#scene-host')!;
-  vi.spyOn(host, 'getBoundingClientRect').mockImplementation(() => ({ left: 0, top: 0, right: width, bottom: height, width, height, x: 0, y: 0, toJSON() {} }));
+  Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
+  const rect = (top: number, size: number) => ({ left: 0, top, right: width, bottom: top + size, width, height: size, x: 0, y: top, toJSON() {} });
+  vi.spyOn(host, 'getBoundingClientRect').mockImplementation(() => rect(0, height));
+  // Page layout: hero one screen, lab and about two screens each, measured relative to the viewport.
+  for (const [id, top, size] of [['hero', 0, 1], ['lab', 1, 2], ['about', 3, 2]] as const) {
+    vi.spyOn(document.getElementById(id)!, 'getBoundingClientRect').mockImplementation(() => rect(top * height - scrollTop, size * height));
+  }
   vi.spyOn(document, 'hidden', 'get').mockImplementation(() => hidden);
-  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ createRadialGradient: () => ({ addColorStop() {} }), fillRect() {} } as unknown as CanvasRenderingContext2D);
+  stubCanvas2d();
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { frames.set(++rafId, callback); return rafId; });
   vi.stubGlobal('cancelAnimationFrame', (id: number) => { frames.delete(id); });
   vi.stubGlobal('IntersectionObserver', class { constructor(callback: IntersectionObserverCallback) { visibilityCallback = callback; } observe() {} disconnect() {} });
-  vi.stubGlobal('ResizeObserver', class { constructor(callback: ResizeObserverCallback) { resizeCallback = callback; } observe() {} disconnect() {} });
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
 });
 afterEach(() => { api?.dispose(); api = undefined; vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 async function create() {
   const { createCharacterScene } = await import('@/components/character/create-character-scene');
-  api = await createCharacterScene(host, { onMessage: message, onGreeting: greeting, onPhase: phase, onError: vi.fn() });
+  api = await createCharacterScene(host, { content, onMessage: message, onGreeting: greeting, onPhase: phase, onError: vi.fn() });
   return api;
 }
 function advance(seconds: number) {
@@ -83,19 +102,63 @@ function advance(seconds: number) {
 function visible(value: boolean) {
   visibilityCallback([{ isIntersecting: value } as IntersectionObserverEntry], {} as IntersectionObserver);
 }
-function clickWorld(x: number, z: number, target: HTMLElement = hero) {
-  const point = new Vector3(x, 0, z).project(capture.camera!);
-  const init = { bubbles: true, clientX: (point.x + 1) * width / 2, clientY: (1 - point.y) * height / 2, button: 0 };
+function scrollTo(screens: number) { scrollTop = screens * height; window.dispatchEvent(new Event('scroll')); }
+const screenOf = (point: Vector3) => { const ndc = point.clone().project(capture.camera!); return { x: (ndc.x + 1) * width / 2, y: (1 - ndc.y) * height / 2 }; };
+function click({ x, y }: { x: number; y: number }, target: HTMLElement = world) {
   for (const kind of ['pointerdown', 'pointerup']) {
-    const event = new MouseEvent(kind, init);
+    const event = new MouseEvent(kind, { bubbles: true, clientX: x, clientY: y, button: 0 });
     Object.defineProperties(event, { pointerId: { value: 1 }, isPrimary: { value: true } });
     target.dispatchEvent(event);
   }
 }
+const clickWorld = (x: number, z: number, target?: HTMLElement) => click(screenOf(new Vector3(x, 0, z)), target);
 const mesh = (name: string) => capture.scene!.getObjectByName(name) as Mesh;
 const position = () => host.dataset.position!.split(',').map(Number);
+const afroTop = () => mesh('head').getWorldPosition(new Vector3()).add(new Vector3(0, .55, 0));
+const until = (done: () => boolean, seconds = 60) => { for (let frame = 0; !done() && frame < seconds * 30; frame += 1) advance(1 / 30); };
+/** Layout data from a throwaway copy of an area; the scene builds its own. */
+const layout = (build: typeof createBedroom, y = 0) => { const area = build(new Vector3(0, y, 0), content); area.dispose(); return area; };
+/** An open floor point across the room from him, near the open front edge where nothing is in the way. */
+const openFloor = () => {
+  const [x] = position();
+  return { x: x > 0 ? x - 2.2 : x + 2.2, z: layout(createBedroom).exit.z - .3 };
+};
+/** A screen point the bedroom's own pick resolves to the station, clear of his afro. */
+function stationPoint(id: string) {
+  const bedroom = createBedroom(new Vector3(), content);
+  const reach = bedroom.stations.find((station) => station.id === id)!.reach;
+  const raycaster = new Raycaster();
+  try {
+    for (const [dx, dy] of [[0, 0], [0, .12], [0, -.12], [.12, 0], [-.12, 0], [0, .25], [0, -.25]]) {
+      const screen = screenOf(new Vector3(reach.x + dx, reach.y + dy, reach.z));
+      raycaster.setFromCamera(new Vector2(screen.x / width * 2 - 1, 1 - screen.y / height * 2), capture.camera!);
+      const afro = rayHitsSphere(raycaster.ray.origin, raycaster.ray.direction, { center: afroTop(), radius: .7 });
+      if (!afro && bedroom.pick(raycaster) === id) return screen;
+    }
+    throw new Error(`no clear screen point picks ${id}`);
+  } finally { bedroom.dispose(); }
+}
 
-describe('shipped character scene integration', () => {
+describe('shipped character world integration', () => {
+  it('builds the bedroom, lab and about areas once and disposes every geometry they created', async () => {
+    await create(); advance(.1);
+    const areas = capture.scene!.children.filter((child) => child.type === 'Group' && !child.getObjectByName('head'));
+    expect(areas.map((area) => area.position.y)).toEqual([0, -18, -36]);
+    expect(host.dataset.area).toBe('bedroom');
+    const geometries = new Set<BufferGeometry>();
+    for (const area of areas) area.traverse((node: Object3D) => { if ((node as Mesh).isMesh) geometries.add((node as Mesh).geometry); });
+    expect(geometries.size).toBeGreaterThan(30);
+    const disposed = new Set<BufferGeometry>();
+    for (const geometry of geometries) geometry.addEventListener('dispose', () => disposed.add(geometry));
+    const renders = capture.renders;
+    api!.dispose(); advance(2);
+    expect(disposed.size).toBe(geometries.size);
+    for (const area of areas) expect(area.parent).toBeNull();
+    expect(capture.renders).toBe(renders);
+    expect(host.querySelector('canvas')).toBeNull();
+    expect(frames.size).toBe(0);
+  });
+
   it('runs by active time and freezes during pause, hidden tab, and offscreen', async () => {
     await create();
     expect(phase).toHaveBeenLastCalledWith('opening');
@@ -103,6 +166,7 @@ describe('shipped character scene integration', () => {
     const time = host.dataset.introTime;
     api!.setPaused(true); advance(12);
     expect(host.dataset.introTime).toBe(time);
+    expect(host.dataset.paused).toBe('true');
     api!.setPaused(false); advance(1);
     expect(Number(host.dataset.introTime)).toBeGreaterThan(Number(time));
     visible(false); const offscreen = host.dataset.introTime; advance(12);
@@ -141,58 +205,106 @@ describe('shipped character scene integration', () => {
     for (const mouth of mouths) expect(mouth.morphTargetInfluences![mouth.morphTargetDictionary!.Talk]).toBeLessThan(.05);
   });
 
-  it('accepts native click coordinates, rejects UI clicks, and cancels a live activity', async () => {
+  it('moves him on a floor click, ignores UI and panel clicks, and a click cancels a live activity', async () => {
     await create(); api!.skipIntro(); advance(.1);
     const original = position();
-    clickWorld(-.2, 1.8, document.querySelector<HTMLElement>('#ui')!); advance(.4);
+    const floor = openFloor();
+    clickWorld(floor.x, floor.z, document.querySelector<HTMLElement>('#ui')!); advance(.4);
+    clickWorld(floor.x, floor.z, document.querySelector<HTMLElement>('#panel')!); advance(.4);
     expect(position()).toEqual(original);
-    clickWorld(-.2, 1.8); advance(.4);
+    clickWorld(floor.x, floor.z); advance(.4);
     expect(position()).not.toEqual(original);
     expect(message).toHaveBeenCalledWith('On my way. Click another spot to change course.');
-    for (let frame = 0; host.dataset.activity === 'idle' && frame < 1800; frame += 1) advance(1 / 30);
+    until(() => host.dataset.activity !== 'idle');
     expect(host.dataset.activity, JSON.stringify({ dataset: { ...host.dataset }, messages: message.mock.calls })).not.toBe('idle');
-    clickWorld(0, .8); advance(1 / 30);
+    const [x] = position();
+    clickWorld(x > 0 ? x - 1.5 : x + 1.5, openFloor().z); advance(1 / 30);
     expect(host.dataset.activity).toBe('idle');
   });
 
-  it('releases a sculpture-centre command so autonomous activities resume', async () => {
-    await create(); api!.skipIntro(); advance(.1);
-    clickWorld(-1.35, -.45); advance(1 / 30);
-    for (let frame = 0; host.dataset.activity === 'idle' && frame < 1800; frame += 1) advance(1 / 30);
-    expect(host.dataset.activity, JSON.stringify({ dataset: { ...host.dataset }, messages: message.mock.calls })).not.toBe('idle');
+  it('answers an afro click with "Stop, don\'t do that." and stays put, even over the floor', async () => {
+    await create(); api!.skipIntro(); advance(.5);
+    const original = position();
+    click(screenOf(afroTop())); advance(.5);
+    expect(greeting).toHaveBeenCalledWith("Stop, don't do that.");
+    expect(AFRO_LINES[0].line).toBe("Stop, don't do that.");
+    expect(message).not.toHaveBeenCalledWith('On my way. Click another spot to change course.');
+    expect(position()).toEqual(original);
+    advance(2); click(screenOf(afroTop())); advance(.2);
+    expect(greeting).toHaveBeenLastCalledWith(AFRO_LINES[1].line);
   });
 
-  it('reprojects a live destination that resize clamps inside the book pedestal', async () => {
+  it('a station pick sends him to that station and starts its routine', async () => {
     await create(); api!.skipIntro(); advance(.1);
-    clickWorld(4, 0); advance(.1);
-    width = 390; height = 844; resizeCallback([], {} as ResizeObserver);
-    advance(12);
-    expect(message).toHaveBeenCalledWith('A little play, a little reading. Click to explore.');
-    for (let frame = 0; host.dataset.activity === 'idle' && frame < 1800; frame += 1) advance(1 / 30);
-    expect(host.dataset.activity).not.toBe('idle');
+    click(stationPoint('printer')); advance(1 / 30);
+    expect(host.dataset.station).toBe('printer');
+    until(() => host.dataset.activity === 'perform', 30);
+    expect(host.dataset.activity).toBe('perform');
+    expect(host.dataset.station).toBe('printer');
+  });
+
+  it('follows a scroll to the lab through the whole tour, ignoring clicks mid-flight, takes a queued Show me there, then jumps back up', async () => {
+    await create(); api!.skipIntro(); advance(.1);
+    scrollTo(1);
+    // A Show me pressed while he is still upstairs waits until he has landed in the lab.
+    api!.visit('skills');
+    const phases: string[] = [];
+    for (let frame = 0; frame < 8 * 30; frame += 1) {
+      advance(1 / 30);
+      if (phases.at(-1) !== host.dataset.tour) phases.push(host.dataset.tour!);
+      if (host.dataset.tour === 'trip' && phases.length === 3) clickWorld(0, 1);
+    }
+    expect(phases).toEqual(['settled', 'chase', 'trip', 'fall', 'land', 'recover', 'settled']);
+    expect(message).not.toHaveBeenCalledWith('On my way. Click another spot to change course.');
+    expect(host.dataset.area).toBe('lab');
+    const { bounds } = layout(createLab, -18);
+    const [x, z] = position();
+    expect(x).toBeGreaterThanOrEqual(bounds.minX); expect(x).toBeLessThanOrEqual(bounds.maxX);
+    expect(z).toBeGreaterThanOrEqual(bounds.minZ); expect(z).toBeLessThanOrEqual(bounds.maxZ);
+    const lines = greeting.mock.calls.map(([line]) => line);
+    expect(lines).toContain(CHASE_LINE.line);
+    expect(lines).toContain(AREA_ARRIVAL_LINES.lab.line);
+    until(() => host.dataset.station === 'skills', 5);
+    expect(host.dataset.station).toBe('skills');
+    scrollTo(0);
+    const back: string[] = [];
+    for (let frame = 0; frame < 5 * 30; frame += 1) { advance(1 / 30); if (back.at(-1) !== host.dataset.tour) back.push(host.dataset.tour!); }
+    expect(back).toEqual(['settled', 'jump', 'land', 'recover', 'settled']);
+    expect(host.dataset.area).toBe('bedroom');
+  });
+
+  it('starts mid-page in the viewed area without the intro', async () => {
+    scrollTop = 3 * height;
+    await create();
+    expect(phase).toHaveBeenLastCalledWith('roam');
+    expect(wrapper.style.getPropertyValue('--intro-black')).toBe('0');
+    advance(.1);
+    expect(host.dataset.area).toBe('about');
+    expect(host.dataset.tour).toBe('settled');
   });
 
   it('does not move from hover, scroll, cancelled taps, or taps while paused', async () => {
     await create(); api!.skipIntro(); advance(.1);
     const original = position();
-    hero.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 800, clientY: 600 }));
+    world.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 800, clientY: 600 }));
     window.dispatchEvent(new Event('scroll'));
     advance(.3);
     expect(position()).toEqual(original);
     const down = new MouseEvent('pointerdown', { bubbles: true, clientX: 800, clientY: 600, button: 0 });
     Object.defineProperties(down, { pointerId: { value: 1 }, isPrimary: { value: true } });
-    hero.dispatchEvent(down); hero.dispatchEvent(new Event('pointercancel', { bubbles: true }));
+    world.dispatchEvent(down); world.dispatchEvent(new Event('pointercancel', { bubbles: true }));
     const up = new MouseEvent('pointerup', { bubbles: true, clientX: 800, clientY: 600, button: 0 });
     Object.defineProperties(up, { pointerId: { value: 1 }, isPrimary: { value: true } });
-    hero.dispatchEvent(up); advance(.3);
+    world.dispatchEvent(up); advance(.3);
     expect(position()).toEqual(original);
-    api!.setPaused(true); clickWorld(-1, 1); advance(.3);
+    const floor = openFloor();
+    api!.setPaused(true); clickWorld(floor.x, floor.z); advance(.3);
     api!.setPaused(false); advance(.1);
     expect(position()).toEqual(original);
     expect(message).not.toHaveBeenCalledWith('On my way. Click another spot to change course.');
   });
 
-  it('can skip while paused without replaying cues and eases cancelled props home', async () => {
+  it('can skip while paused without replaying cues and eases a cancelled ball back to its bedroom rest', async () => {
     await create(); advance(3.8);
     expect(greeting).toHaveBeenCalledWith('Hi hi hi hi');
     api!.setPaused(true); api!.skipIntro();
@@ -200,40 +312,36 @@ describe('shipped character scene integration', () => {
     expect(greeting).toHaveBeenLastCalledWith(null);
     expect(wrapper.style.getPropertyValue('--intro-black')).toBe('0');
     api!.skipIntro(); api!.setPaused(false);
-    for (let frame = 0; host.dataset.activity !== 'toss-ball' && frame < 1800; frame += 1) advance(1 / 30);
+    api!.visit('ball');
+    until(() => host.dataset.activity === 'toss-ball');
     expect(host.dataset.activity).toBe('toss-ball');
     advance(.35);
     const ball = capture.scene!.getObjectByName('activity-ball')!;
     const before = ball.position.clone();
-    clickWorld(0, .5);
+    const [x] = position();
+    clickWorld(x > 0 ? x - 1.5 : x + 1.5, openFloor().z);
     expect(ball.position.distanceTo(before)).toBe(0);
     advance(1 / 30);
     expect(host.dataset.activity).toBe('idle');
     expect(ball.position.distanceTo(before)).toBeLessThan(.01);
     advance(.8);
-    expect(ball.position.x).toBeCloseTo(-1.9);
-    expect(ball.position.y).toBeCloseTo(.6);
-    expect(ball.position.z).toBeCloseTo(1.16);
+    const rest = layout(createBedroom).propRests!.ball;
+    expect(ball.position.x).toBeCloseTo(rest.x); expect(ball.position.y).toBeCloseTo(rest.y); expect(ball.position.z).toBeCloseTo(rest.z);
     expect(greeting.mock.calls.filter(([line]) => line === 'Hi hi hi hi')).toHaveLength(1);
   });
 
-  it('keeps reading pose stable, confines resize, and disposes without further rendering', async () => {
+  it('reads on the bed in a stable seated pose', async () => {
     await create(); api!.skipIntro(); advance(.1);
-    for (let frame = 0; host.dataset.activity !== 'read' && frame < 2400; frame += 1) advance(1 / 30);
+    api!.visit('bed');
+    until(() => host.dataset.activity === 'read');
     expect(host.dataset.activity).toBe('read');
     advance(.4);
     const hips = mesh('pelvis');
-    expect(hips).toBeDefined();
-    const seated = hips.position.clone();
+    const seated = hips.getWorldPosition(new Vector3());
+    const seat = layout(createBedroom).stations.find((station) => station.id === 'bed')!.seat!;
+    expect(seated.y).toBeGreaterThan(seat);
     advance(3);
     expect(host.dataset.activity).toBe('read');
-    expect(hips.position.distanceTo(seated)).toBeLessThan(.005);
-    width = 390; height = 844; resizeCallback([], {} as ResizeObserver); advance(.1);
-    expect(Math.abs(position()[0])).toBeLessThanOrEqual(2.08);
-    const renders = capture.renders;
-    api!.dispose(); advance(2);
-    expect(capture.renders).toBe(renders);
-    expect(host.querySelector('canvas')).toBeNull();
-    expect(frames.size).toBe(0);
+    expect(hips.getWorldPosition(new Vector3()).distanceTo(seated)).toBeLessThan(.005);
   });
 });

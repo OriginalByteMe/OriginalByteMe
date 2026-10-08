@@ -1,3 +1,5 @@
+import type { AreaId } from "@/components/character/world/types";
+
 /**
  * Scroll, not elapsed time, drives the cinematic. All values are renderer-agnostic:
  * a scene maps normalized depth to its own distant/lens/stage positions.
@@ -28,41 +30,6 @@ export const NARRATIVE_DIALOGUE: Readonly<Record<NarrativeDialogueId, NarrativeD
     duration: 7.2,
   },
 };
-
-export type PublicCharacterFact = Readonly<{
-  id: string;
-  line: string;
-  duration: number;
-  /** Repository-relative, public portfolio corpus source; no private context. */
-  source: `content/about-me/${string}.md`;
-}>;
-
-export const PUBLIC_CHARACTER_FACTS: readonly PublicCharacterFact[] = [
-  {
-    id: "making-in-3d",
-    line: "I make things in 3D, too: CAD and 3D printing.",
-    duration: 4.4,
-    source: "content/about-me/fun-facts.md",
-  },
-  {
-    id: "self-hosted",
-    line: "My servers live a self-hosted life on Proxmox and Unraid.",
-    duration: 4.8,
-    source: "content/about-me/fun-facts.md",
-  },
-  {
-    id: "marketplace-analytics",
-    line: "I build marketplace analytics at MerchantSpring. Lots of moving parts!",
-    duration: 4.8,
-    source: "content/about-me/career.md",
-  },
-  {
-    id: "llm-comparison",
-    line: "I built an app that lets two LLMs go head-to-head.",
-    duration: 4.5,
-    source: "content/about-me/projects/llm-comparison.md",
-  },
-];
 
 export type NarrativeSample = Readonly<{
   progress: number;
@@ -267,88 +234,180 @@ export class CharacterNarrativeController {
   }
 }
 
-export const NARRATIVE_FACT_CONFIG = {
-  maximumFacts: 3,
-  requiredStationaryTime: 3,
-  minimumQuietGap: 25,
+type CorpusSource = `content/about-me/${string}.md`;
+/** A spoken line. Facts carry a repository-relative public corpus `source`; no private context. */
+export type CharacterLine = Readonly<{ id: string; line: string; source?: CorpusSource }>;
+
+const BIO = "content/about-me/bio.md";
+const CAREER = "content/about-me/career.md";
+const FUN = "content/about-me/fun-facts.md";
+const SKILLS = "content/about-me/skills.md";
+const project = (slug: string): CorpusSource => `content/about-me/projects/${slug}.md`;
+
+export const PORTRAIT_LINE: CharacterLine = { id: "portrait-admire", line: "Huh. Maybe that's what I'd look like." };
+export const CHASE_LINE: CharacterLine = { id: "chase", line: "Hey, wait for me!" };
+export const JUMP_LINE: CharacterLine = { id: "jump", line: "Hup! Coming back up!" };
+/** Walking into furniture. */
+export const BUMP_LINE: CharacterLine = { id: "bump", line: "Oops, excuse me, furniture." };
+/** Escalating replies to afro clicks; index by click count, clamped to the last. */
+export const AFRO_LINES: readonly CharacterLine[] = [
+  { id: "afro-1", line: "Stop, don't do that." },
+  { id: "afro-2", line: "Hey! The afro is not a button." },
+  { id: "afro-3", line: "Seriously, I just fluffed it!" },
+  { id: "afro-4", line: "Okay, now you're doing it on purpose." },
+];
+/** Spoken at recover after landing; the land beat already has its own "Ow". */
+export const AREA_ARRIVAL_LINES: Readonly<Record<AreaId, CharacterLine>> = {
+  bedroom: { id: "arrive-bedroom", line: "Home sweet bedroom!" },
+  lab: { id: "arrive-lab", line: "Oh hey, welcome to my lab!" },
+  about: { id: "arrive-about", line: "Okay, this part's about me." },
+};
+
+/** Keyed by the shared station ids; the scene picks one when a station's routine starts. */
+export const STATION_LINES: Readonly<Record<string, readonly CharacterLine[]>> = {
+  desk: [
+    { id: "desk-merchantspring", line: "Building marketplace analytics at MerchantSpring. Click clack!", source: CAREER },
+    { id: "desk-senior-ai", line: "Senior AI Engineer, reporting for keyboard duty!", source: CAREER },
+  ],
+  printer: [
+    { id: "printer-bowiq", line: "CAD design and FDM printing. That's my Bowiq work!", source: CAREER },
+    { id: "printer-layers", line: "I'm into 3D printing and CAD. Look at those layers!", source: FUN },
+  ],
+  rack: [
+    { id: "rack-self-hosted", line: "I self-host on Proxmox and Unraid. Hi, little servers!", source: FUN },
+    { id: "rack-docker", line: "Self-hosting and Docker? Yes please!", source: CAREER },
+  ],
+  ball: [
+    { id: "ball-toss", line: "Up it goes... and catch!" },
+    { id: "ball-record", line: "Two catches in a row. New record!" },
+  ],
+  bed: [{ id: "bed-read", line: "Quick reading break. Don't tell the servers." }],
+  "project:ai-image-cutout": [
+    { id: "project-ai-image-cutout", line: "This one cuts people out of photos to make stickers!", source: project("ai-image-cutout") },
+  ],
+  "project:ask-me-portfolio": [
+    { id: "project-ask-me-portfolio", line: "You're on this one! An LLM composes every answer.", source: project("ask-me-portfolio") },
+  ],
+  "project:llm-comparison": [
+    { id: "project-llm-comparison", line: "Pit two LLMs against each other and see how they compare!", source: project("llm-comparison") },
+  ],
+  "project:moodify": [
+    { id: "project-moodify", line: "Moodify paints the page in an album cover's colours!", source: project("moodify") },
+  ],
+  "project:story-model-benchmark": [
+    { id: "project-story-model-benchmark", line: "This benchmark helps choose the model behind my Story!", source: project("story-model-benchmark") },
+  ],
+  skills: [
+    { id: "skills-languages", line: "Ruby, Python, TypeScript... press a key, any key!", source: SKILLS },
+    { id: "skills-ai", line: "LangChain, Langfuse, Ollama. My AI toolbox!", source: SKILLS },
+  ],
+  portrait: [PORTRAIT_LINE, { id: "portrait-straighten", line: "A little to the left... perfect." }],
+  skyline: [{ id: "skyline-kl", line: "Kuala Lumpur, Malaysia. That's where I'm based!", source: BIO }],
+  career: [
+    { id: "career-merchantspring", line: "Now: Senior AI Engineer at MerchantSpring!", source: CAREER },
+    { id: "career-supa", line: "Supa, 2020 to 2025: data labeling and LLM evaluation tools.", source: CAREER },
+    { id: "career-bowiq", line: "And CAD and 3D printing with Bowiq since 2023.", source: CAREER },
+  ],
+};
+
+/** Idle asides per area; every one is a sourced public fact. */
+export const TIDBIT_LINES: Readonly<Record<AreaId, readonly CharacterLine[]>> = {
+  bedroom: [
+    { id: "tidbit-full-stack", line: "I'm full-stack: backend, infra and frontend!", source: CAREER },
+    { id: "tidbit-pragmatic", line: "I lean toward pragmatic, scalable systems.", source: CAREER },
+    { id: "tidbit-3d", line: "Fun fact: I'm into CAD and FDM 3D printing!", source: FUN },
+    { id: "tidbit-self-hosting", line: "Fun fact: I self-host on Proxmox and Unraid!", source: FUN },
+  ],
+  lab: [
+    { id: "tidbit-llm-open-source", line: "LLM Comparison is open source. Go poke at it!", source: project("llm-comparison") },
+    { id: "tidbit-supa-eval", line: "At Supa I shipped LLM evaluation tooling!", source: CAREER },
+    { id: "tidbit-benchmark-fallback", line: "My benchmark even picked a free fallback model!", source: project("story-model-benchmark") },
+    { id: "tidbit-segment-anything", line: "The sticker maker uses Segment Anything under the hood!", source: project("ai-image-cutout") },
+    { id: "tidbit-moodify-hero", line: "Moodify's palette trick recolours this site's hero too!", source: project("moodify") },
+  ],
+  about: [
+    { id: "tidbit-kuala-lumpur", line: "I'm based in Kuala Lumpur, Malaysia!", source: BIO },
+    { id: "tidbit-supa-years", line: "Five years at Supa building AI training-data tools!", source: CAREER },
+    { id: "tidbit-merchantspring-2026", line: "I joined MerchantSpring in 2026 as a Senior AI Engineer.", source: CAREER },
+    { id: "tidbit-design-eye", line: "Full-stack developer with a keen eye for design!", source: BIO },
+  ],
+};
+
+export const TIDBIT_CONFIG = {
+  /** Active seconds between line starts, drawn per line. */
+  minimumGap: 18,
+  maximumGap: 25,
+  /** Uninterrupted ready seconds before speaking. */
+  readyTime: 3,
+  maximumLines: 12,
   maxDelta: 0.1,
 } as const;
-
-export type NarrativeFactFrame = Readonly<{
-  activeFact: PublicCharacterFact | null;
-  factStarted: PublicCharacterFact | null;
-  /** True once after natural completion, movement, leaving roam, or pause. */
-  factEnded: boolean;
-  /** Caller persists this immediately when factStarted is present. */
-  count: number;
-}>;
-export type NarrativeFactOptions = { factsShown?: number };
-export type NarrativeFactTickOptions = {
-  phase: NarrativePhase;
-  stationary: boolean;
+export type TidbitInput = {
+  area: AreaId;
+  /** Free to talk: idle, not speaking, not mid-transition. False restarts the ready wait. */
+  ready: boolean;
+  /** Hidden, offscreen or paused: freezes every clock. */
   paused?: boolean;
+};
+export type TidbitOptions = {
+  /** Restore from session storage so a remount cannot bypass the cap. */
+  spoken?: number;
+  seed?: number;
 };
 
 /**
- * Active-scene clock for optional fact asides, separate from the scroll cinematic.
- * Paused/hidden/offscreen callers pass paused:true or stop ticking and call cancel().
- * The quiet gap accrues during active roaming, including movement; speaking still
- * requires three uninterrupted stationary seconds. No browser globals or timers.
+ * Idle asides from the current area's pool. Works through a pool before reusing a
+ * line and never says the same line twice in a row. Speech timing stays with the
+ * caller; this only decides when and what. No browser globals or timers.
  */
-export class NarrativeFactController {
+export class CharacterTidbitController {
   private elapsed = 0;
-  private stationaryTime = 0;
+  private ready = 0;
+  private nextAt = 0;
   private count: number;
-  private nextFactAt: number;
-  private activeFact: PublicCharacterFact | null = null;
-  private startedAt = 0;
-  private cancellationPending = false;
+  private seed: number;
+  private previous: string | null = null;
+  private readonly heard = new Set<string>();
 
-  constructor(options: NarrativeFactOptions = {}) {
-    const count = options.factsShown ?? 0;
-    this.count = Number.isFinite(count)
-      ? Math.max(0, Math.min(NARRATIVE_FACT_CONFIG.maximumFacts, Math.floor(count))) : 0;
-    // Remounting cannot reset the quiet interval or bypass the session cap.
-    this.nextFactAt = this.count > 0 ? NARRATIVE_FACT_CONFIG.minimumQuietGap : 0;
+  constructor(options: TidbitOptions = {}) {
+    const spoken = options.spoken ?? 0;
+    this.count = Number.isFinite(spoken) ? Math.max(0, Math.min(TIDBIT_CONFIG.maximumLines, Math.floor(spoken))) : 0;
+    this.seed = (options.seed ?? 1) >>> 0;
+    this.scheduleNext();
   }
 
-  /** Cancelled lines still count toward the session limit. */
-  cancel(): void {
-    this.stationaryTime = 0;
-    if (this.activeFact) {
-      this.cancellationPending = true;
-      this.activeFact = null;
-      this.nextFactAt = this.elapsed + NARRATIVE_FACT_CONFIG.minimumQuietGap;
-    }
+  /** Lines started this session; persist it whenever tick returns a line. */
+  get spoken(): number { return this.count; }
+
+  private random(): number {
+    this.seed = (Math.imul(this.seed, 1664525) + 1013904223) >>> 0;
+    return this.seed / 2 ** 32;
   }
 
-  tick(activeDeltaSeconds: number, options: NarrativeFactTickOptions): NarrativeFactFrame {
+  private scheduleNext(): void {
+    this.nextAt = this.elapsed + TIDBIT_CONFIG.minimumGap + (TIDBIT_CONFIG.maximumGap - TIDBIT_CONFIG.minimumGap) * this.random();
+  }
+
+  /** Returns the line to speak on the tick it starts, else null. */
+  tick(activeDeltaSeconds: number, input: TidbitInput): CharacterLine | null {
+    if (input.paused) return null;
     const dt = Number.isFinite(activeDeltaSeconds) && activeDeltaSeconds > 0
-      ? Math.min(activeDeltaSeconds, NARRATIVE_FACT_CONFIG.maxDelta) : 0;
-    let factStarted: PublicCharacterFact | null = null;
-    if (options.paused || options.phase !== "roam") {
-      this.cancel();
-    } else {
-      this.elapsed += dt;
-      if (!options.stationary) {
-        this.cancel();
-      } else {
-        this.stationaryTime += dt;
-        if (this.activeFact && this.elapsed - this.startedAt >= this.activeFact.duration) {
-          this.cancel();
-        }
-        if (dt > 0 && !this.activeFact && this.count < NARRATIVE_FACT_CONFIG.maximumFacts
-          && this.stationaryTime >= NARRATIVE_FACT_CONFIG.requiredStationaryTime
-          && this.elapsed >= this.nextFactAt) {
-          this.activeFact = PUBLIC_CHARACTER_FACTS[this.count];
-          factStarted = this.activeFact;
-          this.startedAt = this.elapsed;
-          this.count += 1;
-        }
-      }
+      ? Math.min(activeDeltaSeconds, TIDBIT_CONFIG.maxDelta) : 0;
+    this.elapsed += dt;
+    this.ready = input.ready ? this.ready + dt : 0;
+    if (dt === 0 || this.count >= TIDBIT_CONFIG.maximumLines || this.elapsed + 1e-9 < this.nextAt
+      || this.ready + 1e-9 < TIDBIT_CONFIG.readyTime) return null;
+    const pool = TIDBIT_LINES[input.area];
+    let options = pool.filter((line) => line.id !== this.previous && !this.heard.has(line.id));
+    if (!options.length) {
+      for (const line of pool) this.heard.delete(line.id);
+      options = pool.filter((line) => line.id !== this.previous);
     }
-    const factEnded = this.cancellationPending;
-    this.cancellationPending = false;
-    return { activeFact: this.activeFact, factStarted, factEnded, count: this.count };
+    const line = options[Math.floor(this.random() * options.length)];
+    this.heard.add(line.id);
+    this.previous = line.id;
+    this.count += 1;
+    this.scheduleNext();
+    return line;
   }
 }

@@ -3,6 +3,8 @@ import Backdrop from "@/components/Backdrop";
 import BackdropSceneSync from "@/components/BackdropSceneSync";
 import { AskMeProvider } from "@/components/AskMeProvider";
 import SiteShell from "@/components/SiteShell";
+import { corpus } from "@/lib/corpus";
+import { worldContent } from "@/lib/character/world-content";
 import { resolveStory } from "@/lib/story/store";
 import { toPublicStory } from "@/lib/story/types";
 import OutdatedStory from "./OutdatedStory";
@@ -36,7 +38,7 @@ export default async function StoryPage({ params }: StoryPageProps) {
       <div className="relative z-10">
         <AskMeProvider initialStory={toPublicStory(resolution.story)}>
           <BackdropSceneSync />
-          <SiteShell />
+          <SiteShell content={worldContent(corpus)} />
         </AskMeProvider>
       </div>
     </main>

@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
 
-test('character loads, responds to clicks, pauses, resets and yields to the original portrait', async ({ page }) => {
+test('character loads, responds to keys, pauses, resets and yields to the original portrait', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/');
   const hero = page.getByTestId('character-hero');
   await expect(hero).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
   const playground = page.getByTestId('character-playground');
+  await expect(playground).toHaveAttribute('data-area', 'bedroom');
   const initial = await playground.getAttribute('data-position');
   await page.getByRole('button', { name: 'Skip intro' }).click();
   await playground.focus();
@@ -27,7 +28,7 @@ test('character loads, responds to clicks, pauses, resets and yields to the orig
   await expect(page.getByRole('link', { name: 'Email Noah' })).toBeVisible();
 });
 
-test('reduced-motion visitors keep the portrait and never request the model', async ({ page }) => {
+test('reduced-motion visitors keep the portrait, never request the model, and can still read the lab and about rooms', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   let requested = false;
   page.on('request', (request) => { if (request.url().includes('good-vibes-hero.glb')) requested = true; });
@@ -35,6 +36,15 @@ test('reduced-motion visitors keep the portrait and never request the model', as
   await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'fallback');
   await expect(page.getByRole('img', { name: 'Portrait of Noah Rijkaard' })).toBeVisible();
   await expect(page.getByTestId('character-playground').locator('canvas')).toHaveCount(0);
+  const lab = page.getByRole('region', { name: 'Things I’ve built' });
+  await lab.scrollIntoViewIfNeeded();
+  await expect(lab.getByRole('heading', { level: 3, name: 'Moodify' })).toBeVisible();
+  await expect(lab.getByRole('link', { name: 'Visit Moodify' })).toHaveAttribute('href', 'https://github.com/OriginalByteMe/Moodify');
+  await expect(lab.getByRole('button', { name: /Show me/ })).toHaveCount(0);
+  const about = page.getByRole('region', { name: 'About me' });
+  await about.scrollIntoViewIfNeeded();
+  await expect(about.getByText('Senior AI Engineer')).toBeVisible();
+  await expect(about.getByRole('img', { name: 'Framed hero portrait of Noah Rijkaard' })).toBeVisible();
   expect(requested).toBe(false);
 });
 
@@ -47,6 +57,7 @@ test('touch stage preserves page scrolling and fits a narrow viewport', async ({
   await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
   await page.getByRole('button', { name: 'Skip intro' }).click();
   await expect(playground).toHaveCSS('touch-action', 'pan-y');
+  await expect(page.getByTestId('character-world')).toHaveCSS('touch-action', 'pan-y');
   const box = (await playground.boundingBox())!;
   await page.touchscreen.tap(box.x + box.width * .75, box.y + box.height * .6);
   await expect.poll(() => playground.getAttribute('data-motion')).toMatch(/walk|run|bump/);
@@ -54,22 +65,29 @@ test('touch stage preserves page scrolling and fits a narrow viewport', async ({
   await context.close();
 });
 
-test('idle greetings stay quiet until sound is explicitly enabled', async ({ page }) => {
+test('voice, effects and music stay off until their own explicit toggles', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
   const sound = page.getByRole('button', { name: 'Enable character sound' });
+  const music = page.getByRole('button', { name: 'Play music' });
   await expect(sound).toHaveAttribute('aria-pressed', 'false');
+  await expect(music).toHaveAttribute('aria-pressed', 'false');
   await page.getByRole('button', { name: 'Skip intro' }).click();
   await expect(page.getByRole('status')).toContainText('Hey, my name is Noah. Ask me a question down here.', { timeout: 15_000 });
   await expect(sound).toHaveAttribute('aria-pressed', 'false');
   await sound.click();
   await expect(page.getByRole('button', { name: 'Mute character sound' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Play music' })).toHaveAttribute('aria-pressed', 'false');
+  await music.click();
+  await expect(page.getByRole('button', { name: 'Stop music' })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Say hi' }).click();
   await expect(page.getByRole('status')).toContainText('Hi, you see me? Do you see me? Oh, hello.');
   await page.getByRole('button', { name: 'Pause', exact: true }).click();
   await expect(page.locator('.character-stage__speech')).toHaveCount(0);
   await page.getByRole('button', { name: 'Mute character sound' }).click();
+  await page.getByRole('button', { name: 'Stop music' }).click();
   await expect(sound).toHaveAttribute('aria-pressed', 'false');
+  await expect(music).toHaveAttribute('aria-pressed', 'false');
 });
 
 test('timed startup runs without scrolling and hover never issues movement commands', async ({ page }) => {
@@ -90,9 +108,10 @@ test('timed startup runs without scrolling and hover never issues movement comma
   await page.mouse.move(1100, 600);
   await page.waitForTimeout(450);
   await expect(world).toHaveAttribute('data-position', position!);
-  await page.mouse.click(1180, 530);
+  // The bedroom floor fills the right of a wide viewport; the front edge is open.
+  await page.mouse.click(1180, 600);
   await expect.poll(() => world.getAttribute('data-position')).not.toBe(position);
-  await page.mouse.click(720, 530);
+  await page.mouse.click(900, 620);
   await expect(world).toHaveAttribute('data-activity', 'idle');
   await page.getByRole('button', { name: 'Pause', exact: true }).click();
   await page.setViewportSize({ width: 809, height: 1024 });
@@ -100,15 +119,47 @@ test('timed startup runs without scrolling and hover never issues movement comma
   await expect(page.getByRole('button', { name: 'Open Ask-Me composer' })).toBeVisible();
 });
 
-test('uncommanded character plays with the ball and reads, then a click interrupts', async ({ page }) => {
+test('uncommanded character visits his bedroom stations, then a key interrupts', async ({ page }) => {
   test.setTimeout(90_000);
   await page.goto('/');
   await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
   await page.getByRole('button', { name: 'Skip intro' }).click();
   const world = page.getByTestId('character-playground');
-  await expect.poll(() => world.getAttribute('data-activity'), { timeout: 30_000 }).toMatch(/toss/);
-  await expect.poll(() => world.getAttribute('data-activity'), { timeout: 30_000 }).toMatch(/read/);
+  await expect.poll(() => world.getAttribute('data-station'), { timeout: 30_000 }).toMatch(/desk|printer|rack|ball|bed/);
+  await expect.poll(() => world.getAttribute('data-activity'), { timeout: 30_000 }).toMatch(/perform|sit|pickup|toss|read/);
   await world.focus();
   await page.keyboard.press('ArrowLeft');
   await expect(world).toHaveAttribute('data-activity', 'idle');
+});
+
+test('scrolling down makes him follow into the lab and about rooms, Show me sends him to an exhibit, and scrolling up brings him back', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+  await page.getByRole('button', { name: 'Skip intro' }).click();
+  const world = page.getByTestId('character-playground');
+  const lab = page.getByRole('region', { name: 'Things I’ve built' });
+  await lab.evaluate((section) => section.scrollIntoView());
+  await expect.poll(() => world.getAttribute('data-tour'), { timeout: 5_000 }).toMatch(/chase|trip|fall/);
+  await expect(world).toHaveAttribute('data-area', 'lab', { timeout: 10_000 });
+  await expect(world).toHaveAttribute('data-tour', 'settled', { timeout: 10_000 });
+  await lab.getByRole('button', { name: 'Show me Moodify' }).click();
+  await expect(world).toHaveAttribute('data-station', 'project:moodify');
+  await expect(world).toHaveAttribute('data-activity', 'perform', { timeout: 20_000 });
+  await page.getByRole('region', { name: 'About me' }).evaluate((section) => section.scrollIntoView());
+  await expect(world).toHaveAttribute('data-area', 'about', { timeout: 15_000 });
+  await page.evaluate(() => scrollTo(0, 0));
+  await expect.poll(() => world.getAttribute('data-tour'), { timeout: 5_000 }).toBe('jump');
+  await expect(world).toHaveAttribute('data-area', 'bedroom', { timeout: 20_000 });
+});
+
+test('loading mid-page skips the intro and starts in the viewed room', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#about');
+  const world = page.getByTestId('character-playground');
+  await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+  await expect(world).toHaveAttribute('data-phase', 'roam');
+  await expect(world).toHaveAttribute('data-area', 'about');
+  await expect(page.getByRole('button', { name: 'Skip intro' })).toHaveCount(0);
 });

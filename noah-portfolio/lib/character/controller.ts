@@ -120,7 +120,7 @@ function blocksSegment(from: Vec2, to: Vec2, obstacle: CircleObstacle, clearance
     < obstacle.radius + CHARACTER_CONFIG.radius + clearance;
 }
 
-function chooseSide(position: Vec2, goal: Vec2, obstacle: CircleObstacle, bounds: WorldBounds): 1 | -1 {
+function chooseSide(position: Vec2, goal: Vec2, obstacle: CircleObstacle, obstacles: readonly CircleObstacle[], bounds: WorldBounds): 1 | -1 {
   const normal = unit(position.x - obstacle.x, position.z - obstacle.z);
   const startAngle = Math.atan2(normal.z, normal.x);
   const radius = obstacle.radius + CHARACTER_CONFIG.radius + 0.085;
@@ -135,6 +135,8 @@ function chooseSide(position: Vec2, goal: Vec2, obstacle: CircleObstacle, bounds
       const bounded = { ...waypoint };
       confine(bounded, bounds);
       cost += distance(waypoint, bounded) * 100;
+      // A neighbouring circle of the same furniture closes an arc just like a wall does.
+      for (const other of obstacles) if (other !== obstacle) cost += Math.max(0, other.radius + CHARACTER_CONFIG.radius - distance(waypoint, other)) * 100;
       if (!blocksSegment(waypoint, goal, obstacle)) {
         cost += arc * radius + distance(waypoint, goal);
         break;
@@ -221,7 +223,7 @@ function substep(state: CharacterState, target: Vec2 | null, dt: number, obstacl
       state.velocity.z += normal.z * 0.12;
     }
     if (goal && !state.avoidance && distance(goal, obstacle) > radius + 0.02) {
-      state.avoidance = { obstacle, side: chooseSide(state.position, goal, obstacle, bounds) };
+      state.avoidance = { obstacle, side: chooseSide(state.position, goal, obstacle, obstacles, bounds) };
     }
   }
   const unconstrained = { ...state.position };

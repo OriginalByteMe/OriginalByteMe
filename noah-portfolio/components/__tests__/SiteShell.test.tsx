@@ -5,10 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import SiteShell, { chooseListeningEasterEggSlot } from '@/components/SiteShell';
 import { makeStore } from '@/lib/store';
+import type { WorldContent } from '@/lib/character/world-content';
 
 const askMeState = vi.hoisted(() => ({ mode: 'home' as 'home' | 'streaming' | 'answer' }));
 const spotifyHook = vi.hoisted(() => ({ fetchSpotifyTracksAndPalettes: vi.fn() }));
 const canvasState = vi.hoisted(() => ({ showChapters: true, renderVersion: 0 }));
+const content: WorldContent = { projects: [], skills: [], headline: 'Full-Stack Developer', location: 'Kuala Lumpur, Malaysia', career: [], funFacts: [] };
 
 vi.mock('@/components/AskMeProvider', () => ({
   useAskMe: () => askMeState,
@@ -16,7 +18,7 @@ vi.mock('@/components/AskMeProvider', () => ({
 vi.mock('@/lib/hooks/useSpotify', () => ({
   default: () => spotifyHook,
 }));
-vi.mock('@/components/Hero', () => ({ default: () => <div>Hero surface</div> }));
+vi.mock('@/components/character/CharacterWorld', () => ({ default: ({ content: world }: { content: WorldContent }) => <div>Hero surface in {world.location}</div> }));
 vi.mock('@/components/PortfolioCanvas', () => ({
   default: () => canvasState.showChapters ? (
     <div key={canvasState.renderVersion}>
@@ -83,12 +85,12 @@ describe('site-wide listening easter egg', () => {
 
     render(
       <Provider store={makeStore()}>
-        <SiteShell />
+        <SiteShell content={content} />
       </Provider>,
     );
 
     expect(document.querySelector('.site-shell')).toHaveAttribute('data-reduced-motion', 'true');
-    expect(screen.getByText('Hero surface').parentElement).not.toHaveStyle({ transform: 'translateY(16px)' });
+    expect(screen.getByText('Hero surface in Kuala Lumpur, Malaysia').parentElement).not.toHaveStyle({ transform: 'translateY(16px)' });
   });
 
   it('chooses once after hydration, persists the slot, and exposes the concise CTA', async () => {
@@ -96,7 +98,7 @@ describe('site-wide listening easter egg', () => {
 
     render(
       <Provider store={makeStore()}>
-        <SiteShell />
+        <SiteShell content={content} />
       </Provider>,
     );
 
@@ -113,7 +115,7 @@ describe('site-wide listening easter egg', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0);
     render(
       <Provider store={makeStore()}>
-        <SiteShell />
+        <SiteShell content={content} />
       </Provider>,
     );
 
@@ -125,14 +127,14 @@ describe('site-wide listening easter egg', () => {
     canvasState.showChapters = false;
     const { rerender } = render(
       <Provider store={makeStore()}>
-        <SiteShell />
+        <SiteShell content={content} />
       </Provider>,
     );
 
     canvasState.showChapters = true;
     rerender(
       <Provider store={makeStore()}>
-        <SiteShell />
+        <SiteShell content={content} />
       </Provider>,
     );
 
@@ -145,7 +147,7 @@ describe('site-wide listening easter egg', () => {
     window.sessionStorage.setItem('listeningEasterEggSlot', 'chapter-2-right');
     const { rerender } = render(
       <Provider store={makeStore()}>
-        <SiteShell />
+        <SiteShell content={content} />
       </Provider>,
     );
     const trigger = await screen.findByRole('button', { name: "Show Noah's listening context" });
@@ -153,7 +155,7 @@ describe('site-wide listening easter egg', () => {
     canvasState.renderVersion += 1;
     rerender(
       <Provider store={makeStore()}>
-        <SiteShell />
+        <SiteShell content={content} />
       </Provider>,
     );
 
@@ -167,7 +169,7 @@ describe('site-wide listening easter egg', () => {
   it('keeps one primary navigation and theme control in persistent site chrome across modes', async () => {
     const { rerender } = render(
       <Provider store={makeStore()}>
-        <SiteShell />
+        <SiteShell content={content} />
       </Provider>,
     );
 
@@ -192,7 +194,7 @@ describe('site-wide listening easter egg', () => {
     askMeState.mode = 'answer';
     rerender(
       <Provider store={makeStore()}>
-        <SiteShell />
+        <SiteShell content={content} />
       </Provider>,
     );
 
@@ -213,7 +215,7 @@ describe('site-wide listening easter egg', () => {
   it('opens the existing Spotify archive on activation and fetches only when empty', async () => {
     render(
       <Provider store={makeStore()}>
-        <SiteShell />
+        <SiteShell content={content} />
       </Provider>,
     );
 
@@ -245,7 +247,7 @@ describe('site-wide listening easter egg', () => {
 
     render(
       <Provider store={store}>
-        <SiteShell />
+        <SiteShell content={content} />
       </Provider>,
     );
 

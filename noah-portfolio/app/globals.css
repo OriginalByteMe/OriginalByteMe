@@ -2405,12 +2405,56 @@ body {
 .dark .character-stage__speech { background: #3a2d46f2; color: #eee1f4; border-color: #a886c455; }
 @media (max-width: 36rem) { .character-stage__speech { font-size: .56rem; padding: .55rem .6rem; top: 2.7rem; } }
 
-/* Full-viewport hero world: the stage surrounds content rather than living in a card. */
-.immersive-hero { position: relative; min-height: 100svh; color: #37304a; }
-.immersive-hero__sticky { position: relative; top: 0; min-height: 100svh; height: 100svh; isolation: isolate; overflow: clip; background: #eee6dd; }
-.dark .immersive-hero__sticky { background: #282330; color: #eee6f3; }
-.immersive-hero__sticky::after { content: ''; position: absolute; z-index: 1; inset: 0; background: linear-gradient(100deg, #f5eee2e6 0%, #f5eee278 28%, transparent 57%); pointer-events: none; }
-.dark .immersive-hero__sticky::after { background: linear-gradient(100deg, #282330e6 0%, #28233066 30%, transparent 60%); }
+/*
+ * Character world: one 3D viewport behind the hero, lab and about sections. While the scene
+ * loads or runs, the viewport sticks and the sections scroll over it; otherwise (portrait
+ * fallback) it stays in the hero and the lab and about panels read as plain page content.
+ */
+.character-world { position: relative; isolation: isolate; color: #37304a; touch-action: pan-y; }
+.dark .character-world { color: #eee6f3; }
+.character-world__viewport { position: absolute; inset: 0 0 auto; height: 100svh; overflow: clip; background: radial-gradient(ellipse at 68% 32%, #fff6e7 0%, #efe4dc 50%, #cdbbd9 100%); }
+.dark .character-world__viewport { background: radial-gradient(ellipse at 68% 32%, #4f405b 0%, #30293a 55%, #1f1b28 100%); }
+.character-world__viewport::after { content: ''; position: absolute; z-index: 1; inset: 0; background: linear-gradient(100deg, #f5eee2d9 0%, #f5eee266 30%, transparent 55%); pointer-events: none; }
+.dark .character-world__viewport::after { background: linear-gradient(100deg, #282330e0 0%, #28233066 30%, transparent 58%); }
+/* Sticky from first paint so the scene can load wherever the page opens (e.g. #about); only the portrait fallback stays put in the hero. */
+.character-world:not([data-status="fallback"]) .character-world__viewport { position: sticky; top: 0; }
+.character-world:not([data-status="fallback"]) > #hero { margin-top: -100svh; }
+/* Sections pass clicks through to the scene; only panels and controls take pointer events. */
+.character-world > section { position: relative; z-index: 2; pointer-events: none; }
+.character-world__area { min-height: 140svh; padding: clamp(6rem, 14vh, 9rem) clamp(1.5rem, 6vw, 7rem) 30svh; }
+.character-world[data-status="fallback"] .character-world__area { min-height: 0; padding-top: 5.5rem; padding-bottom: 5rem; }
+.character-world__panel { pointer-events: auto; max-width: min(34rem, 38vw); padding: 1.6rem 1.7rem; border: 1px solid #9c80b630; border-radius: 1.8rem; background: #fffaf2e6; box-shadow: 0 24px 70px -40px #3a334580; }
+.dark .character-world__panel { background: #2c2533eb; border-color: #bba6d830; }
+.character-world[data-status="fallback"] .character-world__panel { max-width: 46rem; }
+.character-world__eyebrow { font: .62rem ui-monospace, monospace; letter-spacing: .2em; text-transform: uppercase; color: #7a658a; }
+.dark .character-world__eyebrow { color: #c5b3d3; }
+.character-world__panel h2 { margin-top: .6rem; font: clamp(2rem, 3.4vw, 3.1rem)/1.02 Georgia, serif; letter-spacing: -.04em; }
+.character-world__intro { margin-top: .8rem; font-size: .9rem; line-height: 1.65; color: #6a5977; }
+.dark .character-world__intro { color: #bdaecd; }
+.character-world__subheading { margin-top: 1.7rem; font: 1.35rem Georgia, serif; letter-spacing: -.02em; }
+.character-world__projects { display: grid; gap: .8rem; margin-top: 1.4rem; }
+.character-world__projects li { padding: 1rem 1.1rem; border-radius: 1.2rem; background: #f4ecdfcc; }
+.dark .character-world__projects li { background: #3a3142cc; }
+.character-world__projects h3 { font: 1.15rem Georgia, serif; color: #72509c; }
+.dark .character-world__projects h3 { color: #c9b3ec; }
+.character-world__projects p { margin-top: .35rem; font-size: .82rem; line-height: 1.6; }
+.character-world__projects .character-world__tech { font: .62rem/1.5 ui-monospace, monospace; letter-spacing: .05em; color: #84718f; }
+.character-world__actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .7rem; }
+.character-world__actions a, .character-world__show { display: inline-flex; min-height: 44px; align-items: center; gap: .35rem; padding: .45rem .9rem; border: 1px solid #9c80b640; border-radius: 999px; background: #fffaf2; font: .66rem ui-monospace, monospace; color: #654c7b; }
+.character-world__show { border-color: transparent; background: #72509c; color: #fffaf2; }
+.dark .character-world__actions a { background: #332c3b; color: #cfb9e3; }
+.dark .character-world__show { background: #b39bc3; color: #241f30; }
+.character-world__actions a:focus-visible, .character-world__show:focus-visible { outline: 3px solid #9976bd; outline-offset: 3px; }
+.character-world__skills { display: grid; gap: .65rem; margin-top: .8rem; }
+.character-world__skills dt { font: .6rem ui-monospace, monospace; letter-spacing: .14em; text-transform: uppercase; color: #7a658a; }
+.character-world__skills dd { margin-top: .15rem; font-size: .84rem; line-height: 1.55; }
+.character-world__career, .character-world__facts { display: grid; gap: .45rem; margin-top: .7rem; font-size: .86rem; line-height: 1.55; }
+.character-world__career span { display: block; font: .62rem ui-monospace, monospace; letter-spacing: .08em; color: #84718f; }
+.character-world__facts li::before { content: '✦ '; color: #eb9a84; }
+.character-world__portrait { display: flex; align-items: center; gap: 1rem; margin-top: 1.6rem; }
+.character-world__portrait img { width: 6.5rem; height: auto; border: 6px solid #e8d9c4; border-radius: .5rem; box-shadow: 0 14px 30px -18px #3a334599; }
+.character-world__portrait figcaption { font: .66rem/1.6 ui-monospace, monospace; color: #84718f; }
+.immersive-hero { position: relative; min-height: 100svh; }
 .immersive-hero__copy { position: absolute; z-index: 2; top: clamp(6.5rem, 15vh, 10rem); left: clamp(1.5rem, 6vw, 7rem); max-width: min(47vw, 39rem); pointer-events: none; }
 .immersive-hero__eyebrow { font: .65rem ui-monospace, monospace; letter-spacing: .23em; text-transform: uppercase; color: #7a658a; }
 .immersive-hero__identity h1 { margin-top: 1rem; font-family: Georgia, serif; font-size: clamp(3rem, 6.7vw, 7rem); line-height: .98; letter-spacing: -.055em; }
@@ -2423,26 +2467,27 @@ body {
 .immersive-hero__contacts svg { width: 14px; height: 14px; }
 .dark .immersive-hero__contacts a { background: #332c3ba3; color: #cfb9e3; }
 .immersive-hero__contacts a:focus-visible { outline: 3px solid #9976bd; outline-offset: 3px; }
-.immersive-hero__ask { position: absolute; z-index: 5; bottom: 3.5rem; left: clamp(1.5rem, 6vw, 7rem); width: min(26rem, calc(100% - 3rem)); }
+.immersive-hero__ask { position: absolute; z-index: 5; bottom: 3.5rem; left: clamp(1.5rem, 6vw, 7rem); width: min(26rem, calc(100% - 3rem)); pointer-events: auto; }
 .immersive-hero__ask .profile-ask-launcher__entry { align-items: flex-start; }
 .immersive-hero__ask .profile-ask-launcher__composer { max-height: 58svh; overflow-y: auto; background: #fffaf4f7; }
 .dark .immersive-hero__ask .profile-ask-launcher__composer { background: #302735f7; }
 .immersive-hero__scroll { position: absolute; z-index: 2; bottom: 1.2rem; left: 50%; transform: translateX(-50%); font: .58rem ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; pointer-events: none; color: #927b9f; }
 .immersive-hero__scroll span { display: inline-block; margin-left: .5rem; }
 .character-hero--immersive { position: absolute; inset: 0; max-width: none; width: 100%; margin: 0; }
-.character-hero--immersive .character-stage { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; aspect-ratio: auto; border: 0; border-radius: 0; box-shadow: none; background: radial-gradient(ellipse at 65% 25%, #fff6e7 0%, #ece1dc 58%, #cbb9d8 100%); }
-.dark .character-hero--immersive .character-stage { background: radial-gradient(ellipse at 65% 25%, #56435d 0%, #342b3d 58%, #241f30 100%); }
+.character-hero--immersive .character-stage { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; aspect-ratio: auto; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
 .character-hero--immersive .character-stage__canvas { pointer-events: none; }
 .character-hero--immersive .character-stage__eyebrow { left: auto; right: 5vw; top: 6rem; width: min(25rem, 42vw); font-size: .6rem; }
-.character-hero--immersive .character-stage__caption { bottom: 7.5rem; left: auto; right: 4vw; width: min(24rem, 45vw); font-size: .85rem; }
-.character-hero--immersive .character-stage__note { bottom: 10rem; left: auto; right: 4vw; transform: none; }
-.character-hero--immersive .character-stage__speech { top: auto; bottom: 12.8rem; left: auto; right: 4vw; transform: none; width: min(22rem, 42vw); font-size: .8rem; line-height: 1.6; padding: 1rem 1.15rem; }
-.character-hero--immersive .character-hero__controls { position: absolute; z-index: 6; right: 4vw; bottom: 3.5rem; width: min(27rem, 46vw); margin: 0; padding: .25rem; border: 1px solid #9c80b638; border-radius: 1.8rem; background: #fffaf2c9; }
+/* Everything on the right sits above the fixed AskDock bubble (bottom-right, about 5.5rem tall). */
+.character-hero--immersive .character-stage__caption { bottom: 9rem; left: auto; right: 4vw; width: min(24rem, 45vw); font-size: .85rem; }
+.character-hero--immersive .character-stage__note { bottom: 11.5rem; left: auto; right: 4vw; transform: none; }
+.character-hero--immersive .character-stage__speech { top: auto; bottom: 14.3rem; left: auto; right: 4vw; transform: none; width: min(22rem, 42vw); font-size: .8rem; line-height: 1.6; padding: 1rem 1.15rem; }
+.character-hero--immersive .character-hero__controls { position: absolute; z-index: 6; right: 4vw; bottom: 5rem; width: min(36rem, 58vw); margin: 0; padding: .25rem; border: 1px solid #9c80b638; border-radius: 1.8rem; background: #fffaf2c9; }
+/* Seven controls wrap to two rows below this width and would cover the caption, which repeats the note. */
+@media (max-width: 75rem) { .character-hero--immersive .character-stage__caption { display: none; } }
 .dark .character-hero--immersive .character-hero__controls { background: #302735d9; }
 .character-hero--immersive .character-hero__fallback { position: absolute; right: 7vw; top: 17vh; width: min(33vw, 26rem); z-index: 0; }
 .character-hero--immersive .character-hero__restore { position: absolute; z-index: 6; right: 10vw; bottom: 5rem; }
 .character-hero--immersive .character-hero__loading { z-index: 2; left: auto; right: 10vw; transform: none; bottom: 5rem; }
-.immersive-hero:has(.character-hero[data-status="fallback"]) { min-height: 100svh; }
 .character-stage[data-phase="bonk"]::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 8rem #af7d9466; pointer-events: none; border: 2px solid #ffffff55; border-radius: 5%; }
 @media (max-width: 700px) {
   .immersive-hero__copy { top: 6.5rem; left: 1.5rem; max-width: calc(100% - 3rem); }
@@ -2451,8 +2496,11 @@ body {
   .immersive-hero__eyebrow { font-size: .5rem; }
   .immersive-hero__contacts { gap: .25rem; margin-top: .6rem; }
   .immersive-hero__contacts a { padding: .35rem .6rem; font-size: .64rem; }
-  .immersive-hero__sticky::after { background: linear-gradient(180deg, #f5eee2d9 0%, #f5eee299 28%, transparent 50%); }
-  .dark .immersive-hero__sticky::after { background: linear-gradient(180deg, #282330e6 0%, #28233088 28%, transparent 50%); }
+  .character-world__viewport::after { background: linear-gradient(180deg, #f5eee2d9 0%, #f5eee299 28%, transparent 50%); }
+  .dark .character-world__viewport::after { background: linear-gradient(180deg, #282330e6 0%, #28233088 28%, transparent 50%); }
+  /* The room is seen first on arrival; the panel peeks above the controls and scrolls up over it. */
+  .character-world__area { min-height: 170svh; padding: calc(100svh - 9rem) 1rem 20svh; }
+  .character-world__panel { max-width: none; padding: 1.2rem 1.15rem; }
   .immersive-hero__ask { bottom: 6.5rem; left: 1.25rem; width: calc(100% - 2.5rem); }
   .immersive-hero__ask .profile-ask-launcher__entry { align-items: flex-start; }
   .character-hero--immersive .character-stage__eyebrow { top: auto; bottom: 16rem; right: 1.4rem; font-size: .45rem; width: 45vw; }
@@ -2474,7 +2522,7 @@ body {
 @media (max-width: 700px) {
   .immersive-hero__copy { top: 5.5rem; }
   .immersive-hero__ask { bottom: 9rem; }
-  .character-hero--immersive .character-hero__controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); bottom: 1.8rem; padding: .25rem; gap: 0; }
+  .character-hero--immersive .character-hero__controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); bottom: 1.8rem; padding: .25rem; gap: 0; }
   .character-hero--immersive .character-hero__controls button { min-height: 44px; }
   .character-hero--immersive .character-stage__speech { left: 1.2rem; right: auto; bottom: 16.5rem; width: min(15rem, 54vw); font-size: .62rem; }
   .character-hero--immersive .character-stage__note { bottom: 14.9rem; right: 1.2rem; }
@@ -2482,21 +2530,14 @@ body {
 }
 @media (max-height: 520px) and (max-width: 700px) {
   .immersive-hero { min-height: 720px; }
-  .immersive-hero__sticky { position: relative; height: 720px; min-height: 720px; }
+  .character-world__viewport { height: 720px; }
+  .character-world:not([data-status="fallback"]) > #hero { margin-top: -720px; }
 }
 
 /* Timed opening, independent of scroll. The page itself always scrolls normally. */
 .character-hero__opening { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; background: #09080b; opacity: var(--intro-black, 1); pointer-events: none; }
 .character-hero__opening p { opacity: var(--intro-title, 1); padding: 2rem; color: #fff; text-align: center; font: clamp(2.5rem, 7vw, 7rem)/1.03 Georgia, serif; letter-spacing: -.045em; }
 .character-hero__opening em { color: #e8daf5; font-weight: 400; }
-.immersive-hero:has(.character-hero[data-status="ready"][data-phase="opening"]) .immersive-hero__copy,
-.immersive-hero:has(.character-hero[data-status="ready"][data-phase="opening"]) .immersive-hero__ask,
-.immersive-hero:has(.character-hero[data-status="ready"][data-phase="opening"]) .immersive-hero__scroll { visibility: hidden; }
-/* Keep website controls readable over the intentionally white 3D scene in either theme. */
-.dark .immersive-hero:has(.character-hero[data-status="ready"]) { color: #37304a; }
-.dark .immersive-hero:has(.character-hero[data-status="ready"]) .immersive-hero__identity h1 em { color: #72509c; }
-.dark .immersive-hero:has(.character-hero[data-status="ready"]) .immersive-hero__intro { color: #6a5977; }
-.dark .immersive-hero:has(.character-hero[data-status="ready"]) .immersive-hero__sticky::after { background: linear-gradient(100deg, #ffffffb0 0%, #ffffff55 28%, transparent 57%); }
-.character-hero--immersive .character-stage { background: #fff; }
-.character-hero--immersive .character-stage__canvas { pointer-events: none; }
-.character-hero--immersive .character-hero__controls { z-index: 6; }
+.character-world:has(.character-hero[data-status="ready"][data-phase="opening"]) .immersive-hero__copy,
+.character-world:has(.character-hero[data-status="ready"][data-phase="opening"]) .immersive-hero__ask,
+.character-world:has(.character-hero[data-status="ready"][data-phase="opening"]) .immersive-hero__scroll { visibility: hidden; }
