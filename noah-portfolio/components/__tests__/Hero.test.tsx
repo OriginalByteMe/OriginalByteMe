@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AskMeProvider } from '@/components/AskMeProvider';
 import Hero from '@/components/Hero';
 import CharacterWorld from '@/components/character/CharacterWorld';
 import { ThemeProvider } from '@/components/ThemeProvider';
@@ -33,10 +34,6 @@ vi.mock('@paper-design/shaders-react', () => ({
   ImageDithering: () => <div data-testid="portrait-dither" />,
 }));
 
-vi.mock('@/components/ChatBox', () => ({
-  default: () => <label>Question for Noah<input aria-label="Question for Noah" /></label>,
-}));
-
 const content: WorldContent = {
   projects: [
     { slug: 'moodify', title: 'Moodify', description: 'Playlists that follow your mood.', url: 'https://github.com/OriginalByteMe/Moodify', image: '', tech: [{ name: 'Next.js', icon: '/icons/next-js.svg' }, { name: 'Spotify API', icon: '/icons/spotify.svg' }] },
@@ -50,7 +47,7 @@ const content: WorldContent = {
 };
 let reducedMotion = true;
 let intersect: IntersectionObserverCallback;
-const providers = (children: ReactNode, store = makeStore()) => <Provider store={store}><ThemeProvider>{children}</ThemeProvider></Provider>;
+const providers = (children: ReactNode, store = makeStore()) => <Provider store={store}><ThemeProvider><AskMeProvider>{children}</AskMeProvider></ThemeProvider></Provider>;
 
 beforeEach(() => {
   reducedMotion = true;
@@ -117,31 +114,13 @@ describe('Hero interaction composition', () => {
     expect(document.querySelector('canvas')).not.toBeInTheDocument();
   });
 
-  it('reveals the centered Ask-Me composer and prompt routes only after activation', async () => {
+  it('leaves asking to the always-open Ask bar instead of a hero launcher', () => {
     render(providers(<Hero />));
 
-    const askRegion = screen.getByRole('region', { name: 'Ask-Me' });
-    expect(askRegion).toHaveAttribute('data-state', 'collapsed');
-    expect(askRegion).not.toHaveClass('hero-panel');
-    const launcher = screen.getByRole('button', { name: 'Open Ask-Me composer' });
-    expect(launcher).toHaveClass('ask-launcher-button');
-    expect(launcher).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByText('Ask this portfolio anything')).toBeVisible();
-    expect(screen.queryByRole('textbox', { name: 'Question for Noah' })).not.toBeInTheDocument();
-    expect(screen.queryByText('Where should we begin?')).not.toBeInTheDocument();
-
-    fireEvent.click(launcher);
-
-    expect(askRegion).toHaveAttribute('data-state', 'expanded');
-    expect(screen.getByRole('button', { name: 'Ask-Me composer is open' })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('heading', { level: 2, name: 'Where should we begin?' })).toBeVisible();
-    expect(screen.getByRole('textbox', { name: 'Question for Noah' })).toBeVisible();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse Ask-Me' }));
-
-    expect(screen.queryByRole('textbox', { name: 'Question for Noah' })).not.toBeInTheDocument();
-    const restoredLauncher = screen.getByRole('button', { name: 'Open Ask-Me composer' });
-    await waitFor(() => expect(restoredLauncher).toHaveFocus());
+    expect(screen.getByRole('heading', { level: 1, name: /Hi, I’m Noah Rijkaard/ })).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Ask-Me' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Ask-Me|ask this portfolio/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
   it('keeps a selected Spotify track tied to portrait tinting without restoring listening UI', () => {

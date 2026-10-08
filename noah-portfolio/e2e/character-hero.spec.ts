@@ -123,7 +123,7 @@ test('timed startup runs without scrolling and hover never issues movement comma
   await page.getByRole('button', { name: 'Pause', exact: true }).click();
   await page.setViewportSize({ width: 809, height: 1024 });
   await expect(world).toHaveAttribute('data-paused', 'true');
-  await expect(page.getByRole('button', { name: 'Open Ask-Me composer' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Ask a question about Noah' })).toBeVisible();
 });
 
 test('uncommanded character visits his bedroom stations, then a key interrupts', async ({ page }) => {
