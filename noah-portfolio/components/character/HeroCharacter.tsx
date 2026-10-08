@@ -1,10 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useAskMe } from '@/components/AskMeProvider';
 import type { CharacterScene, CharacterSign } from './create-character-scene';
 import type { WorldContent } from '@/lib/character/world-content';
 
 export type CharacterStatus = 'waiting' | 'loading' | 'ready' | 'fallback';
+/** How long the Ask bar stays promoted after he points at it, unless the visitor does something first. */
+const ASK_PROMOTION_MS = 7000;
+const INTERACTIONS = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
 
 /** Loads neither Three.js nor the model for reduced-motion/data-saving visitors. */
 export default function HeroCharacter({ fallback, content, onStatus }: {
@@ -24,12 +28,29 @@ export default function HeroCharacter({ fallback, content, onStatus }: {
   const [greeting, setGreeting] = useState<string | null>(null);
   const [message, setMessage] = useState('Click the floor to send me exploring.');
   const [sign, setSign] = useState<CharacterSign | null>(null);
+  const { setAskPromoted } = useAskMe();
+  /** Takes down the Ask bar promotion early; set while it is up. */
+  const endPromotion = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const element = host.current;
     if (!element || portrait) return;
     let cancelled = false;
     let cleanup: (() => void) | undefined;
+    /** He points at the Ask bar: promote it until the visitor's first interaction or a few seconds pass. */
+    const promoteAsk = () => {
+      endPromotion.current?.();
+      const end = () => {
+        window.clearTimeout(timer);
+        for (const type of INTERACTIONS) window.removeEventListener(type, end, true);
+        endPromotion.current = null;
+        setAskPromoted(false);
+      };
+      const timer = window.setTimeout(end, ASK_PROMOTION_MS);
+      for (const type of INTERACTIONS) window.addEventListener(type, end, true);
+      endPromotion.current = end;
+      setAskPromoted(true);
+    };
     const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
     const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
     const stopForPreference = () => {
@@ -58,6 +79,7 @@ export default function HeroCharacter({ fallback, content, onStatus }: {
           onGreeting: setGreeting,
           onPhase: setPhase,
           onSign: setSign,
+          onAskPromoted: promoteAsk,
           onError: () => { setStatus('fallback'); api.current?.dispose(); api.current = null; },
         });
         if (cancelled) { scene.dispose(); return; }
@@ -75,12 +97,13 @@ export default function HeroCharacter({ fallback, content, onStatus }: {
       observer.disconnect();
       preference.removeEventListener('change', stopForPreference);
       cleanup?.();
+      endPromotion.current?.();
       setGreeting(null);
       setSign(null);
       setEntered(false);
       api.current = null;
     };
-  }, [portrait, content]);
+  }, [portrait, content, setAskPromoted]);
 
   const showPortrait = portrait || status === 'fallback';
   const ready = status === 'ready' && !showPortrait;

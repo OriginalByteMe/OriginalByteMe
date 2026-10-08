@@ -145,8 +145,9 @@ function samplers(model: Object3D, clip: AnimationClip | undefined, accept: (mes
  * Mouth pose includes ALL baked SURFACE_* correction weights from 05_Talk;
  * driving the Talk target alone breaks this model's mouth geometry. Only the
  * three known mouth meshes, six known eye meshes and two brows may be modified.
- * Shirt shoulder correctives and bones remain the mixer's property, and so do
- * the brows while no expression is weighted. Expressions replace a part's whole
+ * Bones and the shirt's shoulder correctives are never touched here: the mixer
+ * owns them, and activity-props.ts overrides the correctives only while an IK
+ * pose raises an arm. The brows stay the mixer's while no expression is weighted. Expressions replace a part's whole
  * vector, then talk and blink layer on top. HappyEyes is crossfaded out only
  * during a blink: its white/pupil deformation is the same collapse as Blink, so
  * adding the two can invert the visible eye. All mixer expressions are restored

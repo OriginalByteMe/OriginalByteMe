@@ -77,6 +77,44 @@ describe("character locomotion", () => {
     }
   });
 
+  it("does not flip between walk and run while his speed hovers around the switch", () => {
+    const state = createCharacterState({ x: -2.4, z: 0 }, Math.PI / 2);
+    const motions: string[] = [];
+    // Push the speed a little either side of the old single threshold, frame after frame.
+    for (let index = 0; index < 240; index += 1) {
+      state.velocity.x = CONFIG.walkSpeed + 0.15 + 0.08 * Math.sin(index / 6);
+      stepCharacter(state, { x: 2.6, z: 0 }, 1 / 120);
+      if (state.motion !== motions.at(-1)) motions.push(state.motion);
+    }
+    expect(motions.length).toBeLessThanOrEqual(2);
+  });
+
+  it("turns toward a goal behind him before setting off, never travelling far off his facing", () => {
+    for (const goal of [{ x: 0, z: -1.2 }, { x: 0.6, z: -1.2 }, { x: -2.2, z: -0.4 }]) {
+      const state = createCharacterState({ x: 0, z: 0.8 }, 0);
+      for (let index = 0; index < 60 * 4; index += 1) {
+        stepCharacter(state, goal, 1 / 60);
+        if (state.speed > 0.3) {
+          const travel = Math.atan2(state.velocity.x, state.velocity.z);
+          expect(Math.abs(Math.atan2(Math.sin(travel - state.heading), Math.cos(travel - state.heading)))).toBeLessThan(Math.PI / 4);
+        }
+      }
+      expect(distance(state.position, goal)).toBeLessThan(CONFIG.arrivalRadius + 0.002);
+    }
+  });
+
+  it("reverses mid-run by slowing and turning, not by running backwards", () => {
+    const state = simulate(createCharacterState({ x: -2.2, z: 0 }, Math.PI / 2), { x: 2.4, z: 0 }, 0.7);
+    expect(state.motion).toBe("run");
+    for (let index = 0; index < 60 * 3; index += 1) {
+      stepCharacter(state, { x: -2.4, z: 0 }, 1 / 60);
+      if (state.speed > 0.3) {
+        const travel = Math.atan2(state.velocity.x, state.velocity.z);
+        expect(Math.abs(Math.atan2(Math.sin(travel - state.heading), Math.cos(travel - state.heading)))).toBeLessThan(Math.PI / 4);
+      }
+    }
+  });
+
   it("caps resume spikes, ignores invalid deltas and malformed pointer coordinates", () => {
     const state = simulate(createCharacterState({ x: -2, z: 0 }), { x: 2.3, z: 0 }, 0.5);
     const previous = { ...state.position };

@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AskMeProvider, useAskMe } from '@/components/AskMeProvider';
 import HeroCharacter from '@/components/character/HeroCharacter';
 import { corpus } from '@/lib/corpus';
 import { worldContent } from '@/lib/character/world-content';
@@ -18,7 +19,9 @@ let reduce = false;
 const fallback = <figure data-testid="fallback">Original portrait</figure>;
 const content = worldContent(corpus);
 const visibleNow = () => act(async () => intersect([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver));
-
+/** What the Ask bar's arrow reads from the shared context. */
+function Promoted() { return <span data-testid="promoted">{String(useAskMe().askPromoted)}</span>; }
+const hero = (props: Partial<Parameters<typeof HeroCharacter>[0]> = {}) => render(<AskMeProvider><HeroCharacter fallback={fallback} content={content} {...props} /><Promoted /></AskMeProvider>);
 beforeEach(() => {
   vi.clearAllMocks(); reduce = false;
   createScene.mockResolvedValue(api);
@@ -28,16 +31,16 @@ beforeEach(() => {
     observe() {} disconnect() {} unobserve() {}
   });
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 async function load(props: Partial<Parameters<typeof HeroCharacter>[0]> = {}, enter = true) {
-  render(<HeroCharacter fallback={fallback} content={content} {...props} />);
+  hero(props);
   await visibleNow();
   await waitFor(() => expect(screen.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready'));
   if (enter) await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Click to enter' })); });
 }
 describe('HeroCharacter progressive enhancement', () => {
   it('opens on the black title card, never the portrait, while the world loads', async () => {
-    render(<HeroCharacter fallback={fallback} content={content} />);
+    hero();
     expect(screen.getByText('Noah Rijkaard.')).toBeInTheDocument();
     expect(screen.queryByTestId('fallback')).not.toBeInTheDocument(); expect(createScene).not.toHaveBeenCalled();
     await visibleNow();
@@ -48,14 +51,14 @@ describe('HeroCharacter progressive enhancement', () => {
   it('does not import/create a scene for reduced motion and reports the fallback', () => {
     reduce = true;
     const onStatus = vi.fn();
-    render(<HeroCharacter fallback={fallback} content={content} onStatus={onStatus} />);
+    hero({ onStatus });
     expect(screen.getByTestId('character-hero')).toHaveAttribute('data-status', 'fallback');
     expect(onStatus).toHaveBeenLastCalledWith('fallback');
     expect(createScene).not.toHaveBeenCalled(); expect(screen.getByTestId('fallback')).toBeVisible();
   });
   it('falls back cleanly on load or WebGL failure', async () => {
     createScene.mockRejectedValue(new Error('WebGL unavailable'));
-    render(<HeroCharacter fallback={fallback} content={content} />);
+    hero();
     await visibleNow();
     expect(screen.getByTestId('character-hero')).toHaveAttribute('data-status', 'fallback');
     expect(screen.getByTestId('fallback')).toBeVisible();
@@ -132,9 +135,30 @@ describe('HeroCharacter progressive enhancement', () => {
   it('disposes a late asset completion after unmount', async () => {
     const { promise, resolve } = Promise.withResolvers<typeof api>();
     createScene.mockReturnValue(promise);
-    const result = render(<HeroCharacter fallback={fallback} content={content} />);
+    const result = hero();
     act(() => { void intersect([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver); });
     await waitFor(() => expect(createScene).toHaveBeenCalledOnce());
     result.unmount(); await act(async () => resolve(api)); expect(api.dispose).toHaveBeenCalledOnce();
+  });
+  it('promotes the Ask bar while he points at it, until the visitor first does something', async () => {
+    await load();
+    expect(screen.getByTestId('promoted')).toHaveTextContent('false');
+    act(() => createScene.mock.calls[0][1].onAskPromoted());
+    expect(screen.getByTestId('promoted')).toHaveTextContent('true');
+    act(() => { fireEvent.keyDown(window, { key: 'a' }); });
+    expect(screen.getByTestId('promoted')).toHaveTextContent('false');
+    act(() => createScene.mock.calls[0][1].onAskPromoted());
+    expect(screen.getByTestId('promoted')).toHaveTextContent('true');
+    act(() => { fireEvent.pointerDown(document.body); });
+    expect(screen.getByTestId('promoted')).toHaveTextContent('false');
+  });
+  it('takes the Ask bar promotion down on its own after a few seconds', async () => {
+    await load();
+    vi.useFakeTimers();
+    act(() => createScene.mock.calls[0][1].onAskPromoted());
+    act(() => { vi.advanceTimersByTime(4000); });
+    expect(screen.getByTestId('promoted')).toHaveTextContent('true');
+    act(() => { vi.advanceTimersByTime(6000); });
+    expect(screen.getByTestId('promoted')).toHaveTextContent('false');
   });
 });

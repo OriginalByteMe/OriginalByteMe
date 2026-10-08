@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import Hero from '@/components/Hero';
+import { AskMeProvider } from '@/components/AskMeProvider';
 import CharacterWorld from '@/components/character/CharacterWorld';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { makeStore } from '@/lib/store';
@@ -37,7 +38,7 @@ vi.mock('@paper-design/shaders-react', () => ({
 const content = worldContent(corpus);
 let reducedMotion = true;
 let intersect: IntersectionObserverCallback;
-const providers = (children: ReactNode, store = makeStore()) => <Provider store={store}><ThemeProvider>{children}</ThemeProvider></Provider>;
+const providers = (children: ReactNode, store = makeStore()) => <Provider store={store}><ThemeProvider><AskMeProvider>{children}</AskMeProvider></ThemeProvider></Provider>;
 
 beforeEach(() => {
   reducedMotion = true;

@@ -10,12 +10,14 @@ export const DEFAULT_WORLD_BOUNDS: Readonly<WorldBounds> = {
 
 export const CHARACTER_CONFIG = {
   radius: 0.22,
-  walkSpeed: 0.85,
+  /** About 2.4 steps a second with the walk clip played at zero foot slide (CLIP_SPEED). */
+  walkSpeed: 0.6,
   runSpeed: 2.15,
   runDistance: 1.1,
   acceleration: 7.5,
   deceleration: 9,
-  turnSpeed: 9,
+  /** Radians a second he turns toward where he is going; he turns before he speeds up. */
+  turnSpeed: 7,
   arrivalRadius: 0.055,
   bumpDuration: 0.28,
   bumpCooldown: 0.65,
@@ -23,12 +25,26 @@ export const CHARACTER_CONFIG = {
   maxSubstep: 1 / 120,
 } as const;
 
+/**
+ * Ground speed each in-place clip covers at time scale 1, measured from the GLB: both
+ * feet's backward travel over one cycle divided by its length. Play a locomotion clip at
+ * time scale = ground speed / this and the planted foot keeps pace with the floor.
+ */
+export const CLIP_SPEED = { walk: 0.376, run: 0.914 } as const;
+
+/** Walk/run hysteresis: he breaks into a run above walkSpeed + .15 and drops back to a walk only below walkSpeed - .1. */
+export function runningGait(speed: number, running: boolean): boolean {
+  return speed > CHARACTER_CONFIG.walkSpeed + (running ? -0.1 : 0.15);
+}
+
 export type CharacterState = {
   position: Vec2;
   velocity: Vec2;
   heading: number;
   speed: number;
   motion: CharacterMotion;
+  /** Gait under any bump: true while the run clip carries him. */
+  running: boolean;
   bumpRemaining: number;
   bumpCooldown: number;
   bumpCount: number;
@@ -38,6 +54,11 @@ export type CharacterState = {
 };
 
 const EPSILON = 1e-6;
+/** Metres from the goal inside which he stops turning toward it. */
+const TURN_NEAR = 0.15;
+/** Above this speed (m/s) his facing stays within TURN_SLACK radians of where he is actually travelling. */
+const TURN_FAST = 0.3;
+const TURN_SLACK = 0.6;
 const finite = (value: number, fallback = 0) => Number.isFinite(value) ? value : fallback;
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const length = (value: Vec2) => Math.hypot(value.x, value.z);
@@ -55,6 +76,7 @@ export function createCharacterState(position: Vec2 = { x: 0, z: 0.65 }, heading
     heading: wrapAngle(finite(heading)),
     speed: 0,
     motion: "idle",
+    running: false,
     bumpRemaining: 0,
     bumpCooldown: 0,
     bumpCount: 0,
@@ -193,9 +215,22 @@ function substep(state: CharacterState, target: Vec2 | null, dt: number, obstacl
   }
 
   const moving = !!goal && remaining > config.arrivalRadius;
+  // He turns toward where he is going before he speeds up, so he never runs sideways or
+  // backwards: while still fast his facing stays close to his travel, anything sharper
+  // brakes him first, and he only accelerates as he comes to face the way he is going.
+  // In the last few centimetres he shuffles without turning, so an overshoot never sets
+  // off a pirouette.
+  let facing = 1;
+  if (moving && remaining > TURN_NEAR) {
+    const way = Math.atan2(direction.x, direction.z);
+    const travel = Math.atan2(state.velocity.x, state.velocity.z);
+    const aim = length(state.velocity) > TURN_FAST ? travel + clamp(wrapAngle(way - travel), -TURN_SLACK, TURN_SLACK) : way;
+    state.heading = wrapAngle(state.heading + clamp(wrapAngle(aim - state.heading), -config.turnSpeed * dt, config.turnSpeed * dt));
+    facing = clamp((Math.cos(wrapAngle(way - state.heading)) - Math.SQRT1_2) / (1 - Math.SQRT1_2), 0, 1);
+  }
   const cruisingSpeed = routeDistance > config.runDistance ? config.runSpeed : config.walkSpeed;
   const brakingSpeed = Math.sqrt(2 * config.deceleration * Math.max(0, routeDistance - config.arrivalRadius));
-  const targetSpeed = moving ? Math.min(cruisingSpeed, brakingSpeed, routeDistance * 3.6) * (state.bumpRemaining > 0 ? 0.42 : 1) : 0;
+  const targetSpeed = moving ? Math.min(cruisingSpeed, brakingSpeed, routeDistance * 3.6) * (state.bumpRemaining > 0 ? 0.42 : 1) * facing : 0;
   const desired = { x: direction.x * targetSpeed, z: direction.z * targetSpeed };
   const acceleration = targetSpeed < length(state.velocity) ? config.deceleration : config.acceleration;
   moveVelocity(state.velocity, desired, acceleration * dt);
@@ -236,12 +271,9 @@ function substep(state: CharacterState, target: Vec2 | null, dt: number, obstacl
     state.velocity.z *= config.runSpeed / state.speed;
     state.speed = config.runSpeed;
   }
-  if (state.speed > 0.025) {
-    const desiredHeading = Math.atan2(state.velocity.x, state.velocity.z);
-    state.heading = wrapAngle(state.heading + clamp(wrapAngle(desiredHeading - state.heading), -config.turnSpeed * dt, config.turnSpeed * dt));
-  }
   state.distanceTravelled += distance(previous, state.position);
-  state.motion = state.bumpRemaining > 0 ? "bump" : state.speed < 0.04 ? "idle" : state.speed > config.walkSpeed + 0.15 ? "run" : "walk";
+  state.running = runningGait(state.speed, state.running);
+  state.motion = state.bumpRemaining > 0 ? "bump" : state.speed < 0.04 ? "idle" : state.running ? "run" : "walk";
 }
 
 /**
