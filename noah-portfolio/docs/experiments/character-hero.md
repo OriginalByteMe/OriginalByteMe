@@ -50,7 +50,7 @@ Seats: the held `08_Sit_Relaxed` frame sits on the floor, so seated stations lif
 - One WebGL renderer for all rooms, 30fps render cap, DPR ≤1.5, transparent clear over a CSS gradient, cheap contact shadow, no shadow maps; rooms two floors from the camera are not drawn
 - Explicit disposal of rooms, textures, geometry, skeleton, context and audio
 
-`public/models/good-vibes-hero.glb` is a derived runtime copy: 3,776,512 bytes / 172,813 triangles, down from 23,100,220 bytes / 388,427 triangles. Morph-bearing topology is unchanged. Only dense non-morph meshes were simplified with locked borders; textures use 1024px WebP and geometry uses Meshopt. The original editing files are unchanged. Reproduction tools are in `scripts/character-assets/`.
+`public/models/good-vibes-hero.glb` is a derived runtime copy: 3,619,256 bytes / 172,813 triangles, down from 23,100,220 bytes / 388,427 triangles. Morph-bearing topology is unchanged. Only dense non-morph meshes were simplified with locked borders; textures use 1024px WebP and geometry uses Meshopt. The afro and beard use a solid colour instead of the atlas, because mipmapping bled the neighbouring shirt and skin islands into orange seams. The original editing files are unchanged. Reproduction tools are in `scripts/character-assets/`.
 
 The character remains detailed enough that low-end device profiling is still needed before any production decision.
 

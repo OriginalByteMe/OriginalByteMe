@@ -6,9 +6,12 @@ The editable V5 original is intentionally not duplicated in this repo. Supply th
 cd scripts/character-assets
 npm ci
 node optimize.mjs /absolute/path/to/Good_Vibes_Character.glb ../../public/models/good-vibes-hero.glb
+node solid-hair.mjs ../../public/models/good-vibes-hero.glb ../../public/models/good-vibes-hero.glb
 ```
 
 The isolated tools dependencies are not shipped in the site bundle. The script emits metrics plus a decoded QA copy for Blender; these are build artifacts. Validate the compressed and decoded output, preserve all 10 clips / 84 morphs / 54 joint nodes, and compare actual idle and wave renders before replacing the shipped copy. Keep the metadata checksum current. The immutable original remains unchanged.
+
+`solid-hair.mjs` replaces the afro and beard texture with one solid colour. Their atlas islands sit edge to edge with shirt and skin islands, so mipmaps bled orange lines along every hair seam at the sizes the site draws him.
 
 ## Check the live facial pose pipeline
 
