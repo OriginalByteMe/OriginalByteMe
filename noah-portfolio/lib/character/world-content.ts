@@ -1,7 +1,8 @@
 import type { Corpus } from '@/lib/corpus/types';
 import { homeSpec } from '@/lib/jsonui/homeSpec';
+import vendoredIcons from '@/public/icons/manifest.json';
 
-/** A named thing and its icon URL (remote devicon URLs for now; CW-13 vendors them under public/icons/). */
+/** A named thing and its same-origin icon path under /icons/, vendored by scripts/vendor-icons.mjs so WebGL can load it. */
 export type WorldIcon = { name: string; icon: string };
 export type WorldProject = { slug: string; title: string; description: string; url: string; image: string; tech: WorldIcon[] };
 export type WorldSkillGroup = { category: string; skills: WorldIcon[] };
@@ -42,6 +43,14 @@ const SIDE_PROJECTS: WorldSideProject[] = [
   },
 ];
 
+const VENDORED: Readonly<Record<string, string>> = vendoredIcons;
+/** The local copy of a corpus icon URL; an icon nobody vendored fails the build instead of reaching WebGL cross-origin. */
+function vendored(url: string) {
+  const local = VENDORED[url];
+  if (!local) throw new Error(`Icon ${url} is not in public/icons: run node scripts/vendor-icons.mjs and commit the result`);
+  return local;
+}
+
 export function worldContent(corpus: Corpus): WorldContent {
   const { introBeat, introStat } = homeSpec.elements;
   return {
@@ -57,12 +66,12 @@ export function worldContent(corpus: Corpus): WorldContent {
       description: project.description,
       url: project.url,
       image: project.image,
-      tech: project.technologies.map((tech) => ({ name: tech.name, icon: tech.lightIcon })),
+      tech: project.technologies.map((tech) => ({ name: tech.name, icon: vendored(tech.lightIcon) })),
     })),
-    skills: corpus.skills.map((group) => ({ category: group.category, skills: group.skills.map((skill) => ({ name: skill.name, icon: skill.lightImage })) })),
+    skills: corpus.skills.map((group) => ({ category: group.category, skills: group.skills.map((skill) => ({ name: skill.name, icon: vendored(skill.lightImage) })) })),
     career: corpus.careerTimeline.map(({ company, role, period, logo, url, highlights }) => ({ company, role, period, logo, url, highlights: highlights ?? [] })),
     funFacts: corpus.funFacts.map((fact) => fact.text),
-    operatingSystems: corpus.operatingSystems.map((group) => ({ name: group.name, systems: group.systems.map((system) => ({ name: system.name, icon: system.lightImage })) })),
+    operatingSystems: corpus.operatingSystems.map((group) => ({ name: group.name, systems: group.systems.map((system) => ({ name: system.name, icon: vendored(system.lightImage) })) })),
     sideProjects: SIDE_PROJECTS.map((side) => ({ ...side, tags: [...side.tags] })),
     contact: { email: corpus.contact.email, github: corpus.contact.github, linkedin: corpus.contact.linkedin, blog: corpus.contact.blog ?? null },
   };
