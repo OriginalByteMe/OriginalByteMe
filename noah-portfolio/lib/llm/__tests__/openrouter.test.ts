@@ -59,7 +59,7 @@ describe("OpenRouter model", () => {
 
     await expect(model.doGenerate({} as never)).resolves.toBe(fallbackGenerateResult);
     await expect(model.doStream({} as never)).resolves.toBe(fallbackStreamResult);
-    expect(modelFactory).toHaveBeenCalledWith("z-ai/glm-5.2", {
+    expect(modelFactory).toHaveBeenCalledWith("anthropic/claude-haiku-5.5", {
       models: ["tencent/hy3:free"],
       structuredOutputs: { strict: false },
     });
@@ -80,7 +80,7 @@ describe("OpenRouter model", () => {
       compatibility: "strict",
       baseURL: "http://localhost:11434/v1",
     });
-    expect(modelFactory).toHaveBeenCalledWith("z-ai/glm-5.2", {
+    expect(modelFactory).toHaveBeenCalledWith("anthropic/claude-haiku-5.5", {
       models: ["tencent/hy3:free", "vendor/backup"],
       structuredOutputs: { strict: false },
       reasoning: { effort: "none" },
