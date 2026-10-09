@@ -45,6 +45,16 @@
   --story-shadow-color: 252 20% 20%;
   --story-radius-md: 1rem;
   --story-shadow: 0 1.5rem 4rem -2.5rem hsl(var(--story-shadow-color) / 0.4);
+  /* Generated sites (components/site, lib/site/art) read only these, so they share the home page's
+     colours and light or dark mode: Backdrop paper, Ask panel, hero ink and violet, mint secondary. */
+  --site-bg: #f4efe6;
+  --site-paper: #fffdf8;
+  --site-soft: #ece7ee;
+  --site-ink: #37304a;
+  --site-muted: #5d5673;
+  --site-line: rgb(55 48 74 / 0.12);
+  --site-accent: #5646a8;
+  --site-accent-2: #a9d8c0;
 
 }
 
@@ -81,6 +91,14 @@
   --listening-foreground: 157 36% 20%;
   --listening-border: 152 29% 68%;
   --story-shadow-color: 252 40% 4%;
+  --site-bg: #17151d;
+  --site-paper: #241f32;
+  --site-soft: #3d374b;
+  --site-ink: #eae6f2;
+  --site-muted: #bdb6d0;
+  --site-line: rgb(255 255 255 / 0.1);
+  --site-accent: #9d8ff2;
+  --site-accent-2: #7fe0bd;
 
 }
 

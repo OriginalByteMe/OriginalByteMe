@@ -95,7 +95,6 @@ export default function GeneratedSite({ site, evidence, revealed, onAsk }: Gener
     <div
       className="gs"
       data-layout={site.layout}
-      data-site-palette={site.palette}
       data-building={revealed === undefined ? undefined : ""}
     >
       <div className="gs-top">

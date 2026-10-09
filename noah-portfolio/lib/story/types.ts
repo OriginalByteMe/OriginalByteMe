@@ -2,15 +2,13 @@ import { ART_IDS } from "@/lib/site/art";
 import { z } from "zod";
 
 /** Deliberate compatibility boundary for generated Story structure and behavior. */
-export const STORY_CONTRACT_VERSION = "v7" as const;
+export const STORY_CONTRACT_VERSION = "v8" as const;
 
 /** Deliberate compatibility boundary for the authored Corpus used to ground Stories. */
 export const CORPUS_REVISION = "2026-10-09" as const;
 
 /** Whole-page arrangements the model chooses between. */
 const SITE_LAYOUTS = ["bento", "editorial", "landing", "dossier", "cascade"] as const;
-/** Colour schemes; each name maps to `--site-*` variables in `lib/site/art/art.css`. */
-const SITE_PALETTES = ["midnight", "paper", "studio", "forest", "ember"] as const;
 /** Visual shapes a section can take; the renderer handles any item count for each. */
 const SECTION_KINDS = ["cards", "split", "list", "timeline", "quote", "banner"] as const;
 
@@ -143,7 +141,7 @@ const SiteModeSchema = z.enum(["grounded", "boundary"]);
 const RelatedQuestionsSchema = z.array(StoryQuestionSchema).min(2).max(3);
 
 /**
- * The whole site as the model writes it. The server owns the question and the palette, and derives
+ * The whole site as the model writes it. The server owns the question and derives
  * `mode`: no sections and no hero citations is a boundary page, anything else is grounded. An
  * explicit mode field measured worse on the small model, which declared "boundary" at random and
  * then wrote grounded sections anyway. Sections come before the hero, the order the prompt asks for, so the
@@ -163,7 +161,6 @@ export const SiteSchema = z
   .object({
     mode: SiteModeSchema,
     layout: z.enum(SITE_LAYOUTS),
-    palette: z.enum(SITE_PALETTES),
     brand: nonEmptyText(40),
     hero: SiteHeroSchema,
     sections: z.array(SiteSectionSchema).max(5),
@@ -234,7 +231,6 @@ export type SiteItem = z.infer<typeof SiteItemSchema>;
 export type SiteSection = z.infer<typeof SiteSectionSchema>;
 export type SiteDraft = z.infer<typeof SiteDraftSchema>;
 export type Site = z.infer<typeof SiteSchema>;
-export type SitePalette = (typeof SITE_PALETTES)[number];
 export type StoryRecord = z.infer<typeof StoryRecordSchema>;
 export type PublicStory = z.infer<typeof PublicStorySchema>;
 export type NewStoryRecord = z.infer<typeof NewStoryRecordSchema>;

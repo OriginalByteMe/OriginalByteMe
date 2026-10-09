@@ -40,7 +40,7 @@
   outline: none;
 }
 .site-takeover::backdrop {
-  background: var(--site-bg, #07080c);
+  background: var(--site-bg);
 }
 .site-takeover[data-building] {
   overflow: hidden;
@@ -61,10 +61,9 @@
   gap: 4px;
   padding: 5px;
   border-radius: 999px;
-  background: rgb(14 14 18 / 0.8);
-  color: #f3f3f6;
-  backdrop-filter: blur(16px);
-  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.1), 0 24px 50px -24px rgb(0 0 0 / 0.7);
+  background: var(--site-paper);
+  color: var(--site-ink);
+  box-shadow: 0 0 0 1px var(--site-line), 0 24px 50px -24px rgb(0 0 0 / 0.5);
   font-family: var(--gs-display);
   white-space: nowrap;
 }
@@ -83,7 +82,7 @@
   transition: background 0.4s var(--gs-ease), transform 0.4s var(--gs-ease);
 }
 .site-dock button:hover {
-  background: rgb(255 255 255 / 0.1);
+  background: var(--site-soft);
 }
 .site-dock button:active {
   transform: scale(0.97);
@@ -91,7 +90,7 @@
 .site-dock button:focus-visible,
 .gs a:focus-visible,
 .gs button:focus-visible {
-  outline: 2px solid var(--site-accent, #a78bfa);
+  outline: 2px solid var(--site-accent);
   outline-offset: 2px;
 }
 /* The hero jump focuses a section; borderless ones have no inline padding, so the ring stands off the text. */
@@ -103,7 +102,7 @@
   padding: 0 12px;
   font: 500 12px/1 var(--gs-mono);
   letter-spacing: 0.08em;
-  color: rgb(243 243 246 / 0.7);
+  color: var(--site-muted);
 }
 
 /* ---------- Generating screen ---------- */

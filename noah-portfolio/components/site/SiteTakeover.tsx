@@ -260,7 +260,6 @@ export default function SiteTakeover({
       tabIndex={-1}
       className="site-takeover"
       aria-label={`Generated site: ${question}`}
-      data-site-palette={shown?.palette ?? "midnight"}
       data-building={building ? "" : undefined}
       onCancel={(event) => {
         event.preventDefault();

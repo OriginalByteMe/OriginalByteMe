@@ -40,7 +40,6 @@ function makeSite(): Site {
   return {
     mode: "grounded",
     layout: "bento",
-    palette: "forest",
     brand: "Noah / Homelab",
     hero: {
       evidenceRefIds: ["fun-fact-2"],
@@ -77,7 +76,6 @@ function makeBoundarySite(): Site {
   return {
     mode: "boundary",
     layout: "editorial",
-    palette: "paper",
     brand: "Noah",
     hero: {
       evidenceRefIds: [],
