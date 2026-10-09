@@ -36,7 +36,7 @@ function Items({ section }: { section: SiteSection }) {
         <li key={`${item.title}-${index}`} className="gs-item" style={{ "--i": index } as CSSProperties}>
           {item.art && section.kind === "cards" ? <Art id={item.art} className="gs-item__art" decorative /> : null}
           <h3 className="gs-item__title">{item.title}</h3>
-          <p className="gs-item__text">{item.text}</p>
+          {item.text ? <p className="gs-item__text">{item.text}</p> : null}
         </li>
       ))}
     </List>

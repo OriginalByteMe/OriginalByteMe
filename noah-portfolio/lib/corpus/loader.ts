@@ -62,7 +62,11 @@ export function loadCorpus(): { corpus: Corpus; knowledge: string } {
     skills: field<SkillCategory[]>(skillsF.data, "skills", []),
     operatingSystems: field<OperatingSystem[]>(osF.data, "operatingSystems", []),
     projects,
-    contact: field<Contact>(contactF.data, "contact", { email: "", github: "", linkedin: "" }),
+    // The prose body has no URLs, so generated sites can quote it; the links stay in frontmatter.
+    contact: {
+      ...field<Omit<Contact, "summary">>(contactF.data, "contact", { email: "", github: "", linkedin: "" }),
+      summary: contactF.content.trim(),
+    },
     funFacts: field<FunFact[]>(funF.data, "funFacts", []),
   };
 

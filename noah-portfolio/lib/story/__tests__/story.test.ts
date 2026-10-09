@@ -124,15 +124,29 @@ describe("Site validation", () => {
   it.each([
     { label: "grounded", site: makeSite() },
     { label: "boundary", site: makeBoundarySite() },
+    // One fact answers "Where is Noah based?"; a required section forced the model to pad.
+    { label: "grounded hero-only", site: { ...makeSite(), sections: [] } },
+    // A skills excerpt lists up to seven names only; required item text forced invented usage
+    // sentences, and a four-item cap forced the model to drop or merge names.
+    {
+      label: "names-only items",
+      site: {
+        ...makeSite(),
+        sections: [{
+          ...makeSite().sections[0],
+          items: ["Ruby", "Python", "JavaScript", "TypeScript", "React", "Bash", "Node.js"].map((title) => ({ title })),
+        }],
+      },
+    },
   ])("accepts a valid $label site", ({ site }) => {
     expect(() => assertValidSite(site, CORPUS_EVIDENCE_REFS)).not.toThrow();
   });
 
   it.each<{ label: string; mutate: (site: Site) => unknown; error: RegExp }>([
     {
-      label: "a grounded site with no sections",
-      mutate: (site) => { site.sections = []; },
-      error: /grounded mode requires at least one section/,
+      label: "a section with more than eight items",
+      mutate: (site) => { site.sections[0].items = Array.from({ length: 9 }, (_, index) => ({ title: `Tool ${index + 1}` })); },
+      error: /sections\.0\.items: Too big/,
     },
     {
       label: "a hero without Evidence Refs",

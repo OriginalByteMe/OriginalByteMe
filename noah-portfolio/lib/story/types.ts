@@ -95,7 +95,8 @@ const ArtIdSchema = z.enum(ART_IDS, { message: "Unknown art id" });
 const SiteItemSchema = z
   .object({
     title: nonEmptyText(60),
-    text: nonEmptyText(220),
+    // Optional: a skills excerpt names tools without saying how they were used.
+    text: nonEmptyText(220).optional(),
     art: ArtIdSchema.optional(),
   })
   .strict();
@@ -108,7 +109,8 @@ const sectionShape = {
   title: nonEmptyText(80),
   nav: nonEmptyText(24),
   body: nonEmptyText(600),
-  items: z.array(SiteItemSchema).max(4),
+  // Eight fits the longest names-only skills list (seven languages) without letting facts sprawl.
+  items: z.array(SiteItemSchema).max(8),
   art: ArtIdSchema.optional(),
   projectSlugs: ProjectSlugsSchema.optional(),
 };

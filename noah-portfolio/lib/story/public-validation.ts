@@ -64,8 +64,8 @@ function assertResolvedProjects(section: SiteSection, context: string): void {
 
 /**
  * Grounding rules for a schema-parsed Site against one Evidence vocabulary.
- * Grounded sites cite at least one known Ref on the hero and on every section;
- * boundary sites cite nothing and carry no sections.
+ * Grounded sites cite at least one known Ref on the hero and on every section, and may answer in
+ * the hero alone; boundary sites cite nothing and carry no sections.
  */
 export function assertValidParsedSite(site: Site, evidenceIds: ReadonlySet<string>): void {
   if (site.mode === "boundary") {
@@ -75,8 +75,6 @@ export function assertValidParsedSite(site: Site, evidenceIds: ReadonlySet<strin
     if (site.hero.evidenceRefIds.length !== 0) {
       throw new Error("Invalid Site: boundary mode must not cite Evidence Refs");
     }
-  } else if (site.sections.length === 0) {
-    throw new Error("Invalid Site: grounded mode requires at least one section");
   }
 
   const cited = [

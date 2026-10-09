@@ -69,9 +69,7 @@ const refs: EvidenceRef[] = [
     id: "contact-public",
     path: "/corpus/contact",
     label: "Public contact links",
-    excerpt: [corpus.contact.github, corpus.contact.linkedin, corpus.contact.blog]
-      .filter(Boolean)
-      .join(", "),
+    excerpt: corpus.contact.summary,
   }),
   ...corpus.funFacts.map((fact, index) =>
     evidence({

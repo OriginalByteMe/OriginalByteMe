@@ -1,40 +1,39 @@
 import type { SiteDraft } from "@/lib/story/types";
 
 /**
- * One grounded site; the prompt shows only its hero and sections so the model picks its own layout
- * and palette instead of copying them. A test proves the whole draft passes the server validators.
+ * One grounded site; the prompt shows all of it except layout and brand, so the model picks its
+ * own instead of copying them. A test proves the whole draft passes the server validators.
  */
-export const SITE_EXAMPLE_QUESTION = "What is Moodify?";
+export const SITE_EXAMPLE_QUESTION = "Does Noah use Windows or a Mac?";
 
 export const SITE_EXAMPLE: SiteDraft = {
-  layout: "landing",
-  brand: "Moodify",
+  layout: "bento",
+  brand: "Windows and Mac",
   hero: {
-    evidenceRefIds: ["project-moodify"],
-    eyebrow: "A colour project",
-    headline: "Moodify turns album art into the page's colours",
-    lede: "Search your favourite tune and watch its album cover's colour palette take over the page.",
-    art: "vinyl-record",
+    evidenceRefIds: ["operating-systems-2", "operating-systems-3"],
+    eyebrow: "Operating systems",
+    headline: "I use both: a Windows environment and a macOS workstation",
+    lede: "My Windows environment lists Windows and WSL2, and I also have a macOS workstation.",
+    art: "code-editor",
   },
   sections: [
     {
-      kind: "split",
-      evidenceRefIds: ["project-moodify"],
-      title: "Album cover colours take over the page",
-      nav: "How it works",
-      body: "You search for a tune, and the colour palette of its album cover takes over the page.",
-      items: [],
-      art: "colour-swatches",
-      projectSlugs: ["moodify"],
+      kind: "cards",
+      evidenceRefIds: ["operating-systems-2"],
+      title: "Windows and WSL2",
+      nav: "Windows",
+      body: "Two systems make up my Windows environment.",
+      items: [{ title: "Windows" }, { title: "WSL2" }],
     },
     {
-      kind: "quote",
-      evidenceRefIds: ["project-moodify"],
-      title: "The same trick on this site",
-      nav: "This site",
-      body: "The same palette trick now recolours this site's hero dither.",
+      kind: "banner",
+      evidenceRefIds: ["operating-systems-3"],
+      title: "A macOS workstation",
+      nav: "Mac",
+      body: "I also have a macOS workstation.",
       items: [],
+      art: "laptop-desk",
     },
   ],
-  relatedQuestions: ["What is the AI Image Cutout tool?", "How does this portfolio site work?"],
+  relatedQuestions: ["Which Linux systems does Noah use?", "What runs on Noah's homelab server?"],
 };

@@ -5,7 +5,7 @@ import { ART_IDS } from "@/lib/site/art";
 import { SITE_EXAMPLE, SITE_EXAMPLE_QUESTION } from "@/lib/llm/examples";
 import { generateSite } from "@/lib/llm/generate-site";
 import { getModel } from "@/lib/llm/openrouter";
-import { buildSiteSystemPrompt, buildSiteUserMessage } from "@/lib/llm/prompt";
+import { BANNED_PHRASES, buildSiteSystemPrompt, buildSiteUserMessage } from "@/lib/llm/prompt";
 import { CORPUS_EVIDENCE_REFS, CORPUS_PROJECT_PROMPT_CATALOG } from "@/lib/story/evidence";
 
 vi.mock("ai", async (importOriginal) => ({
@@ -39,10 +39,17 @@ describe("Site generation prompt", () => {
     expect(buildSiteUserMessage(question)).toContain(JSON.stringify(question));
   });
 
+  // The model copies excerpts nearly word for word, so an excerpt that breaks a rule forces a broken site.
+  it.each(CORPUS_EVIDENCE_REFS.map((ref) => [ref.id, ref.excerpt]))("keeps %s free of URLs and banned phrases", (_id, excerpt) => {
+    expect(excerpt).not.toMatch(/https?:|www\./i);
+    for (const phrase of BANNED_PHRASES) expect(excerpt.toLowerCase()).not.toContain(phrase.toLowerCase());
+  });
+
   it("shows an example site that the generation path accepts under the constrained response schema", async () => {
     const output = JSON.stringify(SITE_EXAMPLE);
-    // The prompt shows only the hero and sections, so the model picks its own layout.
-    expect(buildSiteSystemPrompt()).toContain(JSON.stringify({ hero: SITE_EXAMPLE.hero, sections: SITE_EXAMPLE.sections }));
+    // The prompt shows everything but layout and brand, so the model picks its own.
+    const shown = { hero: SITE_EXAMPLE.hero, sections: SITE_EXAMPLE.sections, relatedQuestions: SITE_EXAMPLE.relatedQuestions };
+    expect(buildSiteSystemPrompt()).toContain(JSON.stringify(shown));
     streamTextMock.mockReturnValueOnce({
       textStream: (async function* () {
         yield output;
