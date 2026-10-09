@@ -39,7 +39,45 @@ export const SITE_RESPONSE_JSON_SCHEMA = (() => {
   return schema as JSONSchema7;
 })();
 
+// Anthropic's structured outputs answer 400 to these; parseSite still enforces every limit through Zod.
+// https://platform.claude.com/docs/en/build-with-claude/structured-outputs#json-schema-limitations
+const ANTHROPIC_UNSUPPORTED: Record<string, true> = {
+  minLength: true,
+  maxLength: true,
+  minimum: true,
+  maximum: true,
+  exclusiveMinimum: true,
+  exclusiveMaximum: true,
+  multipleOf: true,
+  maxItems: true,
+  uniqueItems: true,
+};
+
+function anthropicSafe(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(anthropicSafe);
+  if (typeof node !== "object" || node === null) return node;
+  const safe: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(node)) {
+    if (Object.hasOwn(ANTHROPIC_UNSUPPORTED, key)) continue;
+    // Only minItems 0 or 1 is supported.
+    if (key === "minItems" && typeof value === "number" && value > 1) continue;
+    if (key === "properties") {
+      // Property names are data, not keywords: keep every name, clean each property's schema.
+      safe[key] = Object.fromEntries(
+        Object.entries(value as object).map(([name, child]) => [name, anthropicSafe(child)]),
+      );
+    } else {
+      safe[key] = key === "enum" || key === "required" ? value : anthropicSafe(value);
+    }
+  }
+  return safe;
+}
+
 const siteOutput = Output.object({ schema: jsonSchema(SITE_RESPONSE_JSON_SCHEMA), name: "site" });
+const anthropicSiteOutput = Output.object({
+  schema: jsonSchema(anthropicSafe(SITE_RESPONSE_JSON_SCHEMA) as JSONSchema7),
+  name: "site",
+});
 
 export interface SiteAttempt {
   ok: boolean;
@@ -120,11 +158,12 @@ function citedEvidence(site: Site): EvidenceRef[] {
 async function completeAttempt(messages: ModelMessage[], signal: AbortSignal, attempt: number) {
   signal.throwIfAborted();
   let streamError: unknown;
+  const model = getModel();
   const result = streamText({
-    model: getModel(),
+    model,
     system: { role: "system", content: buildSiteSystemPrompt(), providerOptions: CACHE_SYSTEM_PROMPT },
     messages,
-    output: siteOutput,
+    output: model.modelId.startsWith("anthropic/") ? anthropicSiteOutput : siteOutput,
     maxOutputTokens: MAX_SITE_OUTPUT_TOKENS,
     abortSignal: signal,
     experimental_telemetry: storyTelemetry("story-site", { attempt }),

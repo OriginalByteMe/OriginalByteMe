@@ -1,7 +1,103 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { SITE_RESPONSE_JSON_SCHEMA } from "@/lib/llm/generate-site";
+import { SITE_EXAMPLE } from "@/lib/llm/examples";
+import { SITE_RESPONSE_JSON_SCHEMA, generateSite } from "@/lib/llm/generate-site";
+import { buildSiteSystemPrompt } from "@/lib/llm/prompt";
 import { CORPUS_EVIDENCE_REFS } from "@/lib/story/evidence";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
+
+/** An OpenRouter chat-completions SSE stream that sends `content` in one delta. */
+function openRouterStream(content: string): Response {
+  const base = { id: "gen", object: "chat.completion.chunk", created: 0, model: "anthropic/claude-haiku-5.5" };
+  const chunk = (data: object) => `data: ${JSON.stringify({ ...base, ...data })}\n\n`;
+  const body =
+    chunk({ choices: [{ index: 0, delta: { role: "assistant", content }, finish_reason: null }] }) +
+    chunk({
+      choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+    }) +
+    "data: [DONE]\n\n";
+  return new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } });
+}
+
+function stubOpenRouterEnv(model: string) {
+  vi.stubEnv("OPENROUTER_API_KEY", "test-key");
+  vi.stubEnv("OPENROUTER_MODEL", model);
+  vi.stubEnv("OPENROUTER_PROVIDER_ORDER", undefined);
+  vi.stubEnv("OPENROUTER_FALLBACK_MODELS", undefined);
+  vi.stubEnv("OPENROUTER_BASE_URL", undefined);
+  vi.stubEnv("OPENROUTER_REASONING_EFFORT", undefined);
+}
+
+/** The `response_format.json_schema.schema` that one valid site request sends for `model`. */
+async function sentSchema(model: string): Promise<object> {
+  stubOpenRouterEnv(model);
+  const requests: { response_format: { json_schema: { schema: object } } }[] = [];
+  vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+    requests.push(JSON.parse(String(init.body)));
+    return openRouterStream(JSON.stringify(SITE_EXAMPLE));
+  });
+  await generateSite("What did Noah build?", { signal: new AbortController().signal });
+  return requests[0].response_format.json_schema.schema;
+}
+
+describe("generateSite", () => {
+  // Without the breakpoint every visitor pays full input price for the shared system prompt.
+  it("marks the system prompt as an ephemeral cache breakpoint on the first and the repair request", async () => {
+    stubOpenRouterEnv("");
+    const replies = ["{not json", JSON.stringify(SITE_EXAMPLE)];
+    const requests: { messages: unknown[] }[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      requests.push(JSON.parse(String(init.body)));
+      return openRouterStream(replies[requests.length - 1]);
+    });
+    const attempts: boolean[] = [];
+
+    await generateSite("What did Noah build?", {
+      signal: new AbortController().signal,
+      onAttempt: (attempt) => attempts.push(attempt.ok),
+    });
+
+    expect(attempts).toEqual([false, true]);
+    const cachedSystem = {
+      role: "system",
+      content: [{ type: "text", text: buildSiteSystemPrompt(), cache_control: { type: "ephemeral" } }],
+    };
+    expect(requests.map((request) => request.messages[0])).toEqual([cachedSystem, cachedSystem]);
+  });
+
+  // Anthropic answers 400 to string limits and to array limits beyond minItems 1, so every Ask would fail over.
+  it("sends Anthropic models the schema without the limits their structured outputs reject", async () => {
+    const schema = await sentSchema("anthropic/claude-haiku-5.5");
+    const wire = JSON.stringify(schema);
+
+    for (const keyword of ["minLength", "maxLength", "maxItems", "minimum", "maximum", "multipleOf", "uniqueItems"]) {
+      expect(wire).not.toContain(`"${keyword}"`);
+    }
+    expect(wire).not.toMatch(/"minItems":([2-9]|\d{2,})/);
+    const citation = { items: { type: "string", enum: CORPUS_EVIDENCE_REFS.map((ref) => ref.id) } };
+    expect(schema).toMatchObject({
+      required: SITE_RESPONSE_JSON_SCHEMA.required,
+      additionalProperties: false,
+      properties: {
+        hero: { properties: { evidenceRefIds: citation } },
+        sections: { items: { properties: { evidenceRefIds: citation } } },
+      },
+    });
+  });
+
+  it("sends other models the full schema, limits included", async () => {
+    const schema = await sentSchema("qwen3:8b");
+
+    expect(schema).toEqual(SITE_RESPONSE_JSON_SCHEMA);
+    expect(JSON.stringify(schema)).toContain('"minItems":2');
+    expect(JSON.stringify(schema)).toContain('"maxItems"');
+  });
+});
 
 describe("SITE_RESPONSE_JSON_SCHEMA", () => {
   it("lets the model cite only Evidence ids from the active Corpus, on the hero and on every section", () => {

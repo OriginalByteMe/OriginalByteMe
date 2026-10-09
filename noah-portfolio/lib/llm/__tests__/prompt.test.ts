@@ -25,7 +25,7 @@ type SchemaNode = { properties: Record<string, SchemaNode>; items: SchemaNode; e
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(getModel).mockReturnValue({} as never);
+  vi.mocked(getModel).mockReturnValue({ modelId: "test-model" } as never);
 });
 
 describe("Site generation prompt", () => {
@@ -37,10 +37,12 @@ describe("Site generation prompt", () => {
       expect(prompt).toContain(`${ref.id} | ${ref.label} | ${ref.excerpt.slice(0, 220).trimEnd()}`);
     }
     for (const id of ART_IDS) expect(prompt).toContain(`${id}: `);
+    expect(prompt.length).toBeLessThanOrEqual(MAX_SITE_SYSTEM_PROMPT_CHARS);
   });
 
   it("shortens excerpts to stay under the cap when the Corpus grows, keeping every id", () => {
-    const grown = [1, 2].flatMap((copy) => CORPUS_EVIDENCE_REFS.map((ref) => ({ ...ref, id: `${ref.id}-${copy}` })));
+    // Three times today's Corpus: at four, the ids and labels alone outgrow the cap beside these rules.
+    const grown = [1, 2, 3].flatMap((copy) => CORPUS_EVIDENCE_REFS.map((ref) => ({ ...ref, id: `${ref.id}-${copy}` })));
     const prompt = buildSiteSystemPrompt(grown);
 
     expect(prompt.length).toBeLessThanOrEqual(MAX_SITE_SYSTEM_PROMPT_CHARS);

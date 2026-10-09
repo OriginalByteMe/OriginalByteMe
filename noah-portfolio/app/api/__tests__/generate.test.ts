@@ -160,7 +160,7 @@ async function readEvents(response: Response): Promise<StoryStreamEvent[]> {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getModelMock.mockReturnValue({} as never);
+  getModelMock.mockReturnValue({ modelId: "test-model" } as never);
   findCurrentStoryMock.mockResolvedValue(null);
   findPreparedStoryMock.mockResolvedValue(null);
   prepareCompleteStoryMock.mockImplementation(async (input) => ({
