@@ -2,6 +2,7 @@
 
 import "@/lib/site/art/art.css";
 import "./site.css";
+import "./thoughts.css";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { useReducedMotion } from "framer-motion";
@@ -12,13 +13,16 @@ import {
   isSiteSoundMuted,
   playBrickSnap,
   setSiteSoundMuted,
-  startGenerationTicks,
+  startThinkingNoises,
 } from "@/lib/site/sound";
+import { thinker } from "@/lib/site/thoughts";
 import type { CanvasMode } from "@/lib/hooks/usePortfolioCanvas";
 import type { EvidenceRef, PublicStory, Site } from "@/lib/story/types";
 
 const BLOCK_MS = 430;
 const GENERATING_STEPS = ["Picking a layout", "Writing the copy", "Choosing pictures", "Citing Noah's notes"];
+// How long one thought bubble shows; site-thought animations read it through --life.
+const THOUGHT_MS = 3800;
 
 interface SiteTakeoverProps {
   mode: Exclude<CanvasMode, "home">;
@@ -32,6 +36,34 @@ interface SiteTakeoverProps {
   onBack: () => void;
 }
 
+/** Decorative thought bubbles beside the knob, alternating sides so the two on screen never meet. */
+function ThoughtBubbles() {
+  const [thoughts, setThoughts] = useState<Array<{ id: number; text: string; rise: number }>>([]);
+  useEffect(() => {
+    const started = Date.now();
+    const next = thinker();
+    let id = 0;
+    let timer = window.setTimeout(function think() {
+      id += 1;
+      const thought = { id, text: next(Date.now() - started), rise: Math.round(Math.random() * 40) };
+      // The next bubble comes at least half a lifetime later, so the one dropped here has faded.
+      setThoughts((shown) => [...shown.slice(-1), thought]);
+      timer = window.setTimeout(think, THOUGHT_MS / 2 + Math.random() * 800);
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, []);
+  return thoughts.map(({ id, text, rise }) => (
+    <p
+      key={id}
+      className="site-thought"
+      data-side={id % 2 ? "left" : "right"}
+      style={{ "--rise": `${rise}px`, "--life": `${THOUGHT_MS}ms` } as CSSProperties}
+    >
+      {text}
+    </p>
+  ));
+}
+
 function Generating({ question }: { question: string }) {
   const [step, setStep] = useState(0);
   useEffect(() => {
@@ -41,34 +73,37 @@ function Generating({ question }: { question: string }) {
   return (
     <div className="site-generating">
       <div className="site-generating__inner" role="status" aria-label="Building your site">
-        <svg className="site-knob" viewBox="0 0 120 120" aria-hidden>
-          {Array.from({ length: 11 }, (_, index) => (
-            <line
-              key={index}
-              x1="60"
-              y1="6"
-              x2="60"
-              y2="14"
-              stroke="var(--site-muted)"
-              strokeWidth="3"
+        <div className="site-thinking" aria-hidden>
+          <svg className="site-knob" viewBox="0 0 120 120">
+            {Array.from({ length: 11 }, (_, index) => (
+              <line
+                key={index}
+                x1="60"
+                y1="6"
+                x2="60"
+                y2="14"
+                stroke="var(--site-muted)"
+                strokeWidth="3"
+                strokeLinecap="round"
+                transform={`rotate(${-135 + index * 27} 60 60)`}
+              />
+            ))}
+            <circle cx="60" cy="60" r="38" fill="var(--site-paper)" stroke="var(--site-line)" strokeWidth="2" />
+            <path
+              className="site-knob__arc"
+              d="M33.1 86.9A38 38 0 1 1 86.9 86.9"
+              fill="none"
+              stroke="var(--site-accent)"
+              strokeWidth="5"
               strokeLinecap="round"
-              transform={`rotate(${-135 + index * 27} 60 60)`}
+              pathLength="238"
             />
-          ))}
-          <circle cx="60" cy="60" r="38" fill="var(--site-paper)" stroke="var(--site-line)" strokeWidth="2" />
-          <path
-            className="site-knob__arc"
-            d="M33.1 86.9A38 38 0 1 1 86.9 86.9"
-            fill="none"
-            stroke="var(--site-accent)"
-            strokeWidth="5"
-            strokeLinecap="round"
-            pathLength="238"
-          />
-          <g className="site-knob__pointer">
-            <line x1="60" y1="60" x2="60" y2="30" stroke="var(--site-ink)" strokeWidth="5" strokeLinecap="round" />
-          </g>
-        </svg>
+            <g className="site-knob__pointer">
+              <line x1="60" y1="60" x2="60" y2="30" stroke="var(--site-ink)" strokeWidth="5" strokeLinecap="round" />
+            </g>
+          </svg>
+          <ThoughtBubbles />
+        </div>
         <p className="site-generating__status">{GENERATING_STEPS[step]}…</p>
         <h1 className="site-generating__question">{question}</h1>
         <div className="site-wireframe" aria-hidden>
@@ -198,7 +233,7 @@ export default function SiteTakeover({
 
   useEffect(() => {
     if (!generating) return;
-    return startGenerationTicks();
+    return startThinkingNoises();
   }, [generating]);
 
   useEffect(() => {

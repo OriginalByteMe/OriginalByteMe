@@ -70,7 +70,7 @@ afterEach(() => {
 });
 
 describe("SiteTakeover", () => {
-  it("shows the question while generating and ticks", () => {
+  it("shows the question while generating and makes thinking noises", () => {
     unlockSiteSound();
     renderTakeover();
 
@@ -127,6 +127,23 @@ describe("SiteTakeover", () => {
     takeover.rerender({ site, evidence });
     act(() => vi.advanceTimersByTime(320 + 430));
     expect(blockStates()).toEqual(shown(2));
+
+    takeover.unmount();
+    const before = audio.sounds;
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(audio.sounds).toBe(before);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("hides thought bubbles from screen readers and goes quiet when the visitor leaves while generating", () => {
+    unlockSiteSound();
+    const takeover = renderTakeover();
+    act(() => vi.advanceTimersByTime(700));
+
+    const bubble = document.querySelector(".site-thought");
+    expect(bubble).toBeInTheDocument();
+    expect(bubble?.closest(".site-thinking")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByRole("status", { name: "Building your site" })).toHaveTextContent("Picking a layout…");
 
     takeover.unmount();
     const before = audio.sounds;
