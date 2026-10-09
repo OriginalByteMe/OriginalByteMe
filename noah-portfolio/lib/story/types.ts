@@ -5,7 +5,7 @@ import { z } from "zod";
 export const STORY_CONTRACT_VERSION = "v7" as const;
 
 /** Deliberate compatibility boundary for the authored Corpus used to ground Stories. */
-export const CORPUS_REVISION = "2026-07-14" as const;
+export const CORPUS_REVISION = "2026-10-09" as const;
 
 /** Whole-page arrangements the model chooses between. */
 const SITE_LAYOUTS = ["bento", "editorial", "landing", "dossier", "cascade"] as const;

@@ -5,6 +5,7 @@ import {
 import { seedStoryFixtures } from "@/lib/story/store";
 import {
   toPublicStory,
+  CORPUS_REVISION,
   STORY_CONTRACT_VERSION,
   type ProjectSlug,
   type Site,
@@ -84,7 +85,7 @@ function makeRecord({
   id,
   displayQuestion,
   site,
-  corpusRevision = "2026-07-14",
+  corpusRevision = CORPUS_REVISION,
   storyContractVersion = STORY_CONTRACT_VERSION,
 }: {
   id: string;
