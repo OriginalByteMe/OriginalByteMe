@@ -34,15 +34,6 @@ export const SITE_EXAMPLE: SiteDraft = {
       items: [],
       art: "laptop-desk",
     },
-    {
-      kind: "banner",
-      evidenceRefIds: ["operating-systems-4"],
-      title: "Linux and Unraid on the homelab",
-      nav: "Homelab",
-      body: "My homelab server runs Linux and Unraid.",
-      items: [],
-      art: "server-rack",
-    },
   ],
   relatedQuestions: ["Which Linux systems does Noah use?", "What infrastructure tools does Noah know?"],
 };

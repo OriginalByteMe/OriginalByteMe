@@ -375,8 +375,8 @@ function selfTest(): void {
   assert.equal(summary.layoutTagged, 2);
   assert.equal(summary.layoutFit, 1);
   assert.deepEqual(summary.layouts, { bento: 1, editorial: 2 });
-  assert.deepEqual(summary.sectionKinds, { cards: 1, split: 1, banner: 1 });
-  assert.deepEqual(summary.artIds, ["code-editor", "laptop-desk", "server-rack"]);
+  assert.deepEqual(summary.sectionKinds, { cards: 1, split: 1 });
+  assert.deepEqual(summary.artIds, ["code-editor", "laptop-desk"]);
   assert.equal(summary.bannedPhrases, 2);
   assert.deepEqual(repetitionMetrics(["One two three four.", "One two three five.", "Nothing shared here now."]), {
     max: 1 / 3,
