@@ -6,12 +6,7 @@ import { ArrowDown, ArrowUpRight } from "lucide-react";
 import { Art } from "@/lib/site/art";
 import type { EvidenceRef, Site, SiteItem, SiteSection, StoryProject } from "@/lib/story/types";
 
-/** Blocks snap in this order: nav, hero, each section, related questions, footer. */
-export function siteBlockCount(site: Site): number {
-  return site.sections.length + 4;
-}
-
-/** Items inside each block, so the build can click once per brick. */
+/** Items inside each block, in snap order: nav, hero, each section, related questions, footer. */
 export function siteBlockItems(site: Site): number[] {
   return [
     1 + site.sections.length,
@@ -32,9 +27,11 @@ interface GeneratedSiteProps {
 
 function Items({ section }: { section: SiteSection }) {
   if (section.items.length === 0) return null;
-  const List = section.kind === "timeline" ? "ol" : "ul";
+  // Small models pick "timeline" for undated facts too; only dated items get the timeline rail.
+  const dated = section.kind === "timeline" && section.items.every((item) => /\d{4}/.test(item.title));
+  const List = dated ? "ol" : "ul";
   return (
-    <List className="gs-items" data-items={section.kind === "cards" ? "cards" : section.kind === "timeline" ? "timeline" : "list"}>
+    <List className="gs-items" data-items={section.kind === "cards" ? "cards" : dated ? "timeline" : "list"}>
       {section.items.map((item: SiteItem, index) => (
         <li key={`${item.title}-${index}`} className="gs-item" style={{ "--i": index } as CSSProperties}>
           {item.art && section.kind === "cards" ? <Art id={item.art} className="gs-item__art" decorative /> : null}
@@ -98,11 +95,14 @@ export default function GeneratedSite({ site, evidence, revealed, onAsk }: Gener
           {sections.length ? (
             <nav aria-label={`${site.brand} sections`}>
               <ul className="gs-nav__links">
-                {sections.map((section, index) => (
-                  <li key={index}>
-                    <a href={`#gs-section-${index + 1}`}>{section.nav}</a>
-                  </li>
-                ))}
+                {sections.map((section, index) =>
+                  // Small models repeat labels; one link per label keeps the menu readable.
+                  sections.findIndex((other) => other.nav === section.nav) === index ? (
+                    <li key={index}>
+                      <a href={`#gs-section-${index + 1}`}>{section.nav}</a>
+                    </li>
+                  ) : null,
+                )}
               </ul>
             </nav>
           ) : null}

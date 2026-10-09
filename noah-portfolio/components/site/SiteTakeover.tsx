@@ -7,7 +7,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { useReducedMotion } from "framer-motion";
 import { ArrowLeft, Check, Link2, RotateCcw, Volume2, VolumeX } from "lucide-react";
 
-import GeneratedSite, { siteBlockCount, siteBlockItems } from "./GeneratedSite";
+import GeneratedSite, { siteBlockItems } from "./GeneratedSite";
 import {
   isSiteSoundMuted,
   playBrickSnap,
@@ -100,12 +100,10 @@ function SiteBuild({
   const reducedMotion = Boolean(useReducedMotion());
   // Captured once: publishing swaps in the stored copy of the same site and flips `animate` off,
   // and neither may restart a build that is already running.
-  const [plan] = useState(() => ({
-    play: animate && !reducedMotion,
-    click: animate,
-    total: siteBlockCount(site),
-    items: siteBlockItems(site),
-  }));
+  const [plan] = useState(() => {
+    const items = siteBlockItems(site);
+    return { play: animate && !reducedMotion, click: animate, total: items.length, items };
+  });
   const [revealed, setRevealed] = useState<number | undefined>(plan.play ? 0 : undefined);
   const [fit, setFit] = useState(1);
   const stageRef = useRef<HTMLDivElement>(null);

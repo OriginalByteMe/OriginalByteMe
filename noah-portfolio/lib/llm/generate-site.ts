@@ -14,6 +14,7 @@ import {
   SiteDraftSchema,
   type EvidenceRef,
   type Site,
+  type SitePalette,
 } from "@/lib/story/types";
 import { assertValidSite } from "@/lib/story/validation";
 
@@ -63,17 +64,45 @@ function stripFences(text: string): string {
   return fenced ? fenced[1].trim() : trimmed;
 }
 
+// Palette follows the topic of the first citation; a small model picked one colour for nearly everything.
+const PALETTE_BY_EVIDENCE: Record<string, SitePalette> = {
+  "career-3": "ember",
+  "fun-fact-1": "ember",
+  "fun-fact-2": "forest",
+  "skills-4": "forest",
+  "career-2": "midnight",
+  "skills-2": "midnight",
+  "project-llm-comparison": "midnight",
+  "project-story-model-benchmark": "midnight",
+  "project-moodify": "studio",
+  "project-ai-image-cutout": "studio",
+  "project-ask-me-portfolio": "studio",
+  "skills-1": "studio",
+  "skills-3": "studio",
+  "skills-5": "studio",
+};
+
+function paletteFor(firstCitation: string | undefined): SitePalette {
+  if (!firstCitation) return "midnight";
+  if (firstCitation.startsWith("operating-systems-")) return "forest";
+  return PALETTE_BY_EVIDENCE[firstCitation] ?? "paper";
+}
+
 /** Parse model output into a server-validated Site with canonical project cards. */
 function parseSite(text: string): Site {
   const draft = SiteDraftSchema.safeParse(JSON.parse(stripFences(text)));
   if (!draft.success) throw validationError("Site", draft.error);
+  const { layout, brand, hero, sections, relatedQuestions } = draft.data;
   const site: Site = {
-    ...draft.data,
-    sections: draft.data.sections.map((section) =>
-      section.projectSlugs
-        ? { ...section, projects: resolveStoryProjects(section.projectSlugs) }
-        : section,
+    mode: sections.length === 0 && hero.evidenceRefIds.length === 0 ? "boundary" : "grounded",
+    layout,
+    palette: paletteFor(hero.evidenceRefIds[0] ?? sections[0]?.evidenceRefIds[0]),
+    brand,
+    hero,
+    sections: sections.map((section) =>
+      section.projectSlugs ? { ...section, projects: resolveStoryProjects(section.projectSlugs) } : section,
     ),
+    relatedQuestions,
   };
   assertValidSite(site, CORPUS_EVIDENCE_REFS);
   return site;
@@ -114,8 +143,8 @@ async function completeAttempt(messages: ModelMessage[], signal: AbortSignal, at
 }
 
 /**
- * One model call per attempt, at most two attempts: the second sees the rejected output and
- * the validation error. Throws the last error when both fail.
+ * One model call per attempt, at most two attempts: the second gets the validation error but not
+ * the rejected output, which would crowd a small model's context window. Throws the last error.
  */
 export async function generateSite(
   question: string,
@@ -137,7 +166,7 @@ export async function generateSite(
       lastError = error;
       const message = error instanceof Error ? error.message : String(error);
       onAttempt?.({ ok: false, error: message, ...report, ms: Math.round(performance.now() - started) });
-      if (report.text) messages.push({ role: "assistant", content: report.text });
+      // Ollama's default 4096-token context truncated repairs that replayed the whole bad output.
       messages.push({ role: "user", content: buildSiteRepairMessage(message) });
     }
   }

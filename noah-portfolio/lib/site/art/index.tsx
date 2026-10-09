@@ -7,14 +7,8 @@ const ART = { ...CORE_PIECES, ...TECH_PIECES, ...MAKER_PIECES };
 export type ArtId = keyof typeof ART;
 export const ART_IDS = Object.keys(ART) as [ArtId, ...ArtId[]];
 
-export function isArtId(value: unknown): value is ArtId {
-  return typeof value === "string" && Object.hasOwn(ART, value);
-}
-
 /** Model-visible picture vocabulary, one `id: description` line per piece. */
-export const artPromptCatalog = ART_IDS.map(
-  (id) => `${id}: ${ART[id].description}${ART[id].animated ? " (animated)" : ""}`,
-).join("\n");
+export const artPromptCatalog = ART_IDS.map((id) => `${id}: ${ART[id].description}`).join("\n");
 
 /** Renders one library piece; decorative uses skip the accessible name. */
 export function Art({

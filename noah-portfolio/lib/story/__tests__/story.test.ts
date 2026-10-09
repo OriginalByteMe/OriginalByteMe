@@ -130,9 +130,9 @@ describe("Site validation", () => {
 
   it.each<{ label: string; mutate: (site: Site) => unknown; error: RegExp }>([
     {
-      label: "a grounded site with one section",
-      mutate: (site) => { site.sections.pop(); },
-      error: /grounded mode requires at least two sections/,
+      label: "a grounded site with no sections",
+      mutate: (site) => { site.sections = []; },
+      error: /grounded mode requires at least one section/,
     },
     {
       label: "a hero without Evidence Refs",
@@ -142,7 +142,7 @@ describe("Site validation", () => {
     {
       label: "a section without Evidence Refs",
       mutate: (site) => { site.sections[1].evidenceRefIds = []; },
-      error: /at least one Evidence Ref on the section 2/,
+      error: /sections\.1\.evidenceRefIds/,
     },
     {
       label: "an unknown Evidence Ref",

@@ -52,9 +52,7 @@ const PUBLIC_ID = "AbCdEfGhIjKlMnOpQrStUvWx";
 const PUBLICATION_TOKEN = `${PUBLIC_ID}.${"A".repeat(43)}`;
 
 const GROUNDED_DRAFT: SiteDraft = {
-  mode: "grounded",
   layout: "bento",
-  palette: "forest",
   brand: "Noah / Homelab",
   hero: {
     evidenceRefIds: ["fun-fact-2"],
@@ -86,9 +84,7 @@ const GROUNDED_DRAFT: SiteDraft = {
 };
 
 const BOUNDARY_DRAFT: SiteDraft = {
-  mode: "boundary",
   layout: "editorial",
-  palette: "paper",
   brand: "Noah",
   hero: {
     evidenceRefIds: [],
@@ -102,11 +98,14 @@ const BOUNDARY_DRAFT: SiteDraft = {
 };
 
 const GROUNDED_SITE: Site = {
+  mode: "grounded",
   ...GROUNDED_DRAFT,
+  palette: "forest",
   sections: GROUNDED_DRAFT.sections.map((section) =>
     section.projectSlugs ? { ...section, projects: resolveStoryProjects(section.projectSlugs) } : section,
   ),
 };
+const BOUNDARY_SITE: Site = { mode: "boundary", ...BOUNDARY_DRAFT, palette: "midnight" };
 const GROUNDED_EVIDENCE = CORPUS_EVIDENCE_REFS.filter((ref) =>
   ["operating-systems-4", "project-llm-comparison", "fun-fact-2"].includes(ref.id),
 );
@@ -191,7 +190,7 @@ describe("POST /api/generate", () => {
 
   it.each([
     { label: "grounded", draft: GROUNDED_DRAFT, site: GROUNDED_SITE, evidence: GROUNDED_EVIDENCE },
-    { label: "boundary", draft: BOUNDARY_DRAFT, site: BOUNDARY_DRAFT, evidence: [] },
+    { label: "boundary", draft: BOUNDARY_DRAFT, site: BOUNDARY_SITE, evidence: [] },
   ])("streams a validated $label site and ends with a publication token", async ({ draft, site, evidence }) => {
     streamTextMock.mockReturnValueOnce(modelResult(JSON.stringify(draft)));
 
@@ -212,7 +211,7 @@ describe("POST /api/generate", () => {
     expect(options?.signal?.aborted).toBe(false);
   });
 
-  it("repairs an invalid first site with the rejected output and its validation error", async () => {
+  it("repairs an invalid first site by naming its validation error", async () => {
     const invalid = JSON.stringify({
       ...GROUNDED_DRAFT,
       hero: { ...GROUNDED_DRAFT.hero, evidenceRefIds: ["invented-ref"] },
@@ -225,9 +224,9 @@ describe("POST /api/generate", () => {
 
     expect(streamTextMock).toHaveBeenCalledTimes(2);
     const repairMessages = streamTextMock.mock.calls[1][0].messages ?? [];
-    expect(repairMessages).toHaveLength(3);
-    expect(repairMessages[1]).toEqual({ role: "assistant", content: invalid });
-    expect(JSON.stringify(repairMessages[2])).toMatch(/invented-ref/);
+    expect(repairMessages).toHaveLength(2);
+    expect(JSON.stringify(repairMessages[1])).toMatch(/invented-ref/);
+    expect(JSON.stringify(repairMessages)).not.toContain(invalid);
     expect(events.find((event) => event.type === "site")).toEqual({
       type: "site",
       site: GROUNDED_SITE,
@@ -257,6 +256,11 @@ describe("POST /api/generate", () => {
         sections: [GROUNDED_DRAFT.sections[0], GROUNDED_SITE.sections[1]],
       }),
       message: /Unrecognized key.*projects/,
+    },
+    {
+      label: "sections under a hero that cites nothing",
+      output: JSON.stringify({ ...GROUNDED_DRAFT, hero: { ...GROUNDED_DRAFT.hero, evidenceRefIds: [] } }),
+      message: /at least one Evidence Ref on the hero/,
     },
   ])("emits an error event and never persists after two outputs with $label", async ({ output, message }) => {
     streamTextMock

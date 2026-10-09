@@ -8,11 +8,11 @@ export const STORY_CONTRACT_VERSION = "v7" as const;
 export const CORPUS_REVISION = "2026-07-14" as const;
 
 /** Whole-page arrangements the model chooses between. */
-export const SITE_LAYOUTS = ["bento", "editorial", "landing", "dossier", "cascade"] as const;
+const SITE_LAYOUTS = ["bento", "editorial", "landing", "dossier", "cascade"] as const;
 /** Colour schemes; each name maps to `--site-*` variables in `lib/site/art/art.css`. */
-export const SITE_PALETTES = ["midnight", "paper", "studio", "forest", "ember"] as const;
+const SITE_PALETTES = ["midnight", "paper", "studio", "forest", "ember"] as const;
 /** Visual shapes a section can take; the renderer handles any item count for each. */
-export const SECTION_KINDS = ["cards", "split", "list", "timeline", "quote", "banner"] as const;
+const SECTION_KINDS = ["cards", "split", "list", "timeline", "quote", "banner"] as const;
 
 /** Client-safe vocabulary mirrored from the authored Corpus project filenames. */
 export const PROJECT_SLUGS = [
@@ -92,7 +92,7 @@ export const StoryProjectSchema = z
 
 const ArtIdSchema = z.enum(ART_IDS, { message: "Unknown art id" });
 
-export const SiteItemSchema = z
+const SiteItemSchema = z
   .object({
     title: nonEmptyText(60),
     text: nonEmptyText(220),
@@ -103,7 +103,8 @@ export const SiteItemSchema = z
 // Key order is generation order under constrained decoding: cite first, then write, then pick a picture.
 const sectionShape = {
   kind: z.enum(SECTION_KINDS),
-  evidenceRefIds: EvidenceRefIdsSchema,
+  // Sections exist only in grounded sites, so the grammar itself forces at least one citation.
+  evidenceRefIds: EvidenceRefIdsSchema.min(1),
   title: nonEmptyText(80),
   nav: nonEmptyText(24),
   body: nonEmptyText(600),
@@ -113,14 +114,14 @@ const sectionShape = {
 };
 
 /** A section as the model writes it. */
-export const SiteSectionDraftSchema = z.object(sectionShape).strict();
+const SiteSectionDraftSchema = z.object(sectionShape).strict();
 
 /** A stored section: trusted code adds the canonical Corpus cards for its project slugs. */
-export const SiteSectionSchema = z
+const SiteSectionSchema = z
   .object({ ...sectionShape, projects: z.array(StoryProjectSchema).min(1).max(3).optional() })
   .strict();
 
-export const SiteHeroSchema = z
+const SiteHeroSchema = z
   .object({
     evidenceRefIds: EvidenceRefIdsSchema,
     eyebrow: nonEmptyText(60),
@@ -130,28 +131,34 @@ export const SiteHeroSchema = z
   })
   .strict();
 
-const siteShape = {
-  mode: z.enum(["grounded", "boundary"]),
-  layout: z.enum(SITE_LAYOUTS),
-  palette: z.enum(SITE_PALETTES),
-  brand: nonEmptyText(40),
-  hero: SiteHeroSchema,
-};
+const SiteModeSchema = z.enum(["grounded", "boundary"]);
+const RelatedQuestionsSchema = z.array(StoryQuestionSchema).min(2).max(3);
 
-/** The whole site as the model writes it. The server owns the question. */
+/**
+ * The whole site as the model writes it. The server owns the question and the palette, and derives
+ * `mode`: no sections and no hero citations is a boundary page, anything else is grounded. An
+ * explicit mode field measured worse on the small model, which declared "boundary" at random and
+ * then wrote grounded sections anyway.
+ */
 export const SiteDraftSchema = z
   .object({
-    ...siteShape,
+    layout: z.enum(SITE_LAYOUTS),
+    brand: nonEmptyText(40),
+    hero: SiteHeroSchema,
     sections: z.array(SiteSectionDraftSchema).max(5),
-    relatedQuestions: z.array(StoryQuestionSchema).min(2).max(3),
+    relatedQuestions: RelatedQuestionsSchema,
   })
   .strict();
 
 export const SiteSchema = z
   .object({
-    ...siteShape,
+    mode: SiteModeSchema,
+    layout: z.enum(SITE_LAYOUTS),
+    palette: z.enum(SITE_PALETTES),
+    brand: nonEmptyText(40),
+    hero: SiteHeroSchema,
     sections: z.array(SiteSectionSchema).max(5),
-    relatedQuestions: z.array(StoryQuestionSchema).min(2).max(3),
+    relatedQuestions: RelatedQuestionsSchema,
   })
   .strict();
 
@@ -215,14 +222,10 @@ export type ProjectSlug = z.infer<typeof ProjectSlugSchema>;
 export type StoryProjectTechnology = z.infer<typeof StoryProjectTechnologySchema>;
 export type StoryProject = z.infer<typeof StoryProjectSchema>;
 export type SiteItem = z.infer<typeof SiteItemSchema>;
-export type SiteSectionDraft = z.infer<typeof SiteSectionDraftSchema>;
 export type SiteSection = z.infer<typeof SiteSectionSchema>;
-export type SiteHero = z.infer<typeof SiteHeroSchema>;
 export type SiteDraft = z.infer<typeof SiteDraftSchema>;
 export type Site = z.infer<typeof SiteSchema>;
-export type SiteLayout = (typeof SITE_LAYOUTS)[number];
 export type SitePalette = (typeof SITE_PALETTES)[number];
-export type SectionKind = (typeof SECTION_KINDS)[number];
 export type StoryRecord = z.infer<typeof StoryRecordSchema>;
 export type PublicStory = z.infer<typeof PublicStorySchema>;
 export type NewStoryRecord = z.infer<typeof NewStoryRecordSchema>;

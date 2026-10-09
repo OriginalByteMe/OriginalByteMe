@@ -41,7 +41,8 @@ describe("Site generation prompt", () => {
 
   it("shows an example site that the generation path accepts under the constrained response schema", async () => {
     const output = JSON.stringify(SITE_EXAMPLE);
-    expect(buildSiteSystemPrompt()).toContain(output);
+    // The prompt shows only the hero and sections, so the model picks its own layout.
+    expect(buildSiteSystemPrompt()).toContain(JSON.stringify({ hero: SITE_EXAMPLE.hero, sections: SITE_EXAMPLE.sections }));
     streamTextMock.mockReturnValueOnce({
       textStream: (async function* () {
         yield output;

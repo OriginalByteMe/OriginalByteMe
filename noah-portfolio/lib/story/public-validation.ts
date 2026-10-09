@@ -75,8 +75,8 @@ export function assertValidParsedSite(site: Site, evidenceIds: ReadonlySet<strin
     if (site.hero.evidenceRefIds.length !== 0) {
       throw new Error("Invalid Site: boundary mode must not cite Evidence Refs");
     }
-  } else if (site.sections.length < 2) {
-    throw new Error("Invalid Site: grounded mode requires at least two sections");
+  } else if (site.sections.length === 0) {
+    throw new Error("Invalid Site: grounded mode requires at least one section");
   }
 
   const cited = [
