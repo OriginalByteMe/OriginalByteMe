@@ -154,7 +154,7 @@ export async function createCharacterScene(host: HTMLElement, options: Character
   let gltf;
   try {
     gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync('/models/good-vibes-hero.glb');
-    BUILDERS.forEach((build, index) => { const area = build(origins[index].clone(), options.content); areas.push(area); scene.add(area.group); });
+    BUILDERS.forEach((build, index) => { const area = build(origins[index].clone(), options.content, () => { if (paused) redraw = true; }); areas.push(area); scene.add(area.group); });
   } catch (error) {
     disposeAreas(); disposeObject(scene); shadowTexture.dispose(); renderer.dispose(); renderer.domElement.remove(); throw error;
   }
@@ -247,6 +247,8 @@ export async function createCharacterScene(host: HTMLElement, options: Character
   let state = createCharacterState(restPoint(areaIndex));
   let target: Vec2 | null = null;
   let paused = false;
+  /** A room image landed while he is paused: draw one frame so the frozen view shows it. */
+  let redraw = false;
   let visible = true;
   let audioSuspended = false;
   let last = 0;
@@ -551,7 +553,11 @@ export async function createCharacterScene(host: HTMLElement, options: Character
   const tick = (now: number) => {
     if (disposed) return;
     raf = requestAnimationFrame(tick);
-    if (!visible || document.hidden || paused) { last = 0; return; }
+    if (!visible || document.hidden || paused) {
+      last = 0;
+      if (redraw && visible && !document.hidden) { redraw = false; renderer.render(scene, camera); }
+      return;
+    }
     if (now - lastRender < FRAME_MS) return;
     const dt = last ? Math.min((now - last) / 1000, .1) : 1 / 30;
     last = lastRender = now; elapsed += dt;

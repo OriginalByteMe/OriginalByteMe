@@ -564,7 +564,7 @@ const GROUPS: Record<string, { sign: string; color: number; says: ((count: strin
  * above). He presents a project at its console and a skill group from its bench, all from one lane in front; the open
  * floor runs to a toolbox at the front edge that he trips over on the way down.
  */
-export const createLab: AreaBuilder = (origin, content) => {
+export const createLab: AreaBuilder = (origin, content, onImage) => {
   const group = new THREE.Group();
   group.name = 'lab';
   group.position.copy(origin);
@@ -699,7 +699,7 @@ export const createLab: AreaBuilder = (origin, content) => {
       if (crop > 0 && !project.image.endsWith('.svg')) context.drawImage(image, (width - PHOTO.width * crop) / 2, (height - PHOTO.height * crop) / 2, PHOTO.width * crop, PHOTO.height * crop, PHOTO.x, PHOTO.y, PHOTO.width, PHOTO.height);
       else context.drawImage(image, PHOTO.x, PHOTO.y, PHOTO.width, PHOTO.height);
       context.restore();
-      face.needsUpdate = true;
+      face.needsUpdate = true; onImage?.();
     }, undefined, () => {});
     const variety = index % LIFT.length;
 
@@ -800,7 +800,7 @@ export const createLab: AreaBuilder = (origin, content) => {
         const { width, height } = texture.image, aspect = width && height ? width / height : 1;
         slots[at].width = aspect >= 1 ? picture : picture * aspect; slots[at].height = aspect >= 1 ? picture / aspect : picture;
         icon.scale.set(slots[at].width, slots[at].height, 1);
-        material.map = texture; material.needsUpdate = true; icon.visible = true;
+        material.map = texture; material.needsUpdate = true; icon.visible = true; onImage?.();
       }));
       return icon;
     });

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Quaternion, Raycaster, Vector2, Vector3, type AnimationAction, type BufferGeometry, type Mesh, type MeshStandardMaterial, type Object3D, type PerspectiveCamera, type Scene, type Sprite } from 'three';
+import { ImageLoader, Quaternion, Raycaster, Texture, TextureLoader, Vector2, Vector3, type AnimationAction, type BufferGeometry, type Mesh, type MeshStandardMaterial, type Object3D, type PerspectiveCamera, type Scene, type Sprite } from 'three';
 import type { CharacterScene } from '@/components/character/create-character-scene';
 import { createBedroom } from '@/components/character/world/bedroom';
 import { createLab } from '@/components/character/world/lab';
@@ -277,6 +277,28 @@ describe('shipped character world integration', () => {
     expect(host.dataset.phase).toBe('roam');
     expect(wrapper.style.getPropertyValue('--intro-black')).toBe('0');
     expect(phase.mock.calls.map(([value]) => value)).toEqual(['opening', 'approach', 'bonk', 'recoil', 'recover', 'point', 'roam']);
+  });
+
+  it('draws room pictures, icons and logos that land while he is held paused, in one frame', async () => {
+    // A shared /#lab link shows the room frozen behind Click to enter; images arriving after that first frame must still appear.
+    const lands: (() => void)[] = [];
+    vi.spyOn(TextureLoader.prototype, 'load').mockImplementation((_url, onLoad) => {
+      const texture = new Texture({ width: 64, height: 64 } as HTMLImageElement);
+      lands.push(() => onLoad?.(texture));
+      return texture;
+    });
+    vi.spyOn(ImageLoader.prototype, 'load').mockImplementation((_url, onLoad) => {
+      const image = document.createElement('img');
+      lands.push(() => onLoad?.(image));
+      return image;
+    });
+    await create(); api!.setPaused(true); advance(1);
+    expect(lands.length).toBeGreaterThan(10);
+    const frozen = capture.renders;
+    lands.forEach((land) => land());
+    advance(1);
+    expect(capture.renders).toBe(frozen + 1);
+    expect(host.dataset.paused).toBe('true');
   });
 
   it('applies real facial morphs after locomotion mixer evaluation and resets them after speech', async () => {

@@ -65,4 +65,5 @@ export type WorldArea = {
   dispose: () => void;
 };
 
-export type AreaBuilder = (origin: THREE.Vector3, content: WorldContent) => WorldArea;
+/** `onImage` runs after the area applies a picture, icon or logo it loaded, so a paused scene can still draw it. */
+export type AreaBuilder = (origin: THREE.Vector3, content: WorldContent, onImage?: () => void) => WorldArea;

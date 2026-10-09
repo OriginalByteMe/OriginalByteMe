@@ -95,7 +95,7 @@ const sentence = (text: string) => /[.!?]$/.test(text) ? text : `${text}.`;
 const shortName = (company: string) => company.replace(/\s*\(.*\)\s*/, '').trim() || company;
 
 /** About Me island: a Peranakan shophouse gallery with Noah's portrait, a walkable career timeline, a Kuala Lumpur skyline model and the couch he lands on. */
-export const createAbout: AreaBuilder = (origin, content) => {
+export const createAbout: AreaBuilder = (origin, content, onImage) => {
   const group = new THREE.Group();
   group.name = 'about-area';
   group.position.copy(origin);
@@ -118,7 +118,7 @@ export const createAbout: AreaBuilder = (origin, content) => {
   const label = (parent: THREE.Object3D, size: [number, number], at: V3, draw: Label['draw']) => { labels.push({ parent, size, at, draw }); };
   const loader = new THREE.TextureLoader();
   const load = (url: string, onLoad: (texture: THREE.Texture) => void) => {
-    const texture = loader.load(url, (done) => { if (disposed) done.dispose(); else onLoad(done); }, undefined, () => {});
+    const texture = loader.load(url, (done) => { if (disposed) done.dispose(); else { onLoad(done); onImage?.(); } }, undefined, () => {});
     texture.colorSpace = THREE.SRGBColorSpace; loaded.push(texture);
   };
   const obstacles: Obstacle[] = [];

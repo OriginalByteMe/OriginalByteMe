@@ -22,7 +22,7 @@ The top of the home page is a small 3D world of three floating dioramas, stacked
 
 Presentations: a station with `present` (every project bay, every skill pegboard, every career stop and the skyline) makes him present it when the visitor sends him there, by Show me or by clicking it. He faces the camera and says its lines in order while the room gets `{ stationId, progress }` for the whole presentation, and if it has a url a real "Visit" link (new tab) stands at his feet, kept on screen and clear of the panels, controls and Ask bar. A floor click, another station, a scroll that starts a trip, an afro poke, Escape or Reset ends it and takes the sign down. When he wanders to a station on his own he just plays with it.
 
-Scrolling never scrubs the character. When the viewed room changes and holds for a moment, he runs to the room's open front edge ("Hey, wait for me!") at a run whose feet keep pace with the floor, trips when he gets there, tumbles down onto a landing object in the next room ("Ow"), hops down and says an arrival line. Scrolling back up makes him jump back up a room. He moves one room at a time and follows on if you scrolled further. Opening the page mid-way (for example `/#about`) skips the intro and puts him straight in the viewed room.
+Scrolling never scrubs the character. When the viewed room changes and holds for a moment, he runs to the room's open front edge ("Hey, wait for me!") at a run whose feet keep pace with the floor, trips when he gets there, tumbles down onto a landing object in the next room ("Ow"), hops down and says an arrival line. Scrolling back up makes him jump back up a room. He moves one room at a time and follows on if you scrolled further. Opening the page mid-way (for example `/#about`) skips the intro and puts him straight in the viewed room, held still behind "Click to enter" like every load; pictures, icons and logos that finish loading meanwhile are drawn into that still frame.
 
 Input: click or tap the floor to walk there; click a station's object to send him to it; click his afro and he stops, covers it and says "Stop, don't do that." (further pokes escalate, and the lines start over once he has cooled off). The afro wins over the floor behind it. Panels, links and buttons never become scene clicks, and clicks are ignored while he is mid-transition. Focus the world for arrow keys, Space to say hi and Escape to stop. Pause, Reset and the reversible Portrait mode remain.
 
@@ -49,13 +49,14 @@ Everything audible is synthesized with WebAudio in `lib/character/audio.ts`: an 
 
 ### Building a room
 
-A room's builder is an `AreaBuilder`: `(origin, content) => WorldArea`. The contract:
+A room's builder is an `AreaBuilder`: `(origin, content, onImage?) => WorldArea`. The contract:
 
 - Floor at y = 0, back wall toward -z, the open front at `bounds.maxZ`, seen from camera direction (0, .42, 1). Stay inside x in [-9, 9], y in [-3, 8], z in [-6.5, 6] around the origin. The camera fits each room by projecting the corners of its measured `Box3` into the free screen region, so everything in the group counts toward the framing.
 - `bounds` is the walkable floor; `obstacles` are circles; every station `stand`, the `exit` and the hop off the `landing` sit inside `bounds` inset by 0.22 and clear of obstacles. `exit` is where he trips before falling to the next room; `landing` is the top surface he lands on arriving from another room.
 - `pick` returns a station id for a ray that hits that station's object and null for floor and walls. `update(dt, elapsed, { stationId, progress })` animates the room; `stationId` is the station he is performing at or presenting.
 - Give a station `present: { lines, url, linkLabel }` to have him present it with a Visit sign.
 - The bedroom's back door is an `Object3D` named `back-door` (its hinge); the intro runs him from 1.2 behind it, along x = `view.center.x`, so that line stays clear to the front, with a stoop at floor height behind the door.
+- Call `onImage` after applying any picture, icon or logo the room loads, so the scene can draw it while paused.
 - `dispose` frees every geometry, material and texture the builder created. No lights, no DOM, no audio.
 
 Seats: the held `08_Sit_Relaxed` frame sits on the floor. He lowers onto a seat: the scene lifts him only by as much as the sit clip drops his hips below the seat height plus 0.13 (the seat contact sits that far below the pelvis bone), so his feet stay down until his hips reach it. Build seats at about 0.3 to 0.35, below his 0.59 hip. Bumping into furniture always plays a bonk, but the apology line is rate limited. Multi-circle furniture against a wall is routed round its open end (`chooseSide` in `controller.ts` scores arcs through neighbouring circles as closed).
