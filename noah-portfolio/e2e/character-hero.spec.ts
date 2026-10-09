@@ -171,6 +171,9 @@ test('loading mid-page skips the intro and starts in the viewed room', async ({ 
   await page.goto('/#about');
   const world = page.getByTestId('character-playground');
   await expect(page.getByTestId('character-hero')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+  // A shared link still holds on Click to enter, the click that starts sound and music; it shows the viewed room frozen until then.
+  await expect(world).toHaveAttribute('data-paused', 'true');
+  await page.getByRole('button', { name: 'Click to enter' }).click();
   await expect(world).toHaveAttribute('data-phase', 'roam');
   await expect(world).toHaveAttribute('data-area', 'about');
   await expect(page.getByRole('button', { name: 'Skip intro' })).toHaveCount(0);
