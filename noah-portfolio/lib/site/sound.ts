@@ -1,8 +1,10 @@
-// Synthesised site sounds: bassy knob ticks while the model writes, plastic brick clicks while the
+// Synthesised site sounds: small tech noises while the model writes, plastic brick clicks while the
 // site assembles. Nothing is created until a visitor's Ask click calls `unlockSiteSound()`.
 
 const MUTE_KEY = "siteSoundMuted";
 const VOLUME = 0.8;
+// The thinking noises' own level under VOLUME, so they stay well below the brick clicks.
+const THINKING_VOLUME = 0.5;
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -51,8 +53,11 @@ function live(): { ctx: AudioContext; master: GainNode; noise: AudioBuffer } | n
     : null;
 }
 
+const between = (low: number, high: number) => low + Math.random() * (high - low);
+const pick = <T>(items: readonly T[]): T => items[Math.floor(Math.random() * items.length)];
+
 /** A filtered noise burst: the transient that makes a tick or a click sound physical. */
-function burst(at: number, frequency: number, q: number, gain: number, decay: number): void {
+function burst(at: number, frequency: number, q: number, gain: number, decay: number, out?: AudioNode): void {
   const audio = live();
   if (!audio) return;
   const source = audio.ctx.createBufferSource();
@@ -64,12 +69,12 @@ function burst(at: number, frequency: number, q: number, gain: number, decay: nu
   const envelope = audio.ctx.createGain();
   envelope.gain.setValueAtTime(gain, at);
   envelope.gain.exponentialRampToValueAtTime(0.0001, at + decay);
-  source.connect(filter).connect(envelope).connect(audio.master);
+  source.connect(filter).connect(envelope).connect(out ?? audio.master);
   source.start(at);
   source.stop(at + decay + 0.01);
 }
 
-/** A sine thump that drops in pitch: the bass body of a tick. */
+/** A sine thump that drops in pitch: the body of a brick seating. */
 function thump(at: number, frequency: number, gain: number, decay: number): void {
   const audio = live();
   if (!audio) return;
@@ -85,29 +90,120 @@ function thump(at: number, frequency: number, gain: number, decay: number): void
   oscillator.stop(at + decay + 0.02);
 }
 
-/**
- * Start the generation ticks: a detented volume knob turned slowly up, but bassy. The tick rate,
- * pitch and click brightness rise as time passes; every fourth tick is accented like a techno bar.
- * Returns a stop function.
- */
-export function startGenerationTicks(): () => void {
-  if (!ctx) return () => undefined;
-  const audio = ctx;
-  const startedAt = audio.currentTime;
-  let next = startedAt + 0.05;
-  let beat = 0;
-  const timer = window.setInterval(() => {
-    while (next < audio.currentTime + 0.12) {
-      // lean: ticks follow elapsed time, not real model progress; add stream progress events if wanted.
-      const level = 1 - Math.exp(-(next - startedAt) / 14);
-      const accent = beat % 4 === 0;
-      thump(next, 52 + level * 34, accent ? 0.9 : 0.55, accent ? 0.16 : 0.09);
-      burst(next, 1100 + level * 1600, 7, accent ? 0.22 : 0.12, 0.012);
-      next += 0.3 - 0.16 * level;
-      beat += 1;
+/** An oscillator note gliding through `pitches` (Hz) over `length` seconds: the voice of a bleep. */
+function glide(
+  at: number,
+  pitches: readonly number[],
+  length: number,
+  gain: number,
+  out: AudioNode,
+  type: OscillatorType = "sine",
+): void {
+  const audio = live();
+  if (!audio) return;
+  const oscillator = audio.ctx.createOscillator();
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(pitches[0], at);
+  pitches.forEach((pitch, index) => {
+    if (index > 0) oscillator.frequency.exponentialRampToValueAtTime(pitch, at + (length * index) / (pitches.length - 1));
+  });
+  const envelope = audio.ctx.createGain();
+  envelope.gain.setValueAtTime(0.0001, at);
+  envelope.gain.exponentialRampToValueAtTime(gain, at + 0.006);
+  envelope.gain.exponentialRampToValueAtTime(gain * 0.5, at + length * 0.75);
+  envelope.gain.exponentialRampToValueAtTime(0.0001, at + length);
+  oscillator.connect(envelope).connect(out);
+  oscillator.start(at);
+  oscillator.stop(at + length + 0.02);
+}
+
+/** One thinking noise scheduled from `at` into `out`; returns how long it lasts in seconds. */
+type Noise = (at: number, out: AudioNode) => number;
+
+/** R2-D2 chatter: a quick run of whistled bleeps that swoop up, drop away or warble. */
+const chatter: Noise = (at, out) => {
+  let time = at;
+  for (let bleeps = 2 + Math.floor(Math.random() * 4); bleeps > 0; bleeps -= 1) {
+    const pitch = between(1300, 2900);
+    const length = between(0.04, 0.11);
+    const contour = pick([[pitch, pitch * 1.6], [pitch * 1.5, pitch * 0.75], [pitch, pitch * 1.3, pitch * 0.9, pitch * 1.25]]);
+    glide(time, contour, length, 0.028, out);
+    time += length + between(0.015, 0.05);
+  }
+  return time - at;
+};
+
+/** A wrench ratcheting: one or two strokes of quick, bright pawl clicks. */
+const ratchet: Noise = (at, out) => {
+  let time = at;
+  for (let strokes = 1 + Math.floor(Math.random() * 2); strokes > 0; strokes -= 1) {
+    const pitch = between(2800, 4200);
+    const spacing = between(0.024, 0.04);
+    for (let clicks = 4 + Math.floor(Math.random() * 5); clicks > 0; clicks -= 1) {
+      burst(time, pitch, 4, 0.6, 0.008, out);
+      time += spacing;
     }
-  }, 25);
-  return () => window.clearInterval(timer);
+    time += between(0.14, 0.28);
+  }
+  return time - at;
+};
+
+/** A small clock: an even tick-tock run. */
+const clock: Noise = (at, out) => {
+  const ticks = 4 + Math.floor(Math.random() * 3);
+  const spacing = between(0.18, 0.26);
+  for (let tick = 0; tick < ticks; tick += 1) burst(at + tick * spacing, tick % 2 ? 2000 : 2600, 8, 1, 0.015, out);
+  return ticks * spacing;
+};
+
+const BLIP_PITCHES = [1047, 1319, 1568, 1760, 2093];
+
+/** A computer reading data: a patter of soft blips on random notes. */
+const blips: Noise = (at, out) => {
+  const count = 3 + Math.floor(Math.random() * 5);
+  for (let blip = 0; blip < count; blip += 1) glide(at + blip * 0.06, [pick(BLIP_PITCHES)], 0.03, 0.05, out, "triangle");
+  return count * 0.06;
+};
+
+/** A tiny servo motor: a muffled buzz winding up or down. */
+const servo: Noise = (at, out) => {
+  const audio = live();
+  const length = between(0.16, 0.36);
+  if (audio) {
+    const filter = audio.ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 1400;
+    filter.connect(out);
+    glide(at, Math.random() < 0.5 ? [190, 330] : [330, 200], length, 0.036, filter, "sawtooth");
+  }
+  return length;
+};
+
+// Chatter is listed twice so the droid voice comes round more often than any one machine noise.
+const THINKING_NOISES = [chatter, chatter, ratchet, clock, blips, servo];
+
+/**
+ * Start the thinking noises while the model writes: chatter, ratchets, clock ticks, blips and servo
+ * whirrs at random, with random gaps and never the same kind twice running, on their own quiet bus.
+ * The returned stop function fades out whatever is still sounding.
+ */
+export function startThinkingNoises(): () => void {
+  if (!ctx || !master) return () => undefined;
+  const audio = ctx;
+  const bus = audio.createGain();
+  bus.gain.value = THINKING_VOLUME;
+  bus.connect(master);
+  let last: Noise | undefined;
+  let timer = window.setTimeout(function play() {
+    last = pick(THINKING_NOISES.filter((noise) => noise !== last));
+    const length = last(audio.currentTime + 0.03, bus);
+    // Now and then a longer pause, so the noises never settle into a rhythm.
+    timer = window.setTimeout(play, (length + between(0.15, Math.random() < 0.15 ? 1.8 : 0.8)) * 1000);
+  }, 400);
+  return () => {
+    window.clearTimeout(timer);
+    bus.gain.setTargetAtTime(0, audio.currentTime, 0.02);
+  };
 }
 
 /** One toy-brick snap: a bright plastic click and the lower clack of it seating, `weight` 0..1. */

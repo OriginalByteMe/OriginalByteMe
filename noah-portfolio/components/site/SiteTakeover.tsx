@@ -12,7 +12,7 @@ import {
   isSiteSoundMuted,
   playBrickSnap,
   setSiteSoundMuted,
-  startGenerationTicks,
+  startThinkingNoises,
 } from "@/lib/site/sound";
 import type { CanvasMode } from "@/lib/hooks/usePortfolioCanvas";
 import type { EvidenceRef, PublicStory, Site } from "@/lib/story/types";
@@ -198,7 +198,7 @@ export default function SiteTakeover({
 
   useEffect(() => {
     if (!generating) return;
-    return startGenerationTicks();
+    return startThinkingNoises();
   }, [generating]);
 
   useEffect(() => {

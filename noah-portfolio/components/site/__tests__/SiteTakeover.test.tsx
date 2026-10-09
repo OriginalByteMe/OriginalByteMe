@@ -70,7 +70,7 @@ afterEach(() => {
 });
 
 describe("SiteTakeover", () => {
-  it("shows the question while generating and ticks", () => {
+  it("shows the question while generating and makes thinking noises", () => {
     unlockSiteSound();
     renderTakeover();
 
