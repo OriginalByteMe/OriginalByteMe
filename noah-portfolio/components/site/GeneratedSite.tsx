@@ -142,7 +142,8 @@ export default function GeneratedSite({ site, evidence, revealed, onAsk }: Gener
         </section>
       </div>
 
-      <main className="gs-main">
+      {/* The page that hosts the takeover owns <main>; a second one would be invalid and a duplicate landmark. */}
+      <div className="gs-main">
         {sections.map((section, index) => (
           <section
             key={index}
@@ -173,7 +174,7 @@ export default function GeneratedSite({ site, evidence, revealed, onAsk }: Gener
             <Sources ids={section.evidenceRefIds} evidence={evidence} />
           </section>
         ))}
-      </main>
+      </div>
 
       <section className="gs-related" aria-labelledby="gs-related-title" {...block(relatedIndex)}>
         <h2 id="gs-related-title">{boundary ? "Ask me about these instead" : "Keep exploring"}</h2>

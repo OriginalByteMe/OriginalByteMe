@@ -29,16 +29,20 @@ beforeEach(() => {
 });
 
 describe("Site generation prompt", () => {
-  it("offers every active Corpus Evidence id and art id within the size budget", () => {
+  it("offers every active Corpus Evidence id at the full excerpt cap, and every art id", () => {
     const prompt = buildSiteSystemPrompt();
 
-    for (const ref of CORPUS_EVIDENCE_REFS) expect(prompt).toContain(`${ref.id} | ${ref.label} |`);
+    // Over the size cap excerpts shorten, and the model can no longer cite what was cut.
+    for (const ref of CORPUS_EVIDENCE_REFS) {
+      expect(prompt).toContain(`${ref.id} | ${ref.label} | ${ref.excerpt.slice(0, 220).trimEnd()}`);
+    }
     for (const id of ART_IDS) expect(prompt).toContain(`${id}: `);
     expect(prompt.length).toBeLessThanOrEqual(MAX_SITE_SYSTEM_PROMPT_CHARS);
   });
 
   it("shortens excerpts to stay under the cap when the Corpus grows, keeping every id", () => {
-    const grown = [1, 2, 3, 4].flatMap((copy) => CORPUS_EVIDENCE_REFS.map((ref) => ({ ...ref, id: `${ref.id}-${copy}` })));
+    // Twice today's Corpus is over the cap at full excerpts, so it must compact; three times leaves almost no room.
+    const grown = [1, 2].flatMap((copy) => CORPUS_EVIDENCE_REFS.map((ref) => ({ ...ref, id: `${ref.id}-${copy}` })));
     const prompt = buildSiteSystemPrompt(grown);
 
     expect(prompt.length).toBeLessThanOrEqual(MAX_SITE_SYSTEM_PROMPT_CHARS);
@@ -60,7 +64,7 @@ describe("Site generation prompt", () => {
   it("shows an example site that the generation path accepts under the constrained response schema", async () => {
     const output = JSON.stringify(SITE_EXAMPLE);
     // The prompt shows everything but layout and brand, so the model picks its own.
-    const shown = { hero: SITE_EXAMPLE.hero, sections: SITE_EXAMPLE.sections, relatedQuestions: SITE_EXAMPLE.relatedQuestions };
+    const shown = { sections: SITE_EXAMPLE.sections, hero: SITE_EXAMPLE.hero, relatedQuestions: SITE_EXAMPLE.relatedQuestions };
     expect(buildSiteSystemPrompt()).toContain(JSON.stringify(shown));
     streamTextMock.mockReturnValueOnce({
       textStream: (async function* () {
@@ -80,6 +84,8 @@ describe("Site generation prompt", () => {
     if (format?.type !== "json") throw new Error("Expected a JSON response format");
     // JSONSchema7 nodes may be booleans; zod emits only object nodes for this schema.
     const schema = format.schema as SchemaNode;
+    // Sections before the hero, as the prompt asks: hero first, the model put every fact in the lede and wrote no sections.
+    expect(Object.keys(schema.properties)).toEqual(["layout", "brand", "sections", "hero", "relatedQuestions"]);
     const hero = schema.properties.hero.properties;
     const section = schema.properties.sections.items.properties;
     const evidenceIds = CORPUS_EVIDENCE_REFS.map((ref) => ref.id);

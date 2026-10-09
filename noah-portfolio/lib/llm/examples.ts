@@ -12,8 +12,8 @@ export const SITE_EXAMPLE: SiteDraft = {
   hero: {
     evidenceRefIds: ["operating-systems-2", "operating-systems-3"],
     eyebrow: "Operating systems",
-    headline: "I use both: a Windows environment and a macOS workstation",
-    lede: "My Windows environment lists Windows and WSL2, and I also have a macOS workstation.",
+    headline: "Both: I use Windows and a Mac",
+    lede: "I have a Windows environment and a macOS workstation.",
     art: "code-editor",
   },
   sections: [
@@ -26,14 +26,14 @@ export const SITE_EXAMPLE: SiteDraft = {
       items: [{ title: "Windows" }, { title: "WSL2" }],
     },
     {
-      kind: "banner",
+      kind: "split",
       evidenceRefIds: ["operating-systems-3"],
       title: "A macOS workstation",
       nav: "Mac",
-      body: "I also have a macOS workstation.",
+      body: "My workstation runs macOS.",
       items: [],
       art: "laptop-desk",
     },
   ],
-  relatedQuestions: ["Which Linux systems does Noah use?", "What runs on Noah's homelab server?"],
+  relatedQuestions: ["Which Linux systems does Noah use?", "What infrastructure tools does Noah know?"],
 };

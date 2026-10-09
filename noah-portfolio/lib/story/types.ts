@@ -146,14 +146,15 @@ const RelatedQuestionsSchema = z.array(StoryQuestionSchema).min(2).max(3);
  * The whole site as the model writes it. The server owns the question and the palette, and derives
  * `mode`: no sections and no hero citations is a boundary page, anything else is grounded. An
  * explicit mode field measured worse on the small model, which declared "boundary" at random and
- * then wrote grounded sections anyway.
+ * then wrote grounded sections anyway. Sections come before the hero, the order the prompt asks for, so the
+ * detail is written first: with the hero first, the model packed every fact into the lede and left sections empty.
  */
 export const SiteDraftSchema = z
   .object({
     layout: z.enum(SITE_LAYOUTS),
     brand: nonEmptyText(40),
-    hero: SiteHeroSchema,
     sections: z.array(SiteSectionDraftSchema).max(5),
+    hero: SiteHeroSchema,
     relatedQuestions: RelatedQuestionsSchema,
   })
   .strict();
