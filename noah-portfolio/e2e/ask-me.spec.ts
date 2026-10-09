@@ -75,12 +75,6 @@ async function stubGeneration(page: Page, story: PublicStory, question: string) 
 }
 
 async function askFromHome(page: Page, question: string) {
-  const heroLauncher = page.getByRole("button", { name: "Open Ask-Me" });
-  if (await heroLauncher.isVisible()) {
-    await heroLauncher.click();
-  } else {
-    await page.getByRole("button", { name: /ask this portfolio a question/i }).click();
-  }
   await page.getByRole("textbox", { name: /ask a question/i }).fill(question);
   await page.getByRole("button", { name: /send question/i }).click();
 }

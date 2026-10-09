@@ -14,7 +14,6 @@ import {
   SiteDraftSchema,
   type EvidenceRef,
   type Site,
-  type SitePalette,
 } from "@/lib/story/types";
 import { assertValidSite } from "@/lib/story/validation";
 
@@ -105,30 +104,6 @@ function stripFences(text: string): string {
   return fenced ? fenced[1].trim() : trimmed;
 }
 
-// Palette follows the topic of the first citation; a small model picked one colour for nearly everything.
-const PALETTE_BY_EVIDENCE: Record<string, SitePalette> = {
-  "career-3": "ember",
-  "fun-fact-1": "ember",
-  "fun-fact-2": "forest",
-  "skills-4": "forest",
-  "career-2": "midnight",
-  "skills-2": "midnight",
-  "project-llm-comparison": "midnight",
-  "project-story-model-benchmark": "midnight",
-  "project-moodify": "studio",
-  "project-ai-image-cutout": "studio",
-  "project-ask-me-portfolio": "studio",
-  "skills-1": "studio",
-  "skills-3": "studio",
-  "skills-5": "studio",
-};
-
-function paletteFor(firstCitation: string | undefined): SitePalette {
-  if (!firstCitation) return "midnight";
-  if (firstCitation.startsWith("operating-systems-")) return "forest";
-  return PALETTE_BY_EVIDENCE[firstCitation] ?? "paper";
-}
-
 /** Parse model output into a server-validated Site with canonical project cards. */
 function parseSite(text: string): Site {
   const draft = SiteDraftSchema.safeParse(JSON.parse(stripFences(text)));
@@ -137,7 +112,6 @@ function parseSite(text: string): Site {
   const site: Site = {
     mode: sections.length === 0 && hero.evidenceRefIds.length === 0 ? "boundary" : "grounded",
     layout,
-    palette: paletteFor(hero.evidenceRefIds[0] ?? sections[0]?.evidenceRefIds[0]),
     brand,
     hero,
     sections: attachCitedProjects(sections),

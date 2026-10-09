@@ -97,7 +97,6 @@ export interface Summary {
   layoutTagged: number;
   layoutFit: number;
   layouts: Record<string, number>;
-  palettes: Record<string, number>;
   sectionKinds: Record<string, number>;
   artIds: string[];
   bannedPhrases: number;
@@ -198,7 +197,6 @@ export function summarize(results: readonly CaseResult[]): Summary {
     layoutTagged: tagged.length,
     layoutFit: tagged.filter((result) => result.site?.layout === result.expectedLayout).length,
     layouts: count(sites.map((site) => site.layout)),
-    palettes: count(sites.map((site) => site.palette)),
     sectionKinds: count(sites.flatMap((site) => site.sections.map((section) => section.kind))),
     artIds: [...new Set(sites.flatMap(siteArtIds))].sort(),
     bannedPhrases: bannedPhraseOccurrences(sites.flatMap(siteTexts)),
@@ -234,7 +232,6 @@ function summaryTable(summary: Summary): string {
     `| Boundary questions answered as boundary | ${percent(summary.boundaryRight, summary.boundaryQuestions)} |`,
     `| Layout fit (valid and expected layout) | ${percent(summary.layoutFit, summary.layoutTagged)} |`,
     `| Layouts | ${histogram(summary.layouts)} |`,
-    `| Palettes | ${histogram(summary.palettes)} |`,
     `| Section kinds | ${histogram(summary.sectionKinds)} |`,
     `| Distinct art ids | ${summary.artIds.join(", ") || "—"} |`,
     `| Banned phrases | ${summary.bannedPhrases} |`,
@@ -295,7 +292,7 @@ function storyRecord(result: CaseResult & { site: Site; evidence: EvidenceRef[] 
 }
 
 function selfTest(): void {
-  const site: Site = { mode: "grounded", palette: "studio", ...SITE_EXAMPLE };
+  const site: Site = { mode: "grounded", ...SITE_EXAMPLE };
   const attempt = (ok: boolean, error?: string): SiteAttempt => ({
     ok,
     ...(error ? { error } : {}),

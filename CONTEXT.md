@@ -33,7 +33,7 @@ A generated answer presented as a one-page Site that takes over the screen, rath
 _Avoid_: Answer view, result page
 
 **Site**:
-The generated website inside a Story: a Layout, a Palette, a nav, a hero, Sections, Related Questions and a footer.
+The generated website inside a Story: a Layout, a nav, a hero, Sections, Related Questions and a footer, drawn in the main site's colours and logo and the visitor's light or dark mode.
 _Avoid_: Spec (that's the home json-render tree), page
 
 **Layout**:

@@ -45,6 +45,16 @@
   --story-shadow-color: 252 20% 20%;
   --story-radius-md: 1rem;
   --story-shadow: 0 1.5rem 4rem -2.5rem hsl(var(--story-shadow-color) / 0.4);
+  /* Generated sites (components/site, lib/site/art) read only these, so they share the home page's
+     colours and light or dark mode: Backdrop paper, Ask panel, hero ink and violet, mint secondary. */
+  --site-bg: #f4efe6;
+  --site-paper: #fffdf8;
+  --site-soft: #ece7ee;
+  --site-ink: #37304a;
+  --site-muted: #5d5673;
+  --site-line: rgb(55 48 74 / 0.12);
+  --site-accent: #5646a8;
+  --site-accent-2: #a9d8c0;
 
 }
 
@@ -81,6 +91,14 @@
   --listening-foreground: 157 36% 20%;
   --listening-border: 152 29% 68%;
   --story-shadow-color: 252 40% 4%;
+  --site-bg: #17151d;
+  --site-paper: #241f32;
+  --site-soft: #3d374b;
+  --site-ink: #eae6f2;
+  --site-muted: #bdb6d0;
+  --site-line: rgb(255 255 255 / 0.1);
+  --site-accent: #9d8ff2;
+  --site-accent-2: #7fe0bd;
 
 }
 
@@ -824,33 +842,14 @@ body {
   outline-offset: 0.25rem;
 }
 
-.profile-ask-launcher {
-  width: min(100%, 38rem);
-  justify-self: center;
-  text-align: left;
-}
-
-.profile-ask-launcher__entry {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.profile-ask-launcher__cta {
-  color: hsl(var(--foreground) / 0.72);
-  font-size: 0.8125rem;
-  line-height: 1.4;
-  text-align: center;
-}
-
-.profile-ask-launcher__composer {
+.profile-ask {
   --console-accent: hsl(var(--ring) / 0.78);
   --console-border: hsl(var(--border) / 0.92);
   --console-border-strong: hsl(var(--ring) / 0.52);
   --console-muted: hsl(var(--foreground) / 0.68);
   --console-surface-raised: hsl(var(--background) / 0.62);
-  margin-top: 1rem;
+  width: min(100%, 38rem);
+  justify-self: center;
   border: 1px solid var(--console-border);
   border-radius: 1.5rem;
   background: hsl(var(--card) / 0.9);
@@ -858,7 +857,7 @@ body {
   box-shadow: 0 1.25rem 2.5rem -1.75rem hsl(var(--foreground) / 0.28);
 }
 
-.dark .profile-ask-launcher__composer {
+.dark .profile-ask {
   --console-accent: hsl(var(--backdrop-scene-violet) / 0.92);
   --console-border: hsl(var(--foreground) / 0.18);
   --console-border-strong: hsl(var(--backdrop-scene-violet) / 0.56);
@@ -1044,7 +1043,7 @@ body {
     right: 0;
   }
 
-  .profile-ask-launcher__composer {
+  .profile-ask {
     padding: 1rem;
   }
 
@@ -1082,19 +1081,7 @@ body {
   }
 }
 
-/* The expanded Ask-Me composer keeps the same restrained editorial controls
-   as the dock without returning to an always-open hero card. */
-
-.ask-editorial__heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.ask-editorial__heading > div:first-child {
-  min-width: 0;
-}
+/* The hero's Ask-Me composer: ChatBox's editorial variant. */
 
 .ask-editorial__eyebrow {
   color: var(--console-muted);
@@ -1150,7 +1137,7 @@ body {
     inset 0 1px 0 hsl(var(--foreground) / 0.05);
 }
 
-.profile-ask-launcher__composer:has(.ask-composer__field:focus-within) {
+.profile-ask:has(.ask-composer__field:focus-within) {
   border-color: var(--console-border-strong);
 }
 
@@ -1269,12 +1256,6 @@ body {
 .ask-composer__route:disabled {
   cursor: not-allowed;
   opacity: 0.48;
-}
-
-@media (max-width: 30rem) {
-  .ask-editorial__heading {
-    gap: 0.75rem;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

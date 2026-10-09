@@ -99,14 +99,13 @@ const BOUNDARY_DRAFT: SiteDraft = {
 const GROUNDED_SITE: Site = {
   mode: "grounded",
   ...GROUNDED_DRAFT,
-  palette: "forest",
   // The second section cites project-llm-comparison, so the server attaches that project's card.
   sections: [
     GROUNDED_DRAFT.sections[0],
     { ...GROUNDED_DRAFT.sections[1], projectSlugs: ["llm-comparison"], projects: resolveStoryProjects(["llm-comparison"]) },
   ],
 };
-const BOUNDARY_SITE: Site = { mode: "boundary", ...BOUNDARY_DRAFT, palette: "midnight" };
+const BOUNDARY_SITE: Site = { mode: "boundary", ...BOUNDARY_DRAFT };
 const GROUNDED_EVIDENCE = CORPUS_EVIDENCE_REFS.filter((ref) =>
   ["operating-systems-4", "project-llm-comparison", "fun-fact-2"].includes(ref.id),
 );

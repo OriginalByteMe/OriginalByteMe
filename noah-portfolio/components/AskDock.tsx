@@ -1,29 +1,12 @@
 'use client';
 
-import { forwardRef, useEffect, useState, type ButtonHTMLAttributes } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { MessageCircle, X } from 'lucide-react';
 import ChatBox from './ChatBox';
 import { useAskMe } from './AskMeProvider';
 
 const CTA_STORAGE_KEY = 'askDockCtaSeen';
-
-type AskLauncherButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'type'>;
-
-export const AskLauncherButton = forwardRef<HTMLButtonElement, AskLauncherButtonProps>(
-  function AskLauncherButton({ className = '', ...props }, ref) {
-    return (
-      <button
-        ref={ref}
-        type="button"
-        className={`ask-launcher-button ${className}`.trim()}
-        {...props}
-      >
-        <MessageCircle strokeWidth={1.5} aria-hidden />
-      </button>
-    );
-  },
-);
 
 /**
  * The always-available Ask entry point. While the hero's ask panel is on
@@ -56,9 +39,9 @@ export default function AskDock() {
     }
   };
 
-  // Keep the dock retracted while the hero launcher is visible or still below
+  // Keep the dock retracted while the hero Ask panel is visible or still below
   // the viewport. It appears only after the visitor has actually scrolled past
-  // that launcher, not merely because a tall mobile hero starts above it.
+  // that panel, not merely because a tall mobile hero starts above it.
   useEffect(() => {
     if (mode !== 'home' || typeof IntersectionObserver === 'undefined') {
       setHeroAskVisible(false);
@@ -152,7 +135,9 @@ export default function AskDock() {
                 Ask me anything ✨
               </motion.span>
             )}
-            <AskLauncherButton
+            <button
+              type="button"
+              className="ask-launcher-button"
               aria-label="Ask this portfolio a question"
               aria-expanded={false}
               aria-controls="ask-dock-panel"
@@ -160,7 +145,9 @@ export default function AskDock() {
                 setOpen(true);
                 dismissCta();
               }}
-            />
+            >
+              <MessageCircle strokeWidth={1.5} aria-hidden />
+            </button>
           </motion.div>
         )}
       </AnimatePresence>

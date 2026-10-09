@@ -42,7 +42,6 @@ function makeSite(
   return {
     mode: "grounded",
     layout: "bento",
-    palette: "midnight",
     brand,
     hero: {
       evidenceRefIds: [headlineEvidence.id],

@@ -24,7 +24,7 @@ test("the redesigned hero stays collision-free at every reference viewport", asy
     await expect(page.getByRole("complementary", { name: "Contact and destinations" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Listening context" })).toHaveCount(0);
     await expect(page.getByTestId("compact-spotify")).toHaveCount(0);
-    await expect(page.locator("#ask-me")).toHaveAttribute("data-state", "collapsed");
+    await expect(page.getByRole("region", { name: "Ask-Me" }).getByRole("textbox", { name: "Ask a question about Noah" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Ask this portfolio a question" })).toHaveCount(0);
     await expect(page.locator(".site-top-chrome")).toHaveCount(1);
     await expect(page.getByRole("navigation", { name: "Primary navigation" })).toHaveCount(1);
@@ -115,7 +115,6 @@ test("site and hero actions are labelled, touch-sized, focus-visible, and follow
     email,
     github,
     linkedin,
-    page.getByRole("button", { name: "Open Ask-Me composer" }),
     page.getByRole("button", { name: "Show Noah's listening context" }),
   ];
 
@@ -159,23 +158,14 @@ test("site and hero actions are labelled, touch-sized, focus-visible, and follow
     "Email Noah",
     "Visit Noah on GitHub",
     "Visit Noah on LinkedIn",
-    "Open Ask-Me composer",
   ]);
 });
 
-test("Ask-Me expands in place at 809px and restores keyboard focus", async ({ page }) => {
+test("Ask-Me is open in place at 809px with its prompt routes", async ({ page }) => {
   await gotoHero(page, { width: 809, height: 1024 });
   const ask = page.getByRole("region", { name: "Ask-Me" });
-  const launcher = ask.getByRole("button", { name: "Open Ask-Me composer" });
 
-  await expect(ask).toHaveAttribute("data-state", "collapsed");
-  await expect(ask.getByRole("textbox", { name: "Ask a question about Noah" })).toHaveCount(0);
-  await expect(ask.getByRole("button", { name: "What does Noah do for a living?" })).toHaveCount(0);
-  await launcher.focus();
-  await page.keyboard.press("Enter");
-
-  await expect(ask).toHaveAttribute("data-state", "expanded");
-  await expect(ask.getByRole("textbox", { name: "Ask a question about Noah" })).toBeFocused();
+  await expect(ask.getByRole("textbox", { name: "Ask a question about Noah" })).toBeVisible();
   await expect(ask.getByRole("button", { name: "What does Noah do for a living?" })).toBeVisible();
   await expect(ask.getByRole("button", { name: "How does the AI cutout tool work?" })).toBeVisible();
   await expect(ask.getByRole("button", { name: "What is Noah good at?" })).toBeVisible();
@@ -184,10 +174,6 @@ test("Ask-Me expands in place at 809px and restores keyboard focus", async ({ pa
   expect(panelBounds).not.toBeNull();
   expect(panelBounds!.x).toBeGreaterThanOrEqual(0);
   expect(panelBounds!.x + panelBounds!.width).toBeLessThanOrEqual(809);
-
-  await ask.getByRole("button", { name: "Collapse Ask-Me" }).click();
-  await expect(launcher).toBeFocused();
-  await expect(ask).toHaveAttribute("data-state", "collapsed");
 });
 
 test("theme and site-wide listening controls expose predictable state without blocking story content", async ({ page }) => {
