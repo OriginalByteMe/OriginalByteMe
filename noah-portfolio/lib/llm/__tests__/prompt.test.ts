@@ -34,11 +34,11 @@ describe("Site generation prompt", () => {
 
     for (const ref of CORPUS_EVIDENCE_REFS) expect(prompt).toContain(`${ref.id} | ${ref.label} |`);
     for (const id of ART_IDS) expect(prompt).toContain(`${id}: `);
-    expect(prompt.length).toBeLessThan(12_000);
+    expect(prompt.length).toBeLessThanOrEqual(MAX_SITE_SYSTEM_PROMPT_CHARS);
   });
 
   it("shortens excerpts to stay under the cap when the Corpus grows, keeping every id", () => {
-    const grown = [1, 2].flatMap((copy) => CORPUS_EVIDENCE_REFS.map((ref) => ({ ...ref, id: `${ref.id}-${copy}` })));
+    const grown = [1, 2, 3, 4].flatMap((copy) => CORPUS_EVIDENCE_REFS.map((ref) => ({ ...ref, id: `${ref.id}-${copy}` })));
     const prompt = buildSiteSystemPrompt(grown);
 
     expect(prompt.length).toBeLessThanOrEqual(MAX_SITE_SYSTEM_PROMPT_CHARS);
