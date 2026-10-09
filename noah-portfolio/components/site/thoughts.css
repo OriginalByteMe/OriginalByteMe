@@ -1,0 +1,104 @@
+/* ---------- Thought bubbles beside the generating knob ---------- */
+
+.site-thinking {
+  position: relative;
+  display: grid;
+}
+.site-thought {
+  position: absolute;
+  top: var(--rise);
+  width: max-content;
+  /* Fits the gutter beside the 132px knob, 10px clear of the knob and of the screen edge. */
+  max-width: min(220px, calc(50vw - 86px));
+  margin: 0;
+  padding: 8px 13px;
+  border-radius: 16px;
+  background: var(--site-paper);
+  color: var(--site-muted);
+  box-shadow: 0 0 0 1px var(--site-line), 0 12px 28px -16px rgb(0 0 0 / 0.6);
+  font: 500 13px/1.35 var(--gs-display);
+  text-align: center;
+  text-wrap: balance;
+  pointer-events: none;
+  animation: site-thought 3.8s cubic-bezier(0.33, 1, 0.68, 1) both;
+}
+.site-thought[data-side="left"] {
+  --drift: -10px;
+  right: calc(100% + 10px);
+  transform-origin: 100% 100%;
+}
+.site-thought[data-side="right"] {
+  --drift: 10px;
+  left: calc(100% + 10px);
+  transform-origin: 0 100%;
+}
+/* The thought-bubble tail: two shrinking dots trailing back toward the knob. */
+.site-thought::before,
+.site-thought::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  background: var(--site-paper);
+  box-shadow: 0 0 0 1px var(--site-line);
+}
+.site-thought::before {
+  bottom: -5px;
+  width: 8px;
+  height: 8px;
+}
+.site-thought::after {
+  bottom: -12px;
+  width: 5px;
+  height: 5px;
+}
+.site-thought[data-side="left"]::before { right: -3px; }
+.site-thought[data-side="left"]::after { right: -9px; }
+.site-thought[data-side="right"]::before { left: -3px; }
+.site-thought[data-side="right"]::after { left: -9px; }
+
+@keyframes site-thought {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+    transform: translateY(10px) scale(0.92);
+  }
+  14% {
+    opacity: 0.94;
+    filter: none;
+    transform: none;
+  }
+  72% {
+    opacity: 0.94;
+  }
+  to {
+    opacity: 0;
+    transform: translate(var(--drift), -26px) scale(0.98);
+  }
+}
+
+@media (max-width: 520px) {
+  .site-thought {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  /* No sideways drift where the bubble already sits near the screen edge. */
+  .site-thought[data-side] {
+    --drift: 0px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-thought {
+    animation-name: site-thought-fade;
+  }
+}
+@keyframes site-thought-fade {
+  from,
+  to {
+    opacity: 0;
+  }
+  14%,
+  72% {
+    opacity: 0.94;
+  }
+}
