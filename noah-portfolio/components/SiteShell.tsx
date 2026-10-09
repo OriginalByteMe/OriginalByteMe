@@ -8,7 +8,7 @@ import { ArrowDown, ArrowUpRight, BarChart3 } from 'lucide-react';
 import CharacterWorld from './character/CharacterWorld';
 import PortfolioCanvas from './PortfolioCanvas';
 import CompactHeader from './CompactHeader';
-import AskDock from './AskDock';
+import AskBar from './AskBar';
 import { ThemeSwitch } from './ThemeSwitch';
 import SpotifyReveal from './ui/spotify-reveal';
 import { useAskMe } from './AskMeProvider';
@@ -129,7 +129,7 @@ function ListeningEasterEgg() {
 /**
  * Mode-aware page chrome. Home mode shows the full character world; the moment a
  * generation starts (streaming/answer) the whole world yields to the compact
- * masthead so the streamed spec IS the site. The AskDock floats over both.
+ * masthead so the streamed spec IS the site. The Ask bar stays pinned over both.
  */
 export default function SiteShell({ content }: { content: WorldContent }) {
   const { mode } = useAskMe();
@@ -192,7 +192,7 @@ export default function SiteShell({ content }: { content: WorldContent }) {
         <div id="story" className={takeover ? 'pt-16' : undefined}>
           <PortfolioCanvas />
         </div>
-        <AskDock />
+        <AskBar />
       </div>
     </MotionConfig>
   );

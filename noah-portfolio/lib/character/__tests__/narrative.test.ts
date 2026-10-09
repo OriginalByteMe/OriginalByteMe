@@ -208,10 +208,11 @@ const allLines: CharacterLine[] = [
 ];
 
 describe("character lines", () => {
-  it("has lines for every contract station id, including one exhibit per corpus project", () => {
+  it("has lines for every station he plays on his own, including one exhibit per corpus project", () => {
     expect(projectSlugs).toHaveLength(5);
+    // Skill groups (skills:<group>) and jobs (career:<company>) only present, with lines their rooms build.
     expect(Object.keys(STATION_LINES).sort()).toEqual([
-      "desk", "printer", "rack", "ball", "bed", ...projectSlugs.map((slug) => `project:${slug}`), "skills", "portrait", "skyline", "career",
+      "desk", "printer", "rack", "ball", "bed", ...projectSlugs.map((slug) => `project:${slug}`), "portrait", "skyline",
     ].sort());
     for (const lines of Object.values(STATION_LINES)) expect(lines.length).toBeGreaterThan(0);
     for (const slug of projectSlugs) {

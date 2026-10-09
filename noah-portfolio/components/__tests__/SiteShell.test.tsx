@@ -31,7 +31,7 @@ vi.mock('@/components/PortfolioCanvas', () => ({
   ) : <div>Loading portfolio</div>,
 }));
 vi.mock('@/components/CompactHeader', () => ({ default: () => <header>Compact header</header> }));
-vi.mock('@/components/AskDock', () => ({ default: () => <div>Ask dock</div> }));
+vi.mock('@/components/AskBar', () => ({ default: () => <div>Ask bar</div> }));
 vi.mock('@/components/ThemeSwitch', () => ({
   ThemeSwitch: () => <button type="button" aria-label="Toggle color theme" aria-pressed="false">Theme</button>,
 }));
@@ -184,6 +184,7 @@ describe('site-wide listening easter egg', () => {
     expect(navigation).toHaveClass('site-primary-nav');
     expect(navigation.closest('.site-top-chrome')).toBe(chrome);
     expect(story).toHaveAttribute('href', '#story');
+    expect(screen.getByText('Ask bar')).toBeInTheDocument();
     expect(blog).toHaveAttribute('href', 'https://blog.noahrijkaard.com');
     expect(blog).toHaveAttribute('target', '_blank');
     expect(blog).toHaveAttribute('rel', 'noreferrer noopener');
@@ -205,6 +206,7 @@ describe('site-wide listening easter egg', () => {
     expect(screen.getByRole('navigation', { name: 'Primary navigation' })).toContainElement(
       screen.getByRole('link', { name: "Read Noah's story" }),
     );
+    expect(screen.getAllByText('Ask bar')).toHaveLength(1);
     expect(screen.getByRole('navigation', { name: 'Primary navigation' })).toContainElement(
       screen.getByRole('link', { name: "Read Noah's blog" }),
     );

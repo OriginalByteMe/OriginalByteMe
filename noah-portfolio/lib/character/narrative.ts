@@ -241,7 +241,6 @@ export type CharacterLine = Readonly<{ id: string; line: string; source?: Corpus
 const BIO = "content/about-me/bio.md";
 const CAREER = "content/about-me/career.md";
 const FUN = "content/about-me/fun-facts.md";
-const SKILLS = "content/about-me/skills.md";
 const project = (slug: string): CorpusSource => `content/about-me/projects/${slug}.md`;
 
 export const PORTRAIT_LINE: CharacterLine = { id: "portrait-admire", line: "Huh. Maybe that's what I'd look like." };
@@ -263,7 +262,7 @@ export const AREA_ARRIVAL_LINES: Readonly<Record<AreaId, CharacterLine>> = {
   about: { id: "arrive-about", line: "Okay, this part's about me." },
 };
 
-/** Keyed by the shared station ids; the scene picks one when a station's routine starts. */
+/** Keyed by the station ids he plays on his own; the scene picks one when a station's routine starts. Skill groups and jobs only present, with lines their rooms build. */
 export const STATION_LINES: Readonly<Record<string, readonly CharacterLine[]>> = {
   desk: [
     { id: "desk-merchantspring", line: "Building marketplace analytics at MerchantSpring. Click clack!", source: CAREER },
@@ -297,17 +296,8 @@ export const STATION_LINES: Readonly<Record<string, readonly CharacterLine[]>> =
   "project:story-model-benchmark": [
     { id: "project-story-model-benchmark", line: "This benchmark helps choose the model behind my Story!", source: project("story-model-benchmark") },
   ],
-  skills: [
-    { id: "skills-languages", line: "Ruby, Python, TypeScript... press a key, any key!", source: SKILLS },
-    { id: "skills-ai", line: "LangChain, Langfuse, Ollama. My AI toolbox!", source: SKILLS },
-  ],
   portrait: [PORTRAIT_LINE, { id: "portrait-straighten", line: "A little to the left... perfect." }],
   skyline: [{ id: "skyline-kl", line: "Kuala Lumpur, Malaysia. That's where I'm based!", source: BIO }],
-  career: [
-    { id: "career-merchantspring", line: "Now: Senior AI Engineer at MerchantSpring!", source: CAREER },
-    { id: "career-supa", line: "Supa, 2020 to 2025: data labeling and LLM evaluation tools.", source: CAREER },
-    { id: "career-bowiq", line: "And CAD and 3D printing with Bowiq since 2023.", source: CAREER },
-  ],
 };
 
 /** Idle asides per area; every one is a sourced public fact. */

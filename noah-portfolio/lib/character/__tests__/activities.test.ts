@@ -44,6 +44,20 @@ describe('autonomous character activities', () => {
     expect(starts.slice(0, 3)).toEqual([['ball', 'approach-ball', 'pickup-ball'], ['bed', 'approach-book', 'pickup-book'], ['ball', 'approach-ball', 'pickup-ball']]);
   });
 
+  it('starts a routine only once he faces the station, handing him its heading to turn to at the stand point', () => {
+    const controller = new CharacterActivityController([PRINTER]);
+    controller.request('printer');
+    expect(controller.tick(1 / 60, { position: { x: 0, z: 0 }, heading: 0 })).toMatchObject({ phase: 'approach', heading: null });
+    // At the stand point but still facing away: he keeps approaching and is told which way to turn.
+    expect(controller.tick(1 / 60, { position: PRINTER.stand, heading: 0 })).toMatchObject({ phase: 'approach', heading: 2.8, started: null });
+    expect(controller.tick(1 / 60, { position: PRINTER.stand, heading: 2.8 + ACTIVITY_CONFIG.arrivalFacing * 2 }).started).toBeNull();
+    expect(controller.tick(1 / 60, { position: PRINTER.stand, heading: 2.8 - ACTIVITY_CONFIG.arrivalFacing / 2 })).toMatchObject({ phase: 'perform', started: 'printer' });
+    // Across the ±π seam counts as facing too.
+    const desk = new CharacterActivityController([DESK]);
+    desk.request('desk');
+    expect(desk.tick(1 / 60, { position: DESK.stand, heading: -Math.PI + .02 }).started).toBe('desk');
+  });
+
   it('runs other kinds as approach, perform for a kind duration, done; seated ones sit and scrub like reading', () => {
     const { frames } = run(40, 20, new CharacterActivityController([DESK, PRINTER]));
     expect(phaseSequence(frames).slice(0, 9)).toEqual(['idle', 'approach', 'sit', 'perform', 'stand', 'idle', 'approach', 'perform', 'idle']);

@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import Hero from '@/components/Hero';
+import { AskMeProvider } from '@/components/AskMeProvider';
 import CharacterWorld from '@/components/character/CharacterWorld';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { makeStore } from '@/lib/store';
@@ -33,24 +33,20 @@ vi.mock('@paper-design/shaders-react', () => ({
   ImageDithering: () => <div data-testid="portrait-dither" />,
 }));
 
-vi.mock('@/components/ChatBox', () => ({
-  default: () => <label>Question for Noah<input aria-label="Question for Noah" /></label>,
-}));
-
 const content: WorldContent = {
   projects: [
-    { slug: 'moodify', title: 'Moodify', description: 'Playlists that follow your mood.', url: 'https://github.com/OriginalByteMe/Moodify', image: '', tech: ['Next.js', 'Spotify API'] },
-    { slug: 'ai-image-cutout', title: 'AI Image Cutout Tool', description: 'Cuts subjects out of photos.', url: '', image: '', tech: ['Python'] },
+    { slug: 'moodify', title: 'Moodify', description: 'Playlists that follow your mood.', url: 'https://github.com/OriginalByteMe/Moodify', image: '', tech: [{ name: 'Next.js', icon: '/icons/next-js.svg' }, { name: 'Spotify API', icon: '/icons/spotify.svg' }] },
+    { slug: 'ai-image-cutout', title: 'AI Image Cutout Tool', description: 'Cuts subjects out of photos.', url: '', image: '', tech: [{ name: 'Python', icon: '/icons/python.svg' }] },
   ],
-  skills: [{ category: 'Databases', skills: ['PostgreSQL', 'Redis'] }, { category: 'AI & LLM Tooling', skills: ['LangChain'] }],
+  skills: [{ category: 'Databases', skills: [{ name: 'PostgreSQL', icon: '/icons/postgresql.svg' }, { name: 'Redis', icon: '/icons/redis.svg' }] }, { category: 'AI & LLM Tooling', skills: [{ name: 'LangChain', icon: '/icons/langchain.png' }] }],
   headline: 'Full-Stack Developer',
   location: 'Kuala Lumpur, Malaysia',
-  career: [{ company: 'MerchantSpring', role: 'Senior AI Engineer', period: '2026 - Present', logo: '' }, { company: 'Bowiq', role: 'CAD Designer & 3D Printing Engineer', period: '2023 - Present', logo: '' }],
+  career: [{ company: 'MerchantSpring', role: 'Senior AI Engineer', period: '2026 - Present', logo: '', url: '', highlights: [] }, { company: 'Bowiq', role: 'CAD Designer & 3D Printing Engineer', period: '2023 - Present', logo: '', url: '', highlights: [] }],
   funFacts: ['Self-hosts on Proxmox + Unraid'],
 };
 let reducedMotion = true;
 let intersect: IntersectionObserverCallback;
-const providers = (children: ReactNode, store = makeStore()) => <Provider store={store}><ThemeProvider>{children}</ThemeProvider></Provider>;
+const providers = (children: ReactNode, store = makeStore()) => <Provider store={store}><ThemeProvider><AskMeProvider>{children}</AskMeProvider></ThemeProvider></Provider>;
 
 beforeEach(() => {
   reducedMotion = true;
@@ -117,33 +113,6 @@ describe('Hero interaction composition', () => {
     expect(document.querySelector('canvas')).not.toBeInTheDocument();
   });
 
-  it('reveals the centered Ask-Me composer and prompt routes only after activation', async () => {
-    render(providers(<Hero />));
-
-    const askRegion = screen.getByRole('region', { name: 'Ask-Me' });
-    expect(askRegion).toHaveAttribute('data-state', 'collapsed');
-    expect(askRegion).not.toHaveClass('hero-panel');
-    const launcher = screen.getByRole('button', { name: 'Open Ask-Me composer' });
-    expect(launcher).toHaveClass('ask-launcher-button');
-    expect(launcher).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByText('Ask this portfolio anything')).toBeVisible();
-    expect(screen.queryByRole('textbox', { name: 'Question for Noah' })).not.toBeInTheDocument();
-    expect(screen.queryByText('Where should we begin?')).not.toBeInTheDocument();
-
-    fireEvent.click(launcher);
-
-    expect(askRegion).toHaveAttribute('data-state', 'expanded');
-    expect(screen.getByRole('button', { name: 'Ask-Me composer is open' })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('heading', { level: 2, name: 'Where should we begin?' })).toBeVisible();
-    expect(screen.getByRole('textbox', { name: 'Question for Noah' })).toBeVisible();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse Ask-Me' }));
-
-    expect(screen.queryByRole('textbox', { name: 'Question for Noah' })).not.toBeInTheDocument();
-    const restoredLauncher = screen.getByRole('button', { name: 'Open Ask-Me composer' });
-    await waitFor(() => expect(restoredLauncher).toHaveFocus());
-  });
-
   it('keeps a selected Spotify track tied to portrait tinting without restoring listening UI', () => {
     const selectedTrack = {
       id: 'signal-1',
@@ -182,11 +151,14 @@ describe('Character world sections', () => {
     for (const project of content.projects) {
       const card = within(lab).getByRole('heading', { level: 3, name: project.title }).closest('li')!;
       expect(card).toHaveTextContent(project.description);
-      expect(card).toHaveTextContent(project.tech.join(' · '));
+      expect(card).toHaveTextContent(project.tech.map((tech) => tech.name).join(' · '));
     }
     expect(within(lab).getByRole('link', { name: /Visit Moodify/ })).toHaveAttribute('href', 'https://github.com/OriginalByteMe/Moodify');
     expect(within(lab).queryByRole('link', { name: /Visit AI Image Cutout Tool/ })).not.toBeInTheDocument();
-    expect(within(lab).getByText('Databases').nextSibling).toHaveTextContent('PostgreSQL, Redis');
+    const databases = within(lab).getByText('Databases').nextElementSibling as HTMLElement;
+    expect(within(databases).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['PostgreSQL', 'Redis']);
+    // Each name carries its own vendored icon, hidden from assistive tech.
+    expect([...databases.querySelectorAll('img')].map((img) => [img.getAttribute('src'), img.getAttribute('alt')])).toEqual([['/icons/postgresql.svg', ''], ['/icons/redis.svg', '']]);
     expect(within(lab).getByText('AI & LLM Tooling')).toBeInTheDocument();
     expect(within(lab).queryByRole('button', { name: /Show me/ })).not.toBeInTheDocument();
 
@@ -209,8 +181,8 @@ describe('Character world sections', () => {
     expect(createScene.mock.calls[0][1].content).toBe(content);
     fireEvent.click(screen.getByRole('button', { name: 'Show me Moodify' }));
     expect(scene.visit).toHaveBeenLastCalledWith('project:moodify');
-    fireEvent.click(screen.getByRole('button', { name: 'Show me the skills wall' }));
-    expect(scene.visit).toHaveBeenLastCalledWith('skills');
+    fireEvent.click(screen.getByRole('button', { name: 'Show me the AI & LLM Tooling wall' }));
+    expect(scene.visit).toHaveBeenLastCalledWith('skills:ai-llm-tooling');
     for (const panel of document.querySelectorAll('.character-world__panel')) expect(panel).toHaveAttribute('data-character-ui');
   });
 });

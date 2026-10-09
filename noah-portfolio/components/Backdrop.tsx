@@ -11,8 +11,14 @@ import {
 } from '@paper-design/shaders-react';
 
 import { useTheme } from '@/components/ThemeProvider';
-import { resolveBackdropPreset, type BackdropPreset } from '@/lib/backdrop/presets';
+import {
+  resolveBackdropPreset,
+  type BackdropPalette,
+  type BackdropPreset,
+} from '@/lib/backdrop/presets';
 import { supportsWebGL2 } from '@/lib/backdrop/webgl';
+import { ditherPaletteFromTrack } from '@/lib/dither-palette';
+import type { RootState } from '@/lib/store';
 import { selectBackdropPreset } from '@/lib/store/slices/backdrop-slice';
 
 const MAX_PIXELS_COARSE = 1_600_000;
@@ -134,13 +140,28 @@ function PresetShader({
  * The app-wide backdrop: one steerable shader canvas plus a CSS-only nocturne
  * scene. CSS remains fully painted during SSR, reduced motion, WebGL fallback,
  * and synchronous shader failure. Preset updates replace props on the single
- * mounted shader rather than overlapping canvases.
+ * mounted shader rather than overlapping canvases. On the home page it is the
+ * sky behind the transparent character world, so a soundtrack pick retints the
+ * home sky with the album palette; answers keep their own preset colours, even
+ * when an answer picks the home preset.
  */
 export function Backdrop() {
   const presetName = useSelector(selectBackdropPreset);
+  const home = useSelector((state: RootState) => state.backdrop.home);
+  const selectedTrack = useSelector((state: RootState) => state.spotify.selectedTrack);
   const { theme } = useTheme();
   const preset = resolveBackdropPreset(presetName);
-  const palette = preset.palette[theme];
+  const presetPalette = preset.palette[theme];
+  let palette: BackdropPalette = presetPalette;
+  if (selectedTrack && home) {
+    const [ink] = presetPalette.colors;
+    const tint = ditherPaletteFromTrack(selectedTrack.colourPalette, theme === 'dark', {
+      colorFront: ink,
+      colorBack: presetPalette.colorBack,
+      colorHighlight: ink,
+    });
+    palette = { colorBack: tint.colorBack, colors: [tint.colorFront] };
+  }
 
   const [mounted, setMounted] = useState(false);
   const [reduced, setReduced] = useState(false);

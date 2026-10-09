@@ -14,6 +14,8 @@ export const ACTIVITY_CONFIG = {
   perform: { type: 9, watch: 5.5, tinker: 4.5, admire: 5, play: 5 },
   arrivalRadius: .13,
   arrivalSpeed: .1,
+  /** Radians off the station heading at which he counts as facing it, so a routine never starts mid-turn. */
+  arrivalFacing: .1,
   approachTimeout: 18,
   maxDelta: .1,
 } as const;
@@ -34,7 +36,7 @@ export type ActivityFrame = {
   /** The station stand point while approaching, else null. */
   target: Vec2 | null;
   animation: 'idle' | 'walk' | 'sit';
-  /** Station heading once arrived. Locomotion owns heading while idle or approaching. */
+  /** Station heading once he stands at it: from reaching the stand point (he turns to it) and through the routine. Locomotion owns heading otherwise. */
   heading: number | null;
   /** Scrub 08_Sit_Relaxed to sitProgress * 1.5 seconds; do not loop that clip. */
   sitProgress: number;
@@ -54,6 +56,8 @@ export type ActivityInput = {
   /** True for the entire lifetime of a click/keyboard/wave command, not just its first frame. */
   commanded?: boolean;
   paused?: boolean;
+  /** His heading. When given, he arrives only once he faces the station; until then the frame's heading turns him. */
+  heading?: number;
 };
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
@@ -75,6 +79,8 @@ export class CharacterActivityController {
   private phaseTime = 0;
   private elapsed = 0;
   private catches = 0;
+  /** Approaching and already at the stand point, turning to face the station. */
+  private near = false;
 
   constructor(stations: readonly ActivityStation[] = []) {
     this.stations = stations;
@@ -113,6 +119,7 @@ export class CharacterActivityController {
   private enter(phase: ActivityPhase): void {
     this.phase = phase;
     this.phaseTime = 0;
+    this.near = false;
   }
 
   private begin(station: ActivityStation): void {
@@ -185,12 +192,15 @@ export class CharacterActivityController {
     // Carry fractional overshoot through transitions so cadence is FPS-independent.
     for (let transitions = 0; remaining > 1e-10 && transitions < 8; transitions += 1) {
       const station = this.station;
-      if (station && this.phase.startsWith('approach')
+      this.near = !!station && this.phase.startsWith('approach')
         && Number.isFinite(input.position.x) && Number.isFinite(input.position.z)
         && Math.hypot(input.position.x - station.stand.x, input.position.z - station.stand.z) <= ACTIVITY_CONFIG.arrivalRadius
-        && Math.abs(input.speed ?? 0) <= ACTIVITY_CONFIG.arrivalSpeed) {
+        && Math.abs(input.speed ?? 0) <= ACTIVITY_CONFIG.arrivalSpeed;
+      const facing = input.heading === undefined || !station
+        || Math.abs(Math.atan2(Math.sin(input.heading - station.heading), Math.cos(input.heading - station.heading))) <= ACTIVITY_CONFIG.arrivalFacing;
+      if (this.near && facing) {
         this.arrive();
-        started = station.id;
+        started = station!.id;
       }
       const duration = this.duration(this.phase);
       const consumed = Math.min(remaining, Math.max(0, duration - this.phaseTime));
@@ -219,7 +229,7 @@ export class CharacterActivityController {
       phase, active: phase !== 'idle', time: this.elapsed, progress,
       target: approaching && station ? { ...station.stand } : null,
       animation: approaching ? 'walk' : seated ? 'sit' : 'idle',
-      heading: phase === 'idle' || approaching ? null : station?.heading ?? null,
+      heading: phase === 'idle' || (approaching && !this.near) ? null : station?.heading ?? null,
       sitProgress: phase === 'sit' ? progress : phase === 'stand' ? 1 - progress : seated ? 1 : 0,
       ball, book, catches: this.catches,
       stationId: station?.id ?? null, kind: station?.kind ?? null, started,

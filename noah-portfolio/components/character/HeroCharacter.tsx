@@ -1,10 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
-import type { CharacterScene } from './create-character-scene';
+import { useAskMe } from '@/components/AskMeProvider';
+import type { CharacterScene, CharacterSign } from './create-character-scene';
 import type { WorldContent } from '@/lib/character/world-content';
 
 export type CharacterStatus = 'waiting' | 'loading' | 'ready' | 'fallback';
+/** How long the Ask bar stays promoted after he points at it, unless the visitor does something first. */
+const ASK_PROMOTION_MS = 7000;
+const INTERACTIONS = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
 
 /** Loads neither Three.js nor the model for reduced-motion/data-saving visitors. */
 export default function HeroCharacter({ fallback, content, sceneRef, onStatus }: {
@@ -26,12 +30,30 @@ export default function HeroCharacter({ fallback, content, sceneRef, onStatus }:
   const [entered, setEntered] = useState(false);
   const [greeting, setGreeting] = useState<string | null>(null);
   const [message, setMessage] = useState('Click the floor to send me exploring.');
+  const [sign, setSign] = useState<CharacterSign | null>(null);
+  const { setAskPromoted } = useAskMe();
+  /** Takes down the Ask bar promotion early; set while it is up. */
+  const endPromotion = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const element = host.current;
     if (!element || portrait) return;
     let cancelled = false;
     let cleanup: (() => void) | undefined;
+    /** He points at the Ask bar: promote it until the visitor's first interaction or a few seconds pass. */
+    const promoteAsk = () => {
+      endPromotion.current?.();
+      const end = () => {
+        window.clearTimeout(timer);
+        for (const type of INTERACTIONS) window.removeEventListener(type, end, true);
+        endPromotion.current = null;
+        setAskPromoted(false);
+      };
+      const timer = window.setTimeout(end, ASK_PROMOTION_MS);
+      for (const type of INTERACTIONS) window.addEventListener(type, end, true);
+      endPromotion.current = end;
+      setAskPromoted(true);
+    };
     const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
     const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
     const stopForPreference = () => {
@@ -59,6 +81,8 @@ export default function HeroCharacter({ fallback, content, sceneRef, onStatus }:
           onMessage: setMessage,
           onGreeting: setGreeting,
           onPhase: setPhase,
+          onSign: setSign,
+          onAskPromoted: promoteAsk,
           onError: () => { setStatus('fallback'); api.current?.dispose(); api.current = null; },
         });
         if (cancelled) { scene.dispose(); return; }
@@ -76,11 +100,13 @@ export default function HeroCharacter({ fallback, content, sceneRef, onStatus }:
       observer.disconnect();
       preference.removeEventListener('change', stopForPreference);
       cleanup?.();
+      endPromotion.current?.();
       setGreeting(null);
+      setSign(null);
       setEntered(false);
       api.current = null;
     };
-  }, [portrait, content, api]);
+  }, [portrait, content, api, setAskPromoted]);
 
   const showPortrait = portrait || status === 'fallback';
   const ready = status === 'ready' && !showPortrait;
@@ -105,12 +131,12 @@ export default function HeroCharacter({ fallback, content, sceneRef, onStatus }:
       {showPortrait && <div className="character-hero__fallback">{fallback}</div>}
       <figure className={`character-stage ${ready ? 'character-stage--ready' : ''}`} data-testid={ready ? 'hero-world' : undefined} data-phase={phase} aria-label="Interactive Good Vibes character" aria-hidden={!ready}>
         <div className="character-stage__eyebrow" aria-hidden="true"><span>Good vibes only</span><span>{phase === 'roam' ? 'Free to wander' : 'A tiny adventure'}</span></div>
-        <div ref={host} className="character-stage__canvas" data-testid="character-playground" tabIndex={ready ? 0 : -1} role="group" aria-label="Character world. A short introduction plays automatically; you can skip it. Scroll down and Noah follows you into his lab and about room. Click or tap the floor to guide him, his things to watch him play with them, or his afro if you dare. Use arrow keys to move, space to wave, and Escape to stop." onKeyDown={(event) => {
+        <div ref={host} className="character-stage__canvas" data-testid="character-playground" tabIndex={ready ? 0 : -1} role="group" aria-label="Character world. A short introduction plays automatically; you can skip it. Scroll and Noah follows you down into his lab and his about room. Click or tap the floor to guide him, his things to watch him play with them or present them, or his afro if you dare. Use arrow keys to move, space to wave, and Escape to stop." onKeyDown={(event) => {
           if (api.current?.key(event.key)) event.preventDefault();
         }} />
         {greeting && ready && <p className="character-stage__speech" role="status" aria-live="polite">{greeting}<span aria-hidden="true">↓</span></p>}
+        {sign && ready && <a className="character-stage__sign" href={sign.url} target="_blank" rel="noreferrer noopener" style={{ left: sign.x, top: sign.y }}>{sign.label} <span aria-hidden="true">↗</span></a>}
         <div className="character-stage__note" aria-hidden="true"><span className="character-stage__dot" /><span>{paused ? 'Taking a breather' : message}</span></div>
-        <figcaption className="character-stage__caption">{phase === 'roam' ? 'Click to explore. Scroll and I’ll follow.' : 'A little hello, then a world to explore.'}</figcaption>
       </figure>
       {!showPortrait && <div className="character-hero__opening" aria-hidden="true"><p>Hi, I’m<br /><em>Noah Rijkaard.</em></p></div>}
       {status === 'loading' && !showPortrait && <p className="character-hero__loading" role="status">Waking up the good vibes…</p>}

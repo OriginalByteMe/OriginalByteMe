@@ -5,7 +5,8 @@ import Image from 'next/image';
 import Hero, { HeroPortrait } from '../Hero';
 import HeroCharacter, { type CharacterStatus } from './HeroCharacter';
 import type { CharacterScene } from './create-character-scene';
-import type { WorldContent } from '@/lib/character/world-content';
+import { skillStationId, type WorldContent } from '@/lib/character/world-content';
+import { isSvgSrc } from '@/lib/utils';
 
 /**
  * One sticky 3D viewport behind three scrolling sections. The bedroom, lab and
@@ -31,13 +32,13 @@ export default function CharacterWorld({ content }: { content: WorldContent }) {
         <div className="character-world__panel" data-character-ui>
           <p className="character-world__eyebrow">Tech lab</p>
           <h2 id="lab-heading">Things I’ve built</h2>
-          <p className="character-world__intro">Every project has an exhibit in my lab. Press Show me and I’ll go play with it.</p>
+          <p className="character-world__intro">Every project and skill group has a machine in my lab. Press Show me and I’ll show it to you.</p>
           <ul className="character-world__projects">
             {content.projects.map((project) => (
               <li key={project.slug}>
                 <h3>{project.title}</h3>
                 <p>{project.description}</p>
-                <p className="character-world__tech"><span className="sr-only">Built with: </span>{project.tech.join(' · ')}</p>
+                <p className="character-world__tech"><span className="sr-only">Built with: </span>{project.tech.map((tech) => tech.name).join(' · ')}</p>
                 <div className="character-world__actions">
                   {project.url && <a href={project.url} target="_blank" rel="noreferrer noopener">Visit <span className="sr-only">{project.title}</span> <span aria-hidden="true">↗</span></a>}
                   {showMe(`project:${project.slug}`, project.title)}
@@ -48,10 +49,19 @@ export default function CharacterWorld({ content }: { content: WorldContent }) {
           <h3 className="character-world__subheading">Skills</h3>
           <dl className="character-world__skills">
             {content.skills.map((group) => (
-              <div key={group.category}><dt>{group.category}</dt><dd>{group.skills.join(', ')}</dd></div>
+              <div key={group.category}>
+                <dt>{group.category}</dt>
+                <dd>
+                  <ul className="character-world__skill-list">
+                    {group.skills.map((skill) => (
+                      <li key={skill.name}><Image src={skill.icon} alt="" width={16} height={16} unoptimized={isSvgSrc(skill.icon)} />{skill.name}</li>
+                    ))}
+                  </ul>
+                  {showMe(skillStationId(group.category), `the ${group.category} wall`)}
+                </dd>
+              </div>
             ))}
           </dl>
-          <div className="character-world__actions">{showMe('skills', 'the skills wall')}</div>
         </div>
       </section>
       <section id="about" aria-labelledby="about-heading" className="character-world__area">

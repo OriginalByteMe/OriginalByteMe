@@ -1,27 +1,33 @@
 /**
- * Which area the character belongs to as the visitor scrolls, and the timed
- * transition that carries him there: down is chase, trip, fall, land, recover;
- * up is jump, land, recover. One area per transition. Active time only.
+ * Which area the character belongs to as the visitor scrolls, and the transition that
+ * carries him there: down is chase, trip, fall, land, recover; up is jump, land, recover.
+ * One area per transition. The scene runs him to the area's exit during the chase and
+ * reports `arrived` when he gets there; every other phase is timed. Active time only.
  */
 export type TourPhase = 'settled' | 'chase' | 'trip' | 'fall' | 'land' | 'recover' | 'jump';
+type TimedPhase = Exclude<TourPhase, 'settled' | 'chase'>;
 export type TourFrame = {
   /** Area the character belongs to; becomes `to` when 'fall' or 'jump' ends. */
   area: number;
   /** Equal when settled. */
   from: number; to: number;
-  /** 0..1 within the phase; 0 while settled. */
+  /** 0..1 within a timed phase; 0 while settled or chasing. */
   phase: TourPhase; progress: number;
   /** Phase entered on this tick, one-shot (speech and sfx hooks). */
   started: TourPhase | null;
 };
-export type TourInput = { viewArea: number };
+export type TourInput = {
+  viewArea: number;
+  /** The scene has run him to the exit he is chasing: the chase ends on this tick. Ignored outside a chase. */
+  arrived?: boolean;
+};
 
-export const TOUR_PHASE_DURATION = { chase: .9, trip: .45, fall: 1.3, land: .55, recover: 1.1, jump: 1.2 } as const;
+export const TOUR_PHASE_DURATION: Readonly<Record<TimedPhase, number>> = { trip: .45, fall: 1.3, land: .55, recover: 1.1, jump: 1.2 };
 /** Seconds a new viewArea must hold before a transition starts. */
 export const TOUR_DEBOUNCE = .35;
 export const TOUR_MAX_DELTA = .1;
-const NEXT: Record<Exclude<TourPhase, 'settled'>, TourPhase> = {
-  chase: 'trip', trip: 'fall', fall: 'land', jump: 'land', land: 'recover', recover: 'settled',
+const NEXT: Record<TimedPhase, TourPhase> = {
+  trip: 'fall', fall: 'land', jump: 'land', land: 'recover', recover: 'settled',
 };
 
 export class CharacterTourController {
@@ -53,6 +59,8 @@ export class CharacterTourController {
     const view = Number.isFinite(input.viewArea) ? this.clampArea(input.viewArea) : this.area;
     let remaining = Number.isFinite(deltaSeconds) ? Math.max(0, Math.min(TOUR_MAX_DELTA, deltaSeconds)) : 0;
     let started: TourPhase | null = null;
+    // He reached the exit during the last frame, so this tick's time already belongs to the trip.
+    if (this.phase === 'chase' && input.arrived) { this.phase = started = 'trip'; this.phaseTime = 0; }
     // Carry overshoot through phase changes so timing does not depend on frame rate.
     for (let transitions = 0; remaining > 1e-10 && transitions < 8; transitions += 1) {
       if (this.phase === 'settled') {
@@ -63,6 +71,7 @@ export class CharacterTourController {
         started = this.begin(view);
         continue;
       }
+      if (this.phase === 'chase') break;
       const duration = TOUR_PHASE_DURATION[this.phase];
       const consumed = Math.min(remaining, duration - this.phaseTime);
       this.phaseTime += consumed; remaining -= consumed;
@@ -92,7 +101,7 @@ export class CharacterTourController {
     const phase = this.phase;
     return {
       area: this.area, from: this.from, to: this.to,
-      phase, progress: phase === 'settled' ? 0 : Math.min(1, this.phaseTime / TOUR_PHASE_DURATION[phase]),
+      phase, progress: phase === 'settled' || phase === 'chase' ? 0 : Math.min(1, this.phaseTime / TOUR_PHASE_DURATION[phase]),
       started,
     };
   }
