@@ -25,9 +25,13 @@ export const BANNED_PHRASES = [
   "Full-Stack Range",
 ] as const;
 
-// Long excerpts are cut in the prompt only, so the model can cite just what it can read; the cap
-// leaves room for the answer inside Ollama's default 4096-token context.
+// Long excerpts are cut in the prompt only, so the model can cite just what it can read.
 const MAX_PROMPT_EXCERPT = 220;
+// Every request is one fresh call: this prompt, the question (at most 280 characters) and at most one
+// 600-character repair note, never a growing chat. The cap keeps the answer inside Ollama's default
+// 4096-token context and every Claude Haiku 5.5 request near 5k tokens, far below the 100k-token prompt
+// where its price rises fivefold (Haiku 5.5 read this prompt at about 2.6 characters per token).
+export const MAX_SITE_SYSTEM_PROMPT_CHARS = 12_000;
 
 const SITE_RULES = `You build a small one-page website that answers a visitor's question about Noah.
 Write as Noah, in the first person ("I", "my"), in plain, specific words with no marketing filler.
@@ -72,11 +76,19 @@ Return one JSON object only. No markdown, no code fences, no commentary.
 - art: pick the picture whose description matches the topic. Optional on sections and items.
 - relatedQuestions: 2 or 3 different follow-up questions the Evidence can answer.`;
 
-/** The whole site-generation prompt: rules, catalogs, and a compact example. */
-export function buildSiteSystemPrompt(): string {
-  const evidence = CORPUS_EVIDENCE_REFS.map(({ id, label, excerpt }) => {
-    const shown = excerpt.length > MAX_PROMPT_EXCERPT
-      ? `${excerpt.slice(0, MAX_PROMPT_EXCERPT).trimEnd()}…`
+/** The whole site-generation prompt; when the Corpus outgrows the cap, excerpts shorten until it fits. */
+export function buildSiteSystemPrompt(evidenceRefs: typeof CORPUS_EVIDENCE_REFS = CORPUS_EVIDENCE_REFS): string {
+  for (let cap = MAX_PROMPT_EXCERPT; cap >= 0; cap -= 20) {
+    const prompt = renderSiteSystemPrompt(evidenceRefs, cap);
+    if (prompt.length <= MAX_SITE_SYSTEM_PROMPT_CHARS) return prompt;
+  }
+  throw new Error(`The site prompt is over ${MAX_SITE_SYSTEM_PROMPT_CHARS} characters even without excerpts`);
+}
+
+function renderSiteSystemPrompt(evidenceRefs: typeof CORPUS_EVIDENCE_REFS, excerptCap: number): string {
+  const evidence = evidenceRefs.map(({ id, label, excerpt }) => {
+    const shown = excerpt.length > excerptCap
+      ? `${excerpt.slice(0, excerptCap).trimEnd()}…`
       : excerpt;
     return `${id} | ${label} | ${shown}`;
   }).join("\n");

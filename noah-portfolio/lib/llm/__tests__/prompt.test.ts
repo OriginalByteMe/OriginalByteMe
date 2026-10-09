@@ -5,7 +5,12 @@ import { ART_IDS } from "@/lib/site/art";
 import { SITE_EXAMPLE, SITE_EXAMPLE_QUESTION } from "@/lib/llm/examples";
 import { generateSite } from "@/lib/llm/generate-site";
 import { getModel } from "@/lib/llm/openrouter";
-import { BANNED_PHRASES, buildSiteSystemPrompt, buildSiteUserMessage } from "@/lib/llm/prompt";
+import {
+  BANNED_PHRASES,
+  MAX_SITE_SYSTEM_PROMPT_CHARS,
+  buildSiteSystemPrompt,
+  buildSiteUserMessage,
+} from "@/lib/llm/prompt";
 import { CORPUS_EVIDENCE_REFS } from "@/lib/story/evidence";
 
 vi.mock("ai", async (importOriginal) => ({
@@ -29,7 +34,15 @@ describe("Site generation prompt", () => {
 
     for (const ref of CORPUS_EVIDENCE_REFS) expect(prompt).toContain(`${ref.id} | ${ref.label} |`);
     for (const id of ART_IDS) expect(prompt).toContain(`${id}: `);
-    expect(prompt.length).toBeLessThan(12_000);
+    expect(prompt.length).toBeLessThanOrEqual(MAX_SITE_SYSTEM_PROMPT_CHARS);
+  });
+
+  it("shortens excerpts to stay under the cap when the Corpus grows, keeping every id", () => {
+    const grown = [1, 2, 3, 4].flatMap((copy) => CORPUS_EVIDENCE_REFS.map((ref) => ({ ...ref, id: `${ref.id}-${copy}` })));
+    const prompt = buildSiteSystemPrompt(grown);
+
+    expect(prompt.length).toBeLessThanOrEqual(MAX_SITE_SYSTEM_PROMPT_CHARS);
+    for (const ref of grown) expect(prompt).toContain(`${ref.id} | ${ref.label} |`);
   });
 
   it("quotes the visitor question as data", () => {
