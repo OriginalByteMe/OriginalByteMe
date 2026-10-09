@@ -25,7 +25,7 @@ type SchemaNode = { properties: Record<string, SchemaNode>; items: SchemaNode; e
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(getModel).mockReturnValue({} as never);
+  vi.mocked(getModel).mockReturnValue({ modelId: "test-model" } as never);
 });
 
 describe("Site generation prompt", () => {

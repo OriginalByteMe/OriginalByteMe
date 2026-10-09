@@ -24,15 +24,31 @@ function openRouterStream(content: string): Response {
   return new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } });
 }
 
+function stubOpenRouterEnv(model: string) {
+  vi.stubEnv("OPENROUTER_API_KEY", "test-key");
+  vi.stubEnv("OPENROUTER_MODEL", model);
+  vi.stubEnv("OPENROUTER_PROVIDER_ORDER", undefined);
+  vi.stubEnv("OPENROUTER_FALLBACK_MODELS", undefined);
+  vi.stubEnv("OPENROUTER_BASE_URL", undefined);
+  vi.stubEnv("OPENROUTER_REASONING_EFFORT", undefined);
+}
+
+/** The `response_format.json_schema.schema` that one valid site request sends for `model`. */
+async function sentSchema(model: string): Promise<object> {
+  stubOpenRouterEnv(model);
+  const requests: { response_format: { json_schema: { schema: object } } }[] = [];
+  vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+    requests.push(JSON.parse(String(init.body)));
+    return openRouterStream(JSON.stringify(SITE_EXAMPLE));
+  });
+  await generateSite("What did Noah build?", { signal: new AbortController().signal });
+  return requests[0].response_format.json_schema.schema;
+}
+
 describe("generateSite", () => {
   // Without the breakpoint every visitor pays full input price for the shared system prompt.
   it("marks the system prompt as an ephemeral cache breakpoint on the first and the repair request", async () => {
-    vi.stubEnv("OPENROUTER_API_KEY", "test-key");
-    vi.stubEnv("OPENROUTER_MODEL", "");
-    vi.stubEnv("OPENROUTER_PROVIDER_ORDER", undefined);
-    vi.stubEnv("OPENROUTER_FALLBACK_MODELS", undefined);
-    vi.stubEnv("OPENROUTER_BASE_URL", undefined);
-    vi.stubEnv("OPENROUTER_REASONING_EFFORT", undefined);
+    stubOpenRouterEnv("");
     const replies = ["{not json", JSON.stringify(SITE_EXAMPLE)];
     const requests: { messages: unknown[] }[] = [];
     vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
@@ -52,6 +68,34 @@ describe("generateSite", () => {
       content: [{ type: "text", text: buildSiteSystemPrompt(), cache_control: { type: "ephemeral" } }],
     };
     expect(requests.map((request) => request.messages[0])).toEqual([cachedSystem, cachedSystem]);
+  });
+
+  // Anthropic answers 400 to string limits and to array limits beyond minItems 1, so every Ask would fail over.
+  it("sends Anthropic models the schema without the limits their structured outputs reject", async () => {
+    const schema = await sentSchema("anthropic/claude-haiku-5.5");
+    const wire = JSON.stringify(schema);
+
+    for (const keyword of ["minLength", "maxLength", "maxItems", "minimum", "maximum", "multipleOf", "uniqueItems"]) {
+      expect(wire).not.toContain(`"${keyword}"`);
+    }
+    expect(wire).not.toMatch(/"minItems":([2-9]|\d{2,})/);
+    const citation = { items: { type: "string", enum: CORPUS_EVIDENCE_REFS.map((ref) => ref.id) } };
+    expect(schema).toMatchObject({
+      required: SITE_RESPONSE_JSON_SCHEMA.required,
+      additionalProperties: false,
+      properties: {
+        hero: { properties: { evidenceRefIds: citation } },
+        sections: { items: { properties: { evidenceRefIds: citation } } },
+      },
+    });
+  });
+
+  it("sends other models the full schema, limits included", async () => {
+    const schema = await sentSchema("qwen3:8b");
+
+    expect(schema).toEqual(SITE_RESPONSE_JSON_SCHEMA);
+    expect(JSON.stringify(schema)).toContain('"minItems":2');
+    expect(JSON.stringify(schema)).toContain('"maxItems"');
   });
 });
 
