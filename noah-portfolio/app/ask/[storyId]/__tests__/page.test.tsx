@@ -82,10 +82,12 @@ afterEach(() => {
 });
 
 describe("public Story route", () => {
-  it("renders a current story as its generated site", async () => {
+  it("renders a current story as its generated site, inside the page's only main landmark", async () => {
     await openStory(CURRENT_STORY_ID);
 
     expect(screen.getByRole("heading", { level: 1, name: CURRENT_PUBLIC_STORY.site.hero.headline })).toBeVisible();
+    // A <main> inside the page's own is invalid HTML and a second main landmark for screen readers.
+    expect(screen.getAllByRole("main", { hidden: true })).toHaveLength(1);
   });
 
   it("renders the regenerate screen for an outdated story and never its stale site", async () => {
