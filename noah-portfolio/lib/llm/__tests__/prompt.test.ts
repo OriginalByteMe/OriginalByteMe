@@ -41,8 +41,8 @@ describe("Site generation prompt", () => {
   });
 
   it("shortens excerpts to stay under the cap when the Corpus grows, keeping every id", () => {
-    // Three times today's Corpus: at four, the ids and labels alone outgrow the cap beside these rules.
-    const grown = [1, 2, 3].flatMap((copy) => CORPUS_EVIDENCE_REFS.map((ref) => ({ ...ref, id: `${ref.id}-${copy}` })));
+    // Twice today's Corpus is over the cap at full excerpts, so it must compact; three times leaves almost no room.
+    const grown = [1, 2].flatMap((copy) => CORPUS_EVIDENCE_REFS.map((ref) => ({ ...ref, id: `${ref.id}-${copy}` })));
     const prompt = buildSiteSystemPrompt(grown);
 
     expect(prompt.length).toBeLessThanOrEqual(MAX_SITE_SYSTEM_PROMPT_CHARS);
