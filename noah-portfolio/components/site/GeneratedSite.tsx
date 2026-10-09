@@ -82,6 +82,10 @@ function jumpTo(event: MouseEvent<HTMLAnchorElement>) {
   target?.focus({ preventScroll: true });
 }
 
+// The main site's ark logo: the SVG the home Backdrop draws, also the favicon's picture. Static, so no next/image.
+// eslint-disable-next-line @next/next/no-img-element
+const LOGO = <img className="gs-brand__mark" src="/Noah%20Icon%20FA.svg" alt="" width={44} height={44} />;
+
 export default function GeneratedSite({ site, evidence, revealed, onAsk }: GeneratedSiteProps) {
   const { hero, sections } = site;
   const boundary = site.mode === "boundary";
@@ -100,7 +104,7 @@ export default function GeneratedSite({ site, evidence, revealed, onAsk }: Gener
       <div className="gs-top">
         <header className="gs-nav" {...block(0)}>
           <a className="gs-brand" href="#gs-hero" onClick={jumpTo}>
-            <span className="gs-brand__mark" aria-hidden />
+            {LOGO}
             {site.brand}
           </a>
           {sections.length ? (
@@ -192,7 +196,7 @@ export default function GeneratedSite({ site, evidence, revealed, onAsk }: Gener
       <footer className="gs-footer" {...block(relatedIndex + 1)}>
         <div>
           <p className="gs-brand">
-            <span className="gs-brand__mark" aria-hidden />
+            {LOGO}
             {site.brand}
           </p>
           <p className="gs-footer__note">{hero.eyebrow}</p>

@@ -279,18 +279,17 @@
   display: inline-flex;
   flex: none;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   font-weight: 650;
   letter-spacing: -0.01em;
   text-decoration: none;
 }
+/* The main site's ark logo. Its drawing sits inside generous padding, so the box overlaps the nav's padding. */
 .gs-brand__mark {
   flex: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  background: var(--site-accent);
-  box-shadow: 5px 5px 0 var(--site-accent-2);
+  width: 44px;
+  height: 44px;
+  margin-block: -6px;
 }
 .gs-nav__links {
   display: flex;
