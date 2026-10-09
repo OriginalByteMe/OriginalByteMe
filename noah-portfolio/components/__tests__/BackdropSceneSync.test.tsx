@@ -8,12 +8,12 @@ import {
   STREAMING_BACKDROP_PRESET,
   type BackdropPresetName,
 } from "@/lib/backdrop/presets";
+import type { CanvasMode } from "@/lib/hooks/usePortfolioCanvas";
 import { makeStore } from "@/lib/store";
 import { setBackdropPreset } from "@/lib/store/slices/backdrop-slice";
 
 const askMeState = vi.hoisted(() => ({
-  mode: "home" as "home" | "streaming" | "answer",
-  plan: null as { backdropPreset: BackdropPresetName } | null,
+  mode: "home" as CanvasMode,
 }));
 
 vi.mock("@/components/AskMeProvider", () => ({
@@ -35,7 +35,6 @@ function renderSceneSync(initialPreset?: BackdropPresetName) {
 
 beforeEach(() => {
   askMeState.mode = "home";
-  askMeState.plan = null;
   document.body.innerHTML = `
     <div data-backdrop-scene data-chapter="hero"></div>
     <section id="hero"></section>
@@ -96,57 +95,23 @@ describe("BackdropSceneSync", () => {
     expect(store.getState().backdrop.preset).toBe(STREAMING_BACKDROP_PRESET);
   });
 
-  it("derives the generated preset from the Story Plan", () => {
-    askMeState.mode = "answer";
-    askMeState.plan = { backdropPreset: "panelParade" };
-
-    const { store } = renderSceneSync("nightMatte");
-    expect(store.getState().backdrop.preset).toBe("panelParade");
-    expect(document.querySelector("[data-backdrop-scene]")).toHaveAttribute(
-      "data-chapter",
-      "hero",
-    );
-    expect(intersectionObserver).not.toHaveBeenCalled();
-  });
-
-  it("owns home, planned, and immediate unplanned-streaming transitions", () => {
+  it("holds the streaming preset behind every generated-site mode and restores the default at home", () => {
     const { store, rerender } = renderSceneSync("ditherEmber");
     expect(store.getState().backdrop.preset).toBe(DEFAULT_BACKDROP_PRESET);
 
-    askMeState.mode = "answer";
-    askMeState.plan = { backdropPreset: "panelParade" };
-    rerender(
-      <Provider store={store}>
-        <BackdropSceneSync />
-      </Provider>,
-    );
-    expect(store.getState().backdrop.preset).toBe("panelParade");
-
-    const streamingPresets: BackdropPresetName[] = [];
-    const unsubscribe = store.subscribe(() => {
-      streamingPresets.push(store.getState().backdrop.preset);
-    });
-
-    askMeState.mode = "streaming";
-    askMeState.plan = null;
-    rerender(
-      <Provider store={store}>
-        <BackdropSceneSync />
-      </Provider>,
-    );
-    expect(store.getState().backdrop.preset).toBe(STREAMING_BACKDROP_PRESET);
-    expect(streamingPresets).toEqual([
-      DEFAULT_BACKDROP_PRESET,
-      STREAMING_BACKDROP_PRESET,
-    ]);
-    unsubscribe();
-
-    askMeState.mode = "home";
-    rerender(
-      <Provider store={store}>
-        <BackdropSceneSync />
-      </Provider>,
-    );
-    expect(store.getState().backdrop.preset).toBe(DEFAULT_BACKDROP_PRESET);
+    for (const [mode, preset] of [
+      ["streaming", STREAMING_BACKDROP_PRESET],
+      ["answer", STREAMING_BACKDROP_PRESET],
+      ["error", STREAMING_BACKDROP_PRESET],
+      ["home", DEFAULT_BACKDROP_PRESET],
+    ] as const) {
+      askMeState.mode = mode;
+      rerender(
+        <Provider store={store}>
+          <BackdropSceneSync />
+        </Provider>,
+      );
+      expect(store.getState().backdrop.preset).toBe(preset);
+    }
   });
 });

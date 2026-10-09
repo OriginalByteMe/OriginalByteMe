@@ -1,31 +1,18 @@
-import { isBackdropPresetName, type BackdropPresetName } from "@/lib/backdrop/presets";
-import { isMotionAssetId, type MotionAssetId } from "@/lib/motion-assets/catalog";
+import { ART_IDS } from "@/lib/site/art";
 import { z } from "zod";
 
 /** Deliberate compatibility boundary for generated Story structure and behavior. */
-export const STORY_CONTRACT_VERSION = "v6" as const;
+export const STORY_CONTRACT_VERSION = "v7" as const;
 
 /** Deliberate compatibility boundary for the authored Corpus used to ground Stories. */
-export const CORPUS_REVISION = "2026-07-14" as const;
+export const CORPUS_REVISION = "2026-10-09" as const;
 
-export const SCENE_PATTERNS = [
-  "hero-statement",
-  "project-spotlight",
-  "evidence-ledger",
-  "timeline",
-  "capability-map",
-  "system-diagram",
-  "closing-synthesis",
-] as const;
-
-export const STORY_REGISTERS = [
-  "editorial",
-  "technical",
-  "diagrammatic",
-  "reflective",
-] as const;
-
-export const SCENE_ROLES = ["direct-answer", "evidence", "synthesis"] as const;
+/** Whole-page arrangements the model chooses between. */
+const SITE_LAYOUTS = ["bento", "editorial", "landing", "dossier", "cascade"] as const;
+/** Colour schemes; each name maps to `--site-*` variables in `lib/site/art/art.css`. */
+const SITE_PALETTES = ["midnight", "paper", "studio", "forest", "ember"] as const;
+/** Visual shapes a section can take; the renderer handles any item count for each. */
+const SECTION_KINDS = ["cards", "split", "list", "timeline", "quote", "banner"] as const;
 
 /** Client-safe vocabulary mirrored from the authored Corpus project filenames. */
 export const PROJECT_SLUGS = [
@@ -35,24 +22,7 @@ export const PROJECT_SLUGS = [
   "moodify",
   "story-model-benchmark",
 ] as const;
-export const ELIGIBLE_PATTERNS_BY_ROLE = {
-  "direct-answer": ["hero-statement"],
-  evidence: [
-    "project-spotlight",
-    "evidence-ledger",
-    "timeline",
-    "capability-map",
-    "system-diagram",
-  ],
-  synthesis: ["closing-synthesis"],
-} as const satisfies Record<
-  (typeof SCENE_ROLES)[number],
-  readonly (typeof SCENE_PATTERNS)[number][]
->;
-export const SCENE_CUE_PHASES = ["intro", "develop", "resolve"] as const;
-export const SCENE_CUE_FOCUSES = ["center", "left", "right"] as const;
-export const SCENE_CUE_INTENSITIES = ["quiet", "medium", "strong"] as const;
-export const NON_PUBLISHING_STORY_PHASES = ["planning", "composing", "validating"] as const;
+export const NON_PUBLISHING_STORY_PHASES = ["generating", "validating"] as const;
 export const StoryPublicationTokenSchema = z
   .string()
   .regex(
@@ -85,26 +55,21 @@ export const EvidenceRefSchema = z
   })
   .strict();
 
-export const SceneCueSchema = z
-  .object({
-    phase: z.enum(SCENE_CUE_PHASES),
-    focus: z.enum(SCENE_CUE_FOCUSES),
-    intensity: z.enum(SCENE_CUE_INTENSITIES),
-  })
-  .strict();
-
-const EvidenceRefIdsSchema = z
-  .array(nonEmptyText(120).regex(SLUG_PATTERN))
-  .max(12);
+/** One cited Evidence Ref id. Exported so the server can narrow it to the active Corpus ids. */
+export const EvidenceRefIdSchema = nonEmptyText(120).regex(SLUG_PATTERN);
+const EvidenceRefIdsSchema = z.array(EvidenceRefIdSchema).max(6);
 
 export const ProjectSlugSchema = z.enum(PROJECT_SLUGS, {
   message: "Unknown Corpus project slug",
 });
 
+/** Project cards one section can carry. */
+export const MAX_SECTION_PROJECTS = 3;
+
 const ProjectSlugsSchema = z
   .array(ProjectSlugSchema)
   .min(1)
-  .max(3)
+  .max(MAX_SECTION_PROJECTS)
   .refine((slugs) => new Set(slugs).size === slugs.length, {
     message: "Project slugs must be unique",
   });
@@ -128,42 +93,81 @@ export const StoryProjectSchema = z
   })
   .strict();
 
-const AssetIdSchema = z.custom<MotionAssetId>(isMotionAssetId, {
-  message: "Unknown Motion Asset ID",
-});
+const ArtIdSchema = z.enum(ART_IDS, { message: "Unknown art id" });
 
-export const ScenePlanSchema = z
+const SiteItemSchema = z
   .object({
-    id: nonEmptyText(80).regex(SLUG_PATTERN),
-    index: z.number().int().min(0).max(4),
-    role: z.enum(SCENE_ROLES),
-    pattern: z.enum(SCENE_PATTERNS),
-    register: z.enum(STORY_REGISTERS),
-    title: nonEmptyText(120),
-    claim: nonEmptyText(500),
-    assetId: AssetIdSchema,
-    evidenceRefIds: EvidenceRefIdsSchema,
+    title: nonEmptyText(60),
+    // Optional: a skills excerpt names tools without saying how they were used.
+    text: nonEmptyText(220).optional(),
+    art: ArtIdSchema.optional(),
+  })
+  .strict();
+
+// Key order is generation order under constrained decoding: cite first, then write, then pick a picture.
+const sectionShape = {
+  kind: z.enum(SECTION_KINDS),
+  // Sections exist only in grounded sites, so the grammar itself forces at least one citation.
+  evidenceRefIds: EvidenceRefIdsSchema.min(1),
+  title: nonEmptyText(80),
+  nav: nonEmptyText(24),
+  body: nonEmptyText(600),
+  // Eight fits the longest names-only skills list (seven languages) without letting facts sprawl.
+  items: z.array(SiteItemSchema).max(8),
+  art: ArtIdSchema.optional(),
+};
+
+/** A section as the model writes it. */
+const SiteSectionDraftSchema = z.object(sectionShape).strict();
+
+/** A stored section: trusted code adds the canonical Corpus cards for the projects it cites. */
+const SiteSectionSchema = z
+  .object({
+    ...sectionShape,
     projectSlugs: ProjectSlugsSchema.optional(),
-    cue: SceneCueSchema,
+    projects: z.array(StoryProjectSchema).min(1).max(MAX_SECTION_PROJECTS).optional(),
   })
   .strict();
 
-export const StorySceneSchema = ScenePlanSchema
-  .extend({
-    body: nonEmptyText(1200),
-    projects: z.array(StoryProjectSchema).min(1).max(3).optional(),
-  })
-  .strict();
-
-export const StoryPlanSchema = z
+const SiteHeroSchema = z
   .object({
-    question: StoryQuestionSchema,
-    mode: z.enum(["grounded", "boundary"]),
-    backdropPreset: z.custom<BackdropPresetName>(isBackdropPresetName, {
-      message: "Unknown Backdrop Preset",
-    }),
-    scenes: z.array(ScenePlanSchema).min(1).max(5),
-    relatedQuestions: z.array(StoryQuestionSchema).min(2).max(3),
+    evidenceRefIds: EvidenceRefIdsSchema,
+    eyebrow: nonEmptyText(60),
+    headline: nonEmptyText(100),
+    lede: nonEmptyText(320),
+    art: ArtIdSchema,
+  })
+  .strict();
+
+const SiteModeSchema = z.enum(["grounded", "boundary"]);
+const RelatedQuestionsSchema = z.array(StoryQuestionSchema).min(2).max(3);
+
+/**
+ * The whole site as the model writes it. The server owns the question and the palette, and derives
+ * `mode`: no sections and no hero citations is a boundary page, anything else is grounded. An
+ * explicit mode field measured worse on the small model, which declared "boundary" at random and
+ * then wrote grounded sections anyway. Sections come before the hero, the order the prompt asks for, so the
+ * detail is written first: with the hero first, the model packed every fact into the lede and left sections empty.
+ */
+export const SiteDraftSchema = z
+  .object({
+    layout: z.enum(SITE_LAYOUTS),
+    brand: nonEmptyText(40),
+    sections: z.array(SiteSectionDraftSchema).max(5),
+    hero: SiteHeroSchema,
+    relatedQuestions: RelatedQuestionsSchema,
+  })
+  .strict();
+
+export const SiteSchema = z
+  .object({
+    mode: SiteModeSchema,
+    layout: z.enum(SITE_LAYOUTS),
+    palette: z.enum(SITE_PALETTES),
+    brand: nonEmptyText(40),
+    hero: SiteHeroSchema,
+    sections: z.array(SiteSectionSchema).max(5),
+    relatedQuestions: RelatedQuestionsSchema,
   })
   .strict();
 
@@ -178,8 +182,7 @@ export const StoryRecordSchema = z
     corpusRevision: nonEmptyText(120),
     storyContractVersion: nonEmptyText(120),
     createdAt: z.string().datetime({ offset: true }),
-    plan: StoryPlanSchema,
-    scenes: z.array(StorySceneSchema).min(1).max(5),
+    site: SiteSchema,
     evidence: z.array(EvidenceRefSchema).max(64),
   })
   .strict();
@@ -214,31 +217,30 @@ export const PublishStoryResponseSchema = z
   .object({ type: z.literal("complete"), story: PublicStorySchema })
   .strict();
 
+/** Stream order: phase generating, site, phase validating, then publishing or complete. */
 export const StoryStreamEventSchema = z.union([
   z.object({ type: z.literal("phase"), phase: z.enum(NON_PUBLISHING_STORY_PHASES) }).strict(),
   StoryPublishingEventSchema,
-  z.object({ type: z.literal("plan"), plan: StoryPlanSchema, evidence: z.array(EvidenceRefSchema).max(64) }).strict(),
-  z.object({ type: z.literal("scene"), index: z.number().int().min(0).max(4), scene: StorySceneSchema }).strict(),
+  z.object({ type: z.literal("site"), site: SiteSchema, evidence: z.array(EvidenceRefSchema).max(64) }).strict(),
   PublishStoryResponseSchema,
   z.object({ type: z.literal("error"), message: nonEmptyText(500) }).strict(),
 ]);
 
 export type EvidenceRef = z.infer<typeof EvidenceRefSchema>;
-export type SceneCue = z.infer<typeof SceneCueSchema>;
 export type ProjectSlug = z.infer<typeof ProjectSlugSchema>;
 export type StoryProjectTechnology = z.infer<typeof StoryProjectTechnologySchema>;
 export type StoryProject = z.infer<typeof StoryProjectSchema>;
-export type ScenePlan = z.infer<typeof ScenePlanSchema>;
-export type StoryScene = z.infer<typeof StorySceneSchema>;
-export type StoryPlan = z.infer<typeof StoryPlanSchema>;
+export type SiteItem = z.infer<typeof SiteItemSchema>;
+export type SiteSection = z.infer<typeof SiteSectionSchema>;
+export type SiteDraft = z.infer<typeof SiteDraftSchema>;
+export type Site = z.infer<typeof SiteSchema>;
+export type SitePalette = (typeof SITE_PALETTES)[number];
 export type StoryRecord = z.infer<typeof StoryRecordSchema>;
 export type PublicStory = z.infer<typeof PublicStorySchema>;
 export type NewStoryRecord = z.infer<typeof NewStoryRecordSchema>;
 export type StoryQuestion = z.infer<typeof StoryQuestionSchema>;
 export type StoryStreamEvent = z.infer<typeof StoryStreamEventSchema>;
 export type StoryPhase = Extract<StoryStreamEvent, { type: "phase" }>["phase"];
-export type ScenePattern = (typeof SCENE_PATTERNS)[number];
-export type StoryRegister = (typeof STORY_REGISTERS)[number];
 export type StoryPublicationToken = z.infer<typeof StoryPublicationTokenSchema>;
 export type StoryPublishingEvent = z.infer<typeof StoryPublishingEventSchema>;
 export type PublishStoryRequest = z.infer<typeof PublishStoryRequestSchema>;
@@ -250,8 +252,7 @@ export function toPublicStory(record: StoryRecord): PublicStory {
     id: record.id,
     displayQuestion: record.displayQuestion,
     createdAt: record.createdAt,
-    plan: record.plan,
-    scenes: record.scenes,
+    site: record.site,
     evidence: record.evidence,
   });
 }

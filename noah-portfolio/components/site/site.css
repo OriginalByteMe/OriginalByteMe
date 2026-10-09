@@ -1,0 +1,1050 @@
+@font-face {
+  font-family: "Geist";
+  src: url("../../app/fonts/GeistVF.woff") format("woff");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("../../app/fonts/GeistMonoVF.woff") format("woff");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+/* ---------- Takeover layer and its control dock ---------- */
+
+.site-takeover {
+  --gs-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --gs-display: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --gs-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "URW Palladio L", P052, Georgia, serif;
+  --gs-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--site-bg);
+  color: var(--site-ink);
+  font-family: var(--gs-display);
+  scroll-behavior: smooth;
+}
+.site-takeover:focus {
+  outline: none;
+}
+.site-takeover::backdrop {
+  background: var(--site-bg, #07080c);
+}
+.site-takeover[data-building] {
+  overflow: hidden;
+}
+.site-stage {
+  transform-origin: 50% 0;
+  transition: transform 1.1s var(--gs-ease);
+}
+
+.site-dock {
+  position: fixed;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  translate: -50% 0;
+  z-index: 81;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 999px;
+  background: rgb(14 14 18 / 0.8);
+  color: #f3f3f6;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.1), 0 24px 50px -24px rgb(0 0 0 / 0.7);
+  font-family: var(--gs-display);
+  white-space: nowrap;
+}
+.site-dock button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: 500 14px/1 var(--gs-display);
+  cursor: pointer;
+  transition: background 0.4s var(--gs-ease), transform 0.4s var(--gs-ease);
+}
+.site-dock button:hover {
+  background: rgb(255 255 255 / 0.1);
+}
+.site-dock button:active {
+  transform: scale(0.97);
+}
+.site-dock button:focus-visible,
+.gs a:focus-visible,
+.gs button:focus-visible {
+  outline: 2px solid var(--site-accent, #a78bfa);
+  outline-offset: 2px;
+}
+/* The hero jump focuses a section; borderless ones have no inline padding, so the ring stands off the text. */
+.gs-section:focus-visible {
+  outline: 2px solid var(--site-accent);
+  outline-offset: 10px;
+}
+.site-dock__status {
+  padding: 0 12px;
+  font: 500 12px/1 var(--gs-mono);
+  letter-spacing: 0.08em;
+  color: rgb(243 243 246 / 0.7);
+}
+
+/* ---------- Generating screen ---------- */
+
+.site-generating {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 40px 20px 140px;
+  background-image:
+    linear-gradient(var(--site-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--site-line) 1px, transparent 1px);
+  background-size: 36px 36px;
+  background-position: center;
+}
+.site-generating__inner {
+  display: grid;
+  justify-items: center;
+  gap: 26px;
+  width: min(940px, 100%);
+  text-align: center;
+}
+.site-generating__status {
+  margin: 0;
+  font: 500 12px/1.4 var(--gs-mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--site-muted);
+}
+.site-generating__question {
+  max-width: 22ch;
+  margin: 0;
+  font-size: clamp(28px, 4.4vw, 56px);
+  font-weight: 650;
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+.site-knob {
+  width: 132px;
+  height: 132px;
+}
+.site-knob__pointer {
+  transform-origin: 60px 60px;
+  animation: site-knob-turn 42s cubic-bezier(0.08, 0.62, 0.28, 1) forwards;
+}
+.site-knob__arc {
+  stroke-dasharray: 238;
+  stroke-dashoffset: 238;
+  animation: site-knob-fill 42s cubic-bezier(0.08, 0.62, 0.28, 1) forwards;
+}
+@keyframes site-knob-turn {
+  from { transform: rotate(-135deg); }
+  to { transform: rotate(135deg); }
+}
+@keyframes site-knob-fill {
+  to { stroke-dashoffset: 0; }
+}
+
+.site-wireframe {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  width: min(620px, 100%);
+  padding: 14px;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--site-paper) 70%, transparent);
+  box-shadow: 0 0 0 1px var(--site-line);
+}
+.site-wireframe span {
+  height: 38px;
+  border-radius: 10px;
+  background: var(--site-soft);
+  animation: site-wire-pulse 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  animation-delay: calc(var(--i) * 0.16s);
+}
+.site-wireframe span:nth-child(1) { grid-column: span 6; height: 18px; }
+.site-wireframe span:nth-child(2) { grid-column: span 4; height: 92px; }
+.site-wireframe span:nth-child(3) { grid-column: span 2; height: 92px; }
+.site-wireframe span:nth-child(n + 4) { grid-column: span 2; height: 58px; }
+.site-wireframe span:nth-child(7) { grid-column: span 6; height: 26px; }
+@keyframes site-wire-pulse {
+  50% { opacity: 0.35; }
+}
+
+.site-error {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 40px 20px 140px;
+}
+.site-error__card {
+  display: grid;
+  gap: 18px;
+  width: min(560px, 100%);
+  padding: 36px;
+  border-radius: 28px;
+  background: var(--site-paper);
+  box-shadow: 0 0 0 1px var(--site-line);
+}
+.site-error__card h1 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 40px);
+  letter-spacing: -0.03em;
+}
+.site-error__card p {
+  margin: 0;
+  color: var(--site-muted);
+  line-height: 1.55;
+}
+
+/* ---------- Generated site: shared ---------- */
+
+.gs {
+  --gs-radius: 28px;
+  --gs-width: 1180px;
+  min-height: 100dvh;
+  padding: 16px clamp(14px, 4vw, 56px) 150px;
+  background: var(--site-bg);
+  color: var(--site-ink);
+}
+.gs h1,
+.gs h2,
+.gs h3,
+.gs p,
+.gs ul,
+.gs ol,
+.gs blockquote {
+  margin: 0;
+}
+.gs ul,
+.gs ol {
+  padding: 0;
+  list-style: none;
+}
+.gs :where(a) {
+  color: inherit;
+}
+
+.gs-eyebrow {
+  display: inline-flex;
+  width: fit-content;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--site-soft);
+  font: 500 11px/1.2 var(--gs-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+/* Inside a section the label is a quiet running head, not a second pill competing with the title. */
+.gs-section .gs-eyebrow {
+  padding: 0;
+  background: none;
+  color: var(--site-muted);
+}
+
+.gs-nav {
+  position: sticky;
+  top: 12px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: var(--gs-width);
+  margin: 0 auto;
+  padding: 8px 8px 8px 18px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--site-paper) 84%, transparent);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 0 0 1px var(--site-line), 0 18px 40px -26px rgb(0 0 0 / 0.4);
+}
+.gs-brand {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+.gs-brand__mark {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--site-accent);
+  box-shadow: 5px 5px 0 var(--site-accent-2);
+}
+.gs-nav__links {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.gs-nav__links a {
+  display: block;
+  padding: 9px 14px;
+  border-radius: 999px;
+  color: var(--site-muted);
+  font-size: 14px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.4s var(--gs-ease), color 0.4s var(--gs-ease);
+}
+.gs-nav__links a:hover {
+  background: var(--site-soft);
+  color: var(--site-ink);
+}
+
+.gs-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  align-items: center;
+  gap: clamp(24px, 5vw, 72px);
+  max-width: var(--gs-width);
+  margin: 0 auto;
+  padding: clamp(48px, 9vw, 120px) 0 clamp(40px, 7vw, 96px);
+}
+.gs-hero__copy {
+  display: grid;
+  gap: 22px;
+  justify-items: start;
+}
+.gs-hero__title {
+  font-size: clamp(40px, 6.2vw, 86px);
+  font-weight: 650;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+.gs-hero__lede {
+  max-width: 46ch;
+  color: var(--site-muted);
+  font-size: clamp(17px, 1.5vw, 21px);
+  line-height: 1.55;
+}
+.gs-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+.gs-hero__art {
+  justify-self: center;
+  width: 100%;
+  max-width: 540px;
+}
+
+.gs-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 7px 7px 7px 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--site-ink);
+  color: var(--site-bg);
+  font: 600 15px/1.25 var(--gs-display);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.5s var(--gs-ease), background 0.5s var(--gs-ease);
+}
+.gs-button:active {
+  transform: scale(0.98);
+}
+.gs-button__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--site-bg) 20%, transparent);
+  transition: transform 0.5s var(--gs-ease);
+}
+.gs-button:hover .gs-button__icon {
+  transform: translateY(2px) scale(1.05);
+}
+.gs-button--ghost {
+  padding: 12px 20px;
+  background: transparent;
+  color: var(--site-ink);
+  box-shadow: inset 0 0 0 1px var(--site-line);
+}
+.gs-button--ghost:hover {
+  background: var(--site-soft);
+}
+
+.gs-main {
+  display: grid;
+  gap: clamp(22px, 3vw, 34px);
+  max-width: var(--gs-width);
+  margin: 0 auto;
+}
+.gs-section {
+  /* The section's own fill, and the fill for things set inside it (project cards). */
+  --gs-surface: var(--site-paper);
+  --gs-inset: var(--site-bg);
+  container-type: inline-size;
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 30px;
+  padding: clamp(26px, 4vw, 56px);
+  border-radius: var(--gs-radius);
+  background: var(--gs-surface);
+  box-shadow:
+    0 0 0 1px var(--site-line),
+    0 22px 44px -36px rgb(0 0 0 / 0.4);
+}
+.gs-section__head {
+  display: flex;
+  align-items: center;
+  gap: clamp(20px, 4vw, 56px);
+}
+.gs-section__copy {
+  display: grid;
+  flex: 1 1 0;
+  min-width: 0;
+  gap: 18px;
+  justify-items: start;
+}
+.gs-section__title {
+  /* Sized by the section's own width, so a narrow bento tile does not shout. */
+  font-size: var(--gs-title, clamp(26px, 5cqi, 42px));
+  font-weight: 640;
+  line-height: 1.06;
+  letter-spacing: -0.028em;
+  text-wrap: balance;
+}
+.gs-section__body {
+  max-width: 62ch;
+  color: var(--site-muted);
+  font-size: 17px;
+  line-height: 1.65;
+}
+.gs-section__art {
+  flex: 0 1 var(--gs-art-basis, 36%);
+  max-width: var(--gs-art-max, 320px);
+}
+.gs-sources {
+  color: var(--site-muted);
+  font: 12px/1.5 var(--gs-mono);
+}
+
+.gs-items[data-items="cards"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+}
+.gs-items[data-items="cards"] .gs-item {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 22px;
+  border-radius: 20px;
+  background: var(--site-soft);
+}
+/* Bare names are a set, not a row of empty cards: smaller tiles that wrap two or more abreast. */
+.gs-items[data-items="cards"]:not(:has(.gs-item__text, .gs-item__art)) {
+  grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr));
+  gap: 10px;
+}
+.gs-items[data-items="cards"]:not(:has(.gs-item__text, .gs-item__art)) .gs-item {
+  padding: 16px 18px;
+  border-radius: 16px;
+}
+.gs-item__art {
+  width: 96px;
+  margin: -8px 0 4px -8px;
+}
+.gs-item__title {
+  font-size: 17px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+}
+.gs-item__text {
+  color: var(--site-muted);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.gs-items[data-items="list"] {
+  display: grid;
+  gap: 2px;
+}
+.gs-items[data-items="list"] .gs-item {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  column-gap: 14px;
+  padding: 16px 0;
+  border-top: 1px solid var(--site-line);
+}
+.gs-items[data-items="list"] .gs-item::before {
+  content: "";
+  grid-row: span 2;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, transparent 46%, var(--gs-surface) 46% 56%, transparent 56%) center / 10px 10px no-repeat,
+    var(--site-accent);
+}
+.gs-items[data-items="list"]:not(:has(.gs-item__text)) {
+  grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
+  column-gap: 16px;
+}
+.gs-items[data-items="list"]:not(:has(.gs-item__text)) .gs-item {
+  align-items: center;
+  padding: 13px 0;
+}
+.gs-items[data-items="timeline"] {
+  display: grid;
+  gap: 22px;
+  margin-left: 8px;
+  padding-left: 26px;
+  border-left: 2px solid var(--site-line);
+}
+.gs-items[data-items="timeline"] .gs-item {
+  position: relative;
+  display: grid;
+  gap: 6px;
+}
+.gs-items[data-items="timeline"] .gs-item::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: -35px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--site-accent);
+  box-shadow: 0 0 0 5px var(--gs-surface);
+}
+.gs-items[data-items="timeline"] .gs-item__title {
+  font: 600 13px/1.3 var(--gs-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--site-accent);
+}
+.gs-items[data-items="timeline"]:has(> :only-child) {
+  border-left-color: transparent;
+}
+.gs-items[data-items="timeline"] .gs-item__text {
+  max-width: 62ch;
+}
+/* Wide enough for a CV: periods in their own gutter, the work beside them. */
+@container (min-width: 600px) {
+  .gs-items[data-items="timeline"] .gs-item {
+    grid-template-columns: 9.5rem minmax(0, 1fr);
+    column-gap: 24px;
+  }
+}
+
+.gs-section[data-kind="split"][data-side="right"] .gs-section__art {
+  order: -1;
+}
+.gs-section[data-kind="split"] {
+  --gs-art-basis: 44%;
+  --gs-art-max: 420px;
+}
+.gs-section[data-kind="cards"] {
+  --gs-art-max: 240px;
+}
+/* A quote's title steps down to a caption so the sentence itself leads. */
+.gs-section[data-kind="quote"] .gs-section__title {
+  font-size: 19px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+}
+.gs-quote {
+  max-width: 30ch;
+  color: var(--site-ink);
+  font-family: var(--gs-serif);
+  font-size: clamp(27px, 4.6cqi, 46px);
+  font-style: italic;
+  line-height: 1.2;
+  text-wrap: pretty;
+}
+.gs-quote::before {
+  content: "\201C";
+  display: block;
+  height: 0.5em;
+  color: var(--site-accent);
+  font-size: 2.2em;
+  line-height: 0.9;
+}
+.gs-section[data-kind="banner"] {
+  --gs-surface: var(--site-accent);
+  --gs-art-basis: 42%;
+  --gs-art-max: 440px;
+  color: var(--site-bg);
+  box-shadow: none;
+}
+.gs-section[data-kind="banner"] :is(.gs-eyebrow, .gs-section__body, .gs-sources, .gs-item__text) {
+  color: color-mix(in srgb, var(--site-bg) 82%, var(--site-accent));
+}
+
+/* Single-fact sections sit straight on the page between the carded ones, so the surface alternates by kind. */
+.gs:is([data-layout="landing"], [data-layout="dossier"]) .gs-section:is([data-kind="split"], [data-kind="quote"]),
+.gs[data-layout="editorial"] .gs-section:not([data-kind="banner"]) {
+  --gs-surface: var(--site-bg);
+  --gs-inset: var(--site-paper);
+  padding-inline: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.gs-projects {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+.gs-project {
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  border-radius: 22px;
+  background: var(--gs-inset);
+  color: var(--site-ink);
+  box-shadow: 0 0 0 1px var(--site-line);
+}
+.gs-project__image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--site-soft);
+}
+.gs-project__body {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 20px;
+}
+.gs-project__body h3 {
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+.gs-project__body p {
+  color: var(--site-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.gs-project__body p:not(.gs-project__tech) {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+.gs-project__tech {
+  font: 12px/1.5 var(--gs-mono);
+}
+.gs-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid var(--site-accent);
+}
+
+.gs-related {
+  display: grid;
+  gap: 20px;
+  max-width: var(--gs-width);
+  margin: clamp(48px, 7vw, 96px) auto 0;
+}
+.gs-related h2 {
+  font-size: clamp(24px, 2.6vw, 34px);
+  letter-spacing: -0.02em;
+}
+.gs-related ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+.gs-related__question {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+  padding: 22px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--site-paper);
+  color: var(--site-ink);
+  box-shadow: 0 0 0 1px var(--site-line);
+  font: 500 17px/1.35 var(--gs-display);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.5s var(--gs-ease), background 0.5s var(--gs-ease);
+}
+.gs-related__question:hover {
+  transform: translateY(-3px);
+  background: var(--site-soft);
+}
+.gs-related__question svg {
+  flex: none;
+  color: var(--site-accent);
+}
+
+.gs-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  max-width: var(--gs-width);
+  margin: clamp(48px, 7vw, 96px) auto 0;
+  padding-top: 28px;
+  border-top: 1px solid var(--site-line);
+  color: var(--site-muted);
+  font-size: 14px;
+}
+.gs-footer .gs-brand {
+  margin-bottom: 8px;
+  color: var(--site-ink);
+}
+.gs-footer__note {
+  max-width: 48ch;
+  line-height: 1.5;
+}
+
+/* ---------- Layout: landing (centred product page) ---------- */
+
+.gs[data-layout="landing"] .gs-hero {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  text-align: center;
+}
+.gs[data-layout="landing"] .gs-hero__copy {
+  justify-items: center;
+  max-width: 900px;
+}
+.gs[data-layout="landing"] .gs-hero__art {
+  max-width: 620px;
+}
+.gs:is([data-layout="landing"], [data-layout="editorial"]) .gs-hero__actions {
+  justify-content: center;
+}
+
+/* ---------- Layout: bento (asymmetric card grid) ---------- */
+
+.gs[data-layout="bento"] .gs-hero {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 16px;
+  padding: 28px 0 20px;
+}
+.gs[data-layout="bento"] :is(.gs-hero__copy, .gs-hero__art) {
+  align-content: center;
+  padding: clamp(28px, 4vw, 52px);
+  border-radius: var(--gs-radius);
+  background: var(--site-paper);
+  box-shadow: 0 0 0 1px var(--site-line);
+}
+.gs[data-layout="bento"] .gs-hero__art {
+  max-width: none;
+  background: var(--site-soft);
+}
+.gs[data-layout="bento"] .gs-main {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-auto-flow: dense;
+  gap: 16px;
+}
+.gs[data-layout="bento"] .gs-section {
+  grid-column: span 6;
+  /* Tiles in a row share a height: the head takes the slack, so items and sources settle at the foot. */
+  grid-template-rows: 1fr;
+}
+.gs[data-layout="bento"] .gs-section__head {
+  align-self: start;
+}
+@media (min-width: 900px) {
+  .gs[data-layout="bento"] .gs-section:nth-child(4n + 1),
+  .gs[data-layout="bento"] .gs-section:nth-child(4n + 4) {
+    grid-column: span 4;
+  }
+  .gs[data-layout="bento"] .gs-section:nth-child(4n + 2),
+  .gs[data-layout="bento"] .gs-section:nth-child(4n + 3) {
+    grid-column: span 2;
+  }
+  .gs[data-layout="bento"] .gs-section:last-child:nth-child(odd) {
+    grid-column: span 6;
+  }
+}
+
+/* ---------- Layout: editorial (magazine article) ---------- */
+
+.gs[data-layout="editorial"] :is(.gs-hero__title, .gs-section__title, .gs-related h2) {
+  font-family: var(--gs-serif);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.gs[data-layout="editorial"] .gs-hero {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  max-width: 900px;
+  text-align: center;
+}
+.gs[data-layout="editorial"] .gs-hero__copy {
+  justify-items: center;
+}
+.gs[data-layout="editorial"] .gs-hero__title {
+  font-size: clamp(44px, 7vw, 96px);
+  line-height: 1;
+}
+.gs[data-layout="editorial"] .gs-hero__art {
+  max-width: 460px;
+}
+.gs[data-layout="editorial"] .gs-main {
+  max-width: 780px;
+  gap: 0;
+}
+.gs[data-layout="editorial"] .gs-section {
+  --gs-art-basis: 240px;
+}
+.gs[data-layout="editorial"] .gs-section:not([data-kind="banner"]) {
+  padding-block: 56px;
+  border-top: 1px solid var(--site-line);
+}
+.gs[data-layout="editorial"] .gs-section[data-kind="banner"] {
+  margin: 24px 0;
+}
+.gs[data-layout="editorial"] .gs-section__body {
+  color: var(--site-ink);
+  font-size: 19px;
+  line-height: 1.7;
+}
+/* The opening section's body is the standfirst; it reads right at one line or four. */
+.gs[data-layout="editorial"] .gs-section:first-child .gs-section__body {
+  font-family: var(--gs-serif);
+  font-size: clamp(21px, 2.2vw, 25px);
+  line-height: 1.5;
+}
+.gs[data-layout="editorial"] .gs-section__head {
+  align-items: start;
+}
+.gs[data-layout="editorial"] .gs-section[data-side="right"] .gs-section__art {
+  order: -1;
+}
+.gs[data-layout="editorial"] :is(.gs-related, .gs-footer) {
+  max-width: 780px;
+}
+
+/* ---------- Layout: dossier (sticky profile sidebar) ---------- */
+
+.gs[data-layout="dossier"] {
+  --gs-title: clamp(24px, 4cqi, 30px);
+}
+/* Without sections there is nothing to sit beside, so the answer keeps the full-width hero. */
+@media (min-width: 900px) {
+  .gs[data-layout="dossier"]:has(.gs-section) {
+    display: grid;
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    align-items: start;
+    column-gap: clamp(20px, 3vw, 40px);
+  }
+  .gs[data-layout="dossier"]:has(.gs-section) .gs-top {
+    position: sticky;
+    top: 16px;
+    grid-row: span 3;
+    display: grid;
+    gap: 16px;
+  }
+  .gs[data-layout="dossier"]:has(.gs-section) .gs-nav {
+    position: static;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin: 0;
+    padding: 18px;
+    border-radius: 24px;
+  }
+  .gs[data-layout="dossier"]:has(.gs-section) .gs-nav__links {
+    flex-direction: column;
+  }
+  .gs[data-layout="dossier"]:has(.gs-section) .gs-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+    margin: 0;
+    padding: 24px;
+    border-radius: 24px;
+    background: var(--site-paper);
+    box-shadow: 0 0 0 1px var(--site-line);
+  }
+  .gs[data-layout="dossier"]:has(.gs-section) .gs-hero__art {
+    order: -1;
+    max-width: 220px;
+    justify-self: start;
+  }
+  /* The answer outranks its details: the sidebar headline stays larger than any section title. */
+  .gs[data-layout="dossier"]:has(.gs-section) .gs-hero__title {
+    font-size: clamp(30px, 2.9vw, 40px);
+    line-height: 1.06;
+  }
+  .gs[data-layout="dossier"]:has(.gs-section) .gs-hero__lede {
+    font-size: 16px;
+  }
+  .gs[data-layout="dossier"]:has(.gs-section) .gs-hero__actions .gs-button--ghost {
+    display: none;
+  }
+  .gs[data-layout="dossier"]:has(.gs-section) :is(.gs-main, .gs-related, .gs-footer) {
+    grid-column: 2;
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+  }
+  .gs[data-layout="dossier"]:has(.gs-section) .gs-related {
+    margin-top: 40px;
+  }
+}
+
+/* ---------- Layout: cascade (overlapping stacked panels) ---------- */
+
+.gs[data-layout="cascade"] .gs-main {
+  max-width: 1000px;
+}
+@media (min-width: 900px) {
+  .gs[data-layout="cascade"] .gs-main {
+    gap: 0;
+  }
+  .gs[data-layout="cascade"] .gs-section {
+    box-shadow: 0 0 0 1px var(--site-line), 0 34px 70px -34px rgb(0 0 0 / 0.5);
+  }
+  .gs[data-layout="cascade"] .gs-section + .gs-section {
+    margin-top: -30px;
+  }
+  .gs[data-layout="cascade"] .gs-section:nth-child(odd) {
+    margin-right: 7%;
+    rotate: -1.1deg;
+  }
+  .gs[data-layout="cascade"] .gs-section:nth-child(even) {
+    margin-left: 7%;
+    rotate: 1deg;
+  }
+}
+
+/* ---------- Small screens ---------- */
+
+@media (max-width: 720px) {
+  .gs-nav {
+    border-radius: 22px;
+  }
+  .gs-nav__links {
+    display: none;
+  }
+  /* Alone in the bar, a brand near its 40-character limit wraps instead of running off the screen. */
+  .gs-brand {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .gs-hero,
+  .gs[data-layout="bento"] .gs-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .gs-hero__art {
+    order: -1;
+    max-width: 280px;
+  }
+  .gs[data-layout="landing"] .gs-hero__art,
+  .gs[data-layout="editorial"] .gs-hero__art {
+    order: 0;
+  }
+}
+@container (max-width: 560px) {
+  .gs-section__head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .gs-section__art {
+    order: -1;
+    flex: none;
+    width: 100%;
+    max-width: 220px;
+  }
+}
+/* A lone project sits beside its picture once there is room, not under a picture as wide as the section. */
+@container (min-width: 640px) {
+  .gs-project:only-child {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+  .gs-project:only-child .gs-project__image {
+    height: 100%;
+    min-height: 240px;
+    aspect-ratio: auto;
+    contain: size;
+  }
+  .gs-project:only-child .gs-project__body {
+    align-content: center;
+    padding: 28px;
+  }
+}
+
+/* ---------- Build sequence: blocks snap in like toy bricks ---------- */
+
+.gs[data-building] [data-block="pending"] {
+  visibility: hidden;
+}
+.gs[data-building] [data-block="shown"] {
+  animation: gs-snap 0.62s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+.gs[data-building] [data-block="shown"] :is(.gs-item, .gs-project, .gs-related li, .gs-nav__links li) {
+  animation: gs-snap 0.5s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+  animation-delay: calc(0.14s + var(--i, 0) * 0.09s);
+}
+@keyframes gs-snap {
+  from {
+    opacity: 0;
+    transform: translateY(-56px) scale(0.96);
+  }
+  55% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-takeover {
+    scroll-behavior: auto;
+  }
+  .site-stage {
+    transition: none;
+  }
+  .gs[data-building] [data-block],
+  .gs[data-building] [data-block] *,
+  .site-knob__pointer,
+  .site-knob__arc,
+  .site-wireframe span {
+    animation: none !important;
+  }
+  .gs[data-building] [data-block="pending"] {
+    visibility: visible;
+  }
+}

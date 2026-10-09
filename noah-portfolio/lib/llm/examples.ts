@@ -1,66 +1,39 @@
-export const GOLD_STANDARD_STORY_PLAN_EXAMPLE = {
-  question: "What did Noah build at Supa?",
-  mode: "grounded",
-  backdropPreset: "ditherTide",
-  scenes: [
+import type { SiteDraft } from "@/lib/story/types";
+
+/**
+ * One grounded site; the prompt shows all of it except layout and brand, so the model picks its
+ * own instead of copying them. A test proves the whole draft passes the server validators.
+ */
+export const SITE_EXAMPLE_QUESTION = "Does Noah use Windows or a Mac?";
+
+export const SITE_EXAMPLE: SiteDraft = {
+  layout: "bento",
+  brand: "Windows and Mac",
+  hero: {
+    evidenceRefIds: ["operating-systems-2", "operating-systems-3"],
+    eyebrow: "Operating systems",
+    headline: "Both: I use Windows and a Mac",
+    lede: "I have a Windows environment and a macOS workstation.",
+    art: "code-editor",
+  },
+  sections: [
     {
-      id: "supa-training-data",
-      index: 0,
-      role: "direct-answer",
-      pattern: "hero-statement",
-      register: "editorial",
-      title: "Supa training-data tools, 2020–2025",
-      claim:
-        "From 2020 to 2025, I built data-labeling and AI training-data tooling end to end.",
-      assetId: "circuit-mind",
-      evidenceRefIds: ["career-2"],
-      cue: { phase: "intro", focus: "center", intensity: "strong" },
+      kind: "cards",
+      evidenceRefIds: ["operating-systems-2"],
+      title: "Windows and WSL2",
+      nav: "Windows",
+      body: "Two systems make up my Windows environment.",
+      items: [{ title: "Windows" }, { title: "WSL2" }],
     },
     {
-      id: "supa-llm-evaluation",
-      index: 1,
-      role: "evidence",
-      pattern: "capability-map",
-      register: "technical",
-      title: "LLM evaluation tooling at Supa",
-      claim: "At Supa, I shipped the open-source LLM Comparison app as LLM evaluation tooling.",
-      assetId: "circuit-mind",
-      evidenceRefIds: ["career-2", "project-llm-comparison"],
-      projectSlugs: ["llm-comparison"],
-      cue: { phase: "develop", focus: "left", intensity: "strong" },
-    },
-    {
-      id: "supa-two-llm-comparison",
-      index: 2,
-      role: "synthesis",
-      pattern: "closing-synthesis",
-      register: "reflective",
-      title: "Two-LLM comparison",
-      claim:
-        "The open-source LLM Comparison app lets users pit two LLMs against each other and compare them.",
-      assetId: "morning-coffee",
-      evidenceRefIds: ["project-llm-comparison"],
-      projectSlugs: ["llm-comparison"],
-      cue: { phase: "resolve", focus: "right", intensity: "medium" },
+      kind: "split",
+      evidenceRefIds: ["operating-systems-3"],
+      title: "A macOS workstation",
+      nav: "Mac",
+      body: "My workstation runs macOS.",
+      items: [],
+      art: "laptop-desk",
     },
   ],
-  relatedQuestions: [
-    "How did Noah evaluate LLMs at Supa?",
-    "Which Noah project lets users compare two LLMs?",
-    "What AI engineering work did Noah do after Supa?",
-  ],
-} as const;
-
-export const SCENE_COMPOSITION_EXAMPLE = {
-  body:
-    "Moodify lets people search for a favourite tune and watch the album cover's colour palette take over the page. The same palette trick recolours this site's hero dither.",
-} as const;
-
-export const STORY_EXAMPLES = `
-## Gold-standard complete Story Plan
-
-This example is complete and follows every invariant, including distinct Patterns, exact
-Evidence Ref IDs and project slugs, specific titles and claims, and answerable related questions:
-
-${JSON.stringify(GOLD_STANDARD_STORY_PLAN_EXAMPLE, null, 2)}
-`;
+  relatedQuestions: ["Which Linux systems does Noah use?", "What infrastructure tools does Noah know?"],
+};

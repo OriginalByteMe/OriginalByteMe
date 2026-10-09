@@ -5,8 +5,10 @@ import {
 import { seedStoryFixtures } from "@/lib/story/store";
 import {
   toPublicStory,
+  CORPUS_REVISION,
   STORY_CONTRACT_VERSION,
   type ProjectSlug,
+  type Site,
   type StoryProject,
   type StoryRecord,
 } from "@/lib/story/types";
@@ -31,98 +33,74 @@ function requiredProjects(slugs: ProjectSlug[]): StoryProject[] {
   return projects;
 }
 
-function makeScenes(titles: [string, string, string], bodies: [string, string, string]) {
-  return [
-    {
-      id: "direct-answer",
-      index: 0,
-      role: "direct-answer" as const,
-      pattern: "hero-statement" as const,
-      register: "editorial" as const,
-      title: titles[0],
-      claim: "Noah turns complex systems into products by pairing technical depth with a clear product narrative.",
-      assetId: "circuit-mind" as const,
+function makeSite(
+  brand: string,
+  headline: string,
+  titles: [string, string],
+  relatedQuestions: [string, string],
+): Site {
+  return {
+    mode: "grounded",
+    layout: "bento",
+    palette: "midnight",
+    brand,
+    hero: {
       evidenceRefIds: [headlineEvidence.id],
-      cue: { phase: "intro" as const, focus: "center" as const, intensity: "quiet" as const },
-      body: bodies[0],
+      eyebrow: "Full-Stack Developer",
+      headline,
+      lede: "I work across backend, infrastructure and frontend.",
+      art: "server-rack",
     },
-    {
-      id: "grounded-evidence",
-      index: 1,
-      role: "evidence" as const,
-      pattern: "evidence-ledger" as const,
-      register: "technical" as const,
-      title: titles[1],
-      claim: "Shipped project evidence connects product decisions to concrete implementation work.",
-      assetId: "print-layers" as const,
-      evidenceRefIds: [locationEvidence.id, summaryEvidence.id],
-      projectSlugs: ["ask-me-portfolio", "llm-comparison"] as ProjectSlug[],
-      projects: requiredProjects(["ask-me-portfolio", "llm-comparison"]),
-      cue: { phase: "develop" as const, focus: "left" as const, intensity: "strong" as const },
-      body: bodies[1],
-    },
-    {
-      id: "closing-view",
-      index: 2,
-      role: "synthesis" as const,
-      pattern: "closing-synthesis" as const,
-      register: "reflective" as const,
-      title: titles[2],
-      claim: "The result is practical systems work shaped around what people need to understand and use.",
-      assetId: "morning-coffee" as const,
-      evidenceRefIds: [headlineEvidence.id, summaryEvidence.id],
-      projectSlugs: ["moodify"] as ProjectSlug[],
-      projects: requiredProjects(["moodify"]),
-      cue: { phase: "resolve" as const, focus: "right" as const, intensity: "medium" as const },
-      body: bodies[2],
-    },
-  ];
+    sections: [
+      {
+        kind: "cards",
+        evidenceRefIds: [locationEvidence.id, summaryEvidence.id],
+        title: titles[0],
+        nav: "Work",
+        body: "Based in Kuala Lumpur, Malaysia, building efficient, scalable solutions.",
+        items: [
+          { title: "Kuala Lumpur", text: "Where I am based.", art: "coffee-cup" },
+          { title: "Scalable solutions", text: "What I like to build." },
+        ],
+        projectSlugs: ["ask-me-portfolio", "llm-comparison"],
+        projects: requiredProjects(["ask-me-portfolio", "llm-comparison"]),
+      },
+      {
+        kind: "split",
+        evidenceRefIds: [summaryEvidence.id],
+        title: titles[1],
+        nav: "Craft",
+        body: "Front-end and back-end experience, turned into working code.",
+        items: [],
+        art: "coffee-cup",
+        projectSlugs: ["moodify"],
+        projects: requiredProjects(["moodify"]),
+      },
+    ],
+    relatedQuestions,
+  };
 }
 
 function makeRecord({
   id,
   displayQuestion,
-  titles,
-  bodies,
-  relatedQuestions,
-  corpusRevision = "2026-07-14",
+  site,
+  corpusRevision = CORPUS_REVISION,
   storyContractVersion = STORY_CONTRACT_VERSION,
 }: {
   id: string;
   displayQuestion: string;
-  titles: [string, string, string];
-  bodies: [string, string, string];
-  relatedQuestions: [string, string];
+  site: Site;
   corpusRevision?: string;
   storyContractVersion?: string;
 }): StoryRecord {
-  const scenes = makeScenes(titles, bodies);
   return {
     id,
     displayQuestion,
     corpusRevision,
     storyContractVersion,
     createdAt: "2026-07-14T07:00:00.000Z",
-    plan: {
-      question: displayQuestion,
-      mode: "grounded",
-      backdropPreset: "ditherTide",
-      scenes: scenes.map((scene) => ({
-        id: scene.id,
-        index: scene.index,
-        role: scene.role,
-        pattern: scene.pattern,
-        register: scene.register,
-        title: scene.title,
-        claim: scene.claim,
-        assetId: scene.assetId,
-        evidenceRefIds: scene.evidenceRefIds,
-        ...("projectSlugs" in scene ? { projectSlugs: scene.projectSlugs } : {}),
-        cue: scene.cue,
-      })),
-      relatedQuestions,
-    },
-    scenes,
+    site,
     evidence,
   };
 }
@@ -130,25 +108,23 @@ function makeRecord({
 export const CURRENT_STORY_RECORD = makeRecord({
   id: CURRENT_STORY_ID,
   displayQuestion: CURRENT_QUESTION,
-  titles: ["Systems become usable products", "Evidence from shipped work", "Craft meets delivery"],
-  bodies: [
-    "He starts with the system boundary, then makes the value legible to the people using it.",
-    "The work joins product decisions to implementation evidence rather than treating design and engineering as separate hand-offs.",
-    "That combination keeps ambitious technical work understandable, maintainable, and useful.",
-  ],
-  relatedQuestions: [RELATED_QUESTION, "How does Noah balance engineering and design?"],
+  site: makeSite(
+    "Noah / Systems",
+    "Systems become usable products",
+    ["Evidence from shipped work", "Craft meets delivery"],
+    [RELATED_QUESTION, "How does Noah balance engineering and design?"],
+  ),
 });
 
 export const RELATED_STORY_RECORD = makeRecord({
   id: RELATED_STORY_ID,
   displayQuestion: RELATED_QUESTION,
-  titles: ["Technical range in practice", "Projects as evidence", "Range with a purpose"],
-  bodies: [
-    "Noah's range shows up where product interfaces meet infrastructure and delivery systems.",
-    "Selected projects ground that range in shipped work, not a list of disconnected technologies.",
-    "The common thread is choosing the right level of the stack for the problem in front of him.",
-  ],
-  relatedQuestions: [CURRENT_QUESTION, "What kind of teams does Noah work best with?"],
+  site: makeSite(
+    "Noah / Range",
+    "Technical range in practice",
+    ["Projects as evidence", "Range with a purpose"],
+    [CURRENT_QUESTION, "What kind of teams does Noah work best with?"],
+  ),
 });
 
 export const OUTDATED_STORY_RECORD = makeRecord({
@@ -156,13 +132,12 @@ export const OUTDATED_STORY_RECORD = makeRecord({
   displayQuestion: CURRENT_QUESTION,
   corpusRevision: "2026-06-01",
   storyContractVersion: "v3",
-  titles: ["Retired opening", "Retired evidence", "Retired conclusion"],
-  bodies: [
-    "STALE SCENE BODY: retired opening must never be rendered.",
-    "STALE SCENE BODY: retired evidence must never be rendered.",
-    "STALE SCENE BODY: retired conclusion must never be rendered.",
-  ],
-  relatedQuestions: [RELATED_QUESTION, "What did the old Story claim?"],
+  site: makeSite(
+    "STALE SITE",
+    "STALE SITE HEADLINE: retired content must never be rendered.",
+    ["Retired evidence", "Retired conclusion"],
+    [RELATED_QUESTION, "What did the old Story claim?"],
+  ),
 });
 
 export const CURRENT_PUBLIC_STORY = toPublicStory(CURRENT_STORY_RECORD);

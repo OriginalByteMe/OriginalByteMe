@@ -1,5 +1,7 @@
 # Ask-Me Story Experience Design Contract — v3
 
+> **Superseded on 2026-10-09:** generated answers are now one-page Sites (Story contract v7: one model call, a Layout, Sections and Art Pieces, shown full screen and built block by block). The Scene, Story Plan, Motion Asset and Nocturne rules below describe the retired v6 Story and are kept for history. The grounding rules (Evidence Refs on every factual block, honest Boundary Stories) still apply.
+>
 > **Status:** Accepted on 2026-07-14.
 >
 > **Authority:** This document is the product and interaction source of truth for generated answers in the Ask-Me portfolio. It supersedes v2 in full. Git history preserves the retired Soft Field/static-answer contract; there is no second active contract or compatibility mode.

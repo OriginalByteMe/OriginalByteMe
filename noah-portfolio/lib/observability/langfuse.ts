@@ -14,10 +14,10 @@ import { getLangfuseEnv } from "@/lib/env";
  *
  * The whole pipeline is opt-in: when `LANGFUSE_*` credentials are absent (local
  * dev, CI, tests) every export here degrades to a no-op so nothing changes and
- * nothing throws. When credentials are present, each `streamText` call the route
- * makes with `storyTelemetry(...)` emits an OTel generation span, and
- * `withStoryTrace(...)` groups the plan plus every scene of one question into a
- * single Langfuse trace.
+ * nothing throws. When credentials are present, each `streamText` call made
+ * with `storyTelemetry(...)` emits an OTel generation span, and
+ * `withStoryTrace(...)` groups every site-generation attempt of one question
+ * into a single Langfuse trace.
  */
 
 /**
@@ -64,8 +64,8 @@ export function registerLangfuseTracing(): void {
 
 /**
  * Telemetry settings for a single `streamText` call. `functionId` becomes the
- * span name in Langfuse (e.g. `story-plan`, `story-scene`); `metadata` adds
- * filterable dimensions such as the attempt number and scene index. Returns a
+ * span name in Langfuse (e.g. `story-site`); `metadata` adds filterable
+ * dimensions such as the attempt number. Returns a
  * disabled setting when Langfuse is not configured, so the AI SDK skips
  * emitting spans entirely.
  */
@@ -79,7 +79,7 @@ export function storyTelemetry(
 
 /** Root-trace handle handed to the generation pipeline to record its result. */
 export interface StoryTrace {
-  /** Set the trace-level output (Story id, scene count, error). */
+  /** Set the trace-level output (Story id, layout, section count, attempts). */
   setOutput(output: unknown): void;
 }
 

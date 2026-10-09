@@ -1,17 +1,15 @@
 import {
   assertValidPublicStory,
-  assertValidStreamPlan,
-  assertValidStreamScene,
+  assertValidStreamSite,
 } from "@/lib/story/public-validation";
 import {
   normalizeQuestion,
   StoryStreamEventSchema,
   type EvidenceRef,
   type PublicStory,
+  type Site,
   type StoryPhase,
-  type StoryPlan,
   type StoryPublicationToken,
-  type StoryScene,
   type StoryStreamEvent,
 } from "@/lib/story/types";
 
@@ -27,15 +25,13 @@ interface ConsumeStoryStreamOptions {
   context?: StoryStreamContext;
   isActive?: () => boolean;
   onPhase?: (phase: StoryPhase) => void;
-  onPlan?: (plan: StoryPlan, evidence: EvidenceRef[]) => void;
-  onScene?: (scene: StoryScene, scenes: readonly StoryScene[]) => void;
+  onSite?: (site: Site, evidence: EvidenceRef[]) => void;
 }
 
 const PHASE_INDEX: Record<StoryPhase, number> = {
-  planning: 0,
-  composing: 1,
-  validating: 2,
-  publishing: 3,
+  generating: 0,
+  validating: 1,
+  publishing: 2,
 };
 
 function samePayload(left: unknown, right: unknown): boolean {
@@ -87,16 +83,14 @@ export async function consumeStoryStream({
   context = "generation",
   isActive = () => true,
   onPhase,
-  onPlan,
-  onScene,
+  onSite,
 }: ConsumeStoryStreamOptions): Promise<StoryStreamTerminal> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   let phaseIndex = -1;
-  let plan: StoryPlan | null = null;
+  let site: Site | null = null;
   let evidence: EvidenceRef[] = [];
-  const scenes: StoryScene[] = [];
   let terminal: StoryStreamTerminal | null = null;
 
   const consumeLine = (line: string): StoryStreamTerminal | null => {
@@ -115,30 +109,18 @@ export async function consumeStoryStream({
           throw streamError(
             context,
             "The Story stream sent lifecycle phases out of order",
-            event.phase === "planning"
-              ? "The regeneration stream repeated its planning phase."
-              : event.phase === "composing"
-                ? "The regeneration stream composed before its Plan."
-                : event.phase === "validating"
-                  ? "The regeneration stream validated before every Scene was ready."
-                  : "The regeneration stream published before validation.",
+            event.phase === "generating"
+              ? "The regeneration stream repeated its generating phase."
+              : event.phase === "validating"
+                ? "The regeneration stream validated before its site was ready."
+                : "The regeneration stream published before validation.",
           );
         }
-        if (event.phase === "composing" && !plan) {
+        if (event.phase === "validating" && !site) {
           throw streamError(
             context,
-            "The Story stream started composing before its Plan",
-            "The regeneration stream composed before its Plan.",
-          );
-        }
-        if (
-          event.phase === "validating" &&
-          (!plan || scenes.length !== plan.scenes.length)
-        ) {
-          throw streamError(
-            context,
-            "The Story stream started validation before every Scene arrived",
-            "The regeneration stream validated before every Scene was ready.",
+            "The Story stream started validation before its site arrived",
+            "The regeneration stream validated before its site was ready.",
           );
         }
         phaseIndex = nextPhaseIndex;
@@ -147,56 +129,24 @@ export async function consumeStoryStream({
           ? { kind: "publish", publicationToken: event.publicationToken }
           : null;
       }
-      case "plan":
-        if (phaseIndex !== PHASE_INDEX.planning || plan) {
+      case "site":
+        if (phaseIndex !== PHASE_INDEX.generating || site) {
           throw streamError(
             context,
-            "The Story stream sent its Plan outside the planning phase",
-            "The regeneration stream sent its Plan out of order.",
+            "The Story stream sent its site outside the generating phase",
+            "The regeneration stream sent its site out of order.",
           );
         }
-        assertValidStreamPlan(event.plan, event.evidence, expectedQuestion);
-        plan = event.plan;
+        assertValidStreamSite(event.site, event.evidence);
+        site = event.site;
         evidence = event.evidence;
-        onPlan?.(event.plan, event.evidence);
+        onSite?.(event.site, event.evidence);
         return null;
-      case "scene": {
-        if (!plan || phaseIndex !== PHASE_INDEX.composing) {
-          throw streamError(
-            context,
-            "The Story stream sent a Scene outside the composing phase",
-            "The regeneration stream sent Scenes out of order.",
-          );
-        }
-        const expectedIndex = scenes.length;
-        if (
-          event.index !== expectedIndex ||
-          event.scene.index !== expectedIndex
-        ) {
-          throw streamError(
-            context,
-            "The Story stream sent Scenes out of order",
-            "The regeneration stream sent Scenes out of order.",
-          );
-        }
-        const lockedScene = plan.scenes[expectedIndex];
-        if (!lockedScene) {
-          throw streamError(
-            context,
-            "The Story stream sent an unplanned Scene",
-            "The regeneration stream sent an unplanned Scene.",
-          );
-        }
-        assertValidStreamScene(event.scene, lockedScene, evidence);
-        scenes.push(event.scene);
-        onScene?.(event.scene, scenes);
-        return null;
-      }
       case "complete":
         assertValidPublicStory(event.story);
         if (
           phaseIndex !== PHASE_INDEX.validating ||
-          !plan ||
+          !site ||
           (context === "generation" &&
             normalizeQuestion(event.story.displayQuestion) !==
               normalizeQuestion(expectedQuestion))
@@ -207,11 +157,7 @@ export async function consumeStoryStream({
             "The completed Story did not match its validated stream.",
           );
         }
-        if (
-          !samePayload(event.story.plan, plan) ||
-          !samePayload(event.story.scenes, scenes) ||
-          !samePayload(event.story.evidence, evidence)
-        ) {
+        if (!samePayload(event.story.site, site) || !samePayload(event.story.evidence, evidence)) {
           throw streamError(
             context,
             "The cached Story did not match its replayed draft",

@@ -12,6 +12,8 @@ beforeEach(() => {
   vi.stubEnv("OPENROUTER_MODEL", "");
   vi.stubEnv("OPENROUTER_PROVIDER_ORDER", undefined);
   vi.stubEnv("OPENROUTER_FALLBACK_MODELS", undefined);
+  vi.stubEnv("OPENROUTER_BASE_URL", undefined);
+  vi.stubEnv("OPENROUTER_REASONING_EFFORT", undefined);
   vi.stubEnv("CF_ACCOUNT_ID", "");
   vi.stubEnv("STORY_CACHE_HMAC_KEY", "");
   vi.stubEnv("STORY_CACHE_HMAC_KEY_ID", "");
@@ -28,7 +30,7 @@ afterEach(() => {
 
 describe("LLM environment", () => {
   it("defaults the model when unset", () => {
-    expect(getServerEnv().openrouterModel).toBe("z-ai/glm-5.2");
+    expect(getServerEnv().openrouterModel).toBe("anthropic/claude-haiku-5.5");
   });
 
   it("leaves provider order unset by default", () => {
@@ -88,6 +90,30 @@ describe("LLM environment", () => {
       expect(() => getServerEnv()).toThrow(/must not contain empty entries/);
     },
   );
+
+  it("leaves base URL and reasoning effort unset by default", () => {
+    vi.stubEnv("OPENROUTER_BASE_URL", "");
+    expect(getServerEnv()).toMatchObject({
+      openrouterBaseUrl: undefined,
+      openrouterReasoningEffort: undefined,
+    });
+  });
+
+  it.each(["none", "xhigh"])("accepts reasoning effort %j and a base URL", (effort) => {
+    vi.stubEnv("OPENROUTER_REASONING_EFFORT", effort);
+    vi.stubEnv("OPENROUTER_BASE_URL", " http://localhost:11434/v1 ");
+    expect(getServerEnv()).toMatchObject({
+      openrouterBaseUrl: "http://localhost:11434/v1",
+      openrouterReasoningEffort: effort,
+    });
+  });
+
+  it.each(["max", "NONE", "off"])("rejects unknown reasoning effort %j", (effort) => {
+    vi.stubEnv("OPENROUTER_REASONING_EFFORT", effort);
+    expect(() => getServerEnv()).toThrow(
+      /OPENROUTER_REASONING_EFFORT must be one of xhigh, high, medium, low, minimal, none/,
+    );
+  });
 
   it("throws when the API key is missing", () => {
     vi.stubEnv("OPENROUTER_API_KEY", "");

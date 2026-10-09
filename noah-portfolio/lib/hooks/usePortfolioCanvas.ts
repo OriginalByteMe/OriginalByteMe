@@ -7,6 +7,7 @@ import { homeSpec } from "@/lib/jsonui/homeSpec";
 import { specToPatches } from "@/lib/jsonui/spec-patches";
 import { consumeStoryStream } from "@/lib/story/consume-story-stream";
 import { assertValidPublicStory } from "@/lib/story/public-validation";
+import { unlockSiteSound } from "@/lib/site/sound";
 import {
   normalizeQuestion,
   PublishStoryResponseSchema,
@@ -14,8 +15,7 @@ import {
   type EvidenceRef,
   type PublicStory,
   type StoryPhase,
-  type StoryPlan,
-  type StoryScene,
+  type Site,
 } from "@/lib/story/types";
 
 export type CanvasMode = "home" | "streaming" | "answer" | "error";
@@ -33,8 +33,8 @@ export interface PortfolioCanvas {
   spec: Spec;
   question: string;
   phase: StoryPhase | null;
-  plan: StoryPlan | null;
-  scenes: StoryScene[];
+  /** The validated site, streamed before publication and kept after it. */
+  site: Site | null;
   evidence: EvidenceRef[];
   /** Present only after the server validates, persists, and publishes the Story. */
   story: PublicStory | null;
@@ -113,8 +113,7 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
   const [spec, setSpec] = useState<Spec>(homeSpec);
   const [question, setQuestion] = useState(validatedInitialStory?.displayQuestion ?? "");
   const [phase, setPhase] = useState<StoryPhase | null>(null);
-  const [plan, setPlan] = useState<StoryPlan | null>(validatedInitialStory?.plan ?? null);
-  const [scenes, setScenes] = useState<StoryScene[]>(validatedInitialStory?.scenes ?? []);
+  const [site, setSite] = useState<Site | null>(validatedInitialStory?.site ?? null);
   const [evidence, setEvidence] = useState<EvidenceRef[]>(validatedInitialStory?.evidence ?? []);
   const [story, setStory] = useState<PublicStory | null>(validatedInitialStory ?? null);
   const [error, setError] = useState<string | null>(null);
@@ -142,8 +141,7 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
       storyCache.set(nextStory.id, nextStory);
       storyRef.current = nextStory;
       setQuestion(nextStory.displayQuestion);
-      setPlan(nextStory.plan);
-      setScenes(nextStory.scenes);
+      setSite(nextStory.site);
       setEvidence(nextStory.evidence);
       setStory(nextStory);
       setError(null);
@@ -182,8 +180,7 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
         setSpec(homeSpec);
         setQuestion("");
         setPhase(null);
-        setPlan(null);
-        setScenes([]);
+        setSite(null);
         setEvidence([]);
         setStory(null);
         setError(null);
@@ -213,6 +210,8 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
     async (raw: string, options: AskOptions = {}) => {
       const parsedQuestion = StoryQuestionSchema.safeParse(raw);
       if (!parsedQuestion.success) return;
+      // Sound may only start from the visitor's own Ask, so unlock audio inside that gesture.
+      unlockSiteSound();
       const normalized = parsedQuestion.data;
 
       const historyMode = options.history ?? "replace";
@@ -231,8 +230,7 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
 
       setQuestion(normalized);
       setPhase(null);
-      setPlan(null);
-      setScenes([]);
+      setSite(null);
       setEvidence([]);
       setStory(null);
       setError(null);
@@ -292,11 +290,10 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
           expectedQuestion: normalized,
           isActive: isCurrentRequest,
           onPhase: setPhase,
-          onPlan: (nextPlan, nextEvidence) => {
-            setPlan(nextPlan);
+          onSite: (nextSite, nextEvidence) => {
+            setSite(nextSite);
             setEvidence(nextEvidence);
           },
-          onScene: (_nextScene, nextScenes) => setScenes([...nextScenes]),
         });
         if (!isCurrentRequest()) return;
 
@@ -365,8 +362,7 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
     setSpec(homeSpec);
     setQuestion("");
     setPhase(null);
-    setPlan(null);
-    setScenes([]);
+    setSite(null);
     setEvidence([]);
     setStory(null);
     setError(null);
@@ -392,8 +388,7 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
     setMode("home");
     setQuestion("");
     setPhase(null);
-    setPlan(null);
-    setScenes([]);
+    setSite(null);
     setEvidence([]);
     setStory(null);
     setError(null);
@@ -431,8 +426,7 @@ export function usePortfolioCanvas(initialStory?: PublicStory): PortfolioCanvas 
     spec,
     question,
     phase,
-    plan,
-    scenes,
+    site,
     evidence,
     story,
     error,

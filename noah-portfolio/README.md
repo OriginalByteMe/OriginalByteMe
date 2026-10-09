@@ -20,9 +20,19 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Site generation model
+
+`/api/generate` makes one model call per attempt (at most two) through `@openrouter/ai-sdk-provider`, with a JSON response schema for constrained decoding. See `.env.local.example` for defaults.
+
+- `OPENROUTER_API_KEY` (required), `OPENROUTER_MODEL`, `OPENROUTER_PROVIDER_ORDER`, `OPENROUTER_FALLBACK_MODELS`
+- `OPENROUTER_BASE_URL` (optional): any OpenAI-compatible endpoint, e.g. a local Ollama `http://localhost:11434/v1`.
+- `OPENROUTER_REASONING_EFFORT` (optional): one of `xhigh`, `high`, `medium`, `low`, `minimal`, `none`, sent as `reasoning: { effort }`; other values are rejected.
+
+`npx tsx scripts/story-model-eval.ts --out-dir <dir> [--quick] [--limit N]` runs the built-in question set through the same generator against whatever these variables point at. Add `--results lib/benchmark/results.json` on a full run to update that model's row on `/benchmark`.
+
 ## Observability (Langfuse)
 
-Story-generation tracing is opt-in through the `LANGFUSE_*` environment variables below; production credentials live in the Vercel environment. The `/api/generate` pipeline uses the Vercel AI SDK's OpenTelemetry telemetry, registered in `instrumentation.ts`, so each question generation produces one `story-generation` trace that groups the plan and scene LLM calls. Without credentials, tracing is a no-op.
+Story-generation tracing is opt-in through the `LANGFUSE_*` environment variables below; production credentials live in the Vercel environment. The `/api/generate` pipeline uses the Vercel AI SDK's OpenTelemetry telemetry, registered in `instrumentation.ts`, so each question generation produces one `story-generation` trace that groups its `story-site` LLM calls. Without credentials, tracing is a no-op.
 
 - `LANGFUSE_PUBLIC_KEY`
 - `LANGFUSE_SECRET_KEY`

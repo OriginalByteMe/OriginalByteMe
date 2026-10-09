@@ -27,24 +27,32 @@ function isCreditError(error: unknown): boolean {
  */
 export function getModel() {
   const env = getServerEnv();
-  const openrouter = createOpenRouter({ apiKey: env.openrouterApiKey });
-  const primaryModel =
-    !env.openrouterProviderOrder && !env.openrouterFallbackModels
-      ? openrouter(env.openrouterModel)
-      : openrouter(env.openrouterModel, {
-          ...(env.openrouterProviderOrder && {
-            provider: { order: env.openrouterProviderOrder },
-          }),
-          ...(env.openrouterFallbackModels && { models: env.openrouterFallbackModels }),
-        });
+  const openrouter = createOpenRouter({
+    apiKey: env.openrouterApiKey,
+    // "strict" sends stream_options.include_usage, so OpenAI-compatible endpoints report token usage too.
+    compatibility: "strict",
+    ...(env.openrouterBaseUrl && { baseURL: env.openrouterBaseUrl }),
+  });
+  const shared = {
+    // The site schema has optional fields, which OpenAI-style strict schemas reject; send it as a guide.
+    structuredOutputs: { strict: false },
+    ...(env.openrouterReasoningEffort && { reasoning: { effort: env.openrouterReasoningEffort } }),
+  };
+  const primaryModel = openrouter(env.openrouterModel, {
+    ...(env.openrouterProviderOrder && {
+      provider: { order: env.openrouterProviderOrder },
+    }),
+    ...(env.openrouterFallbackModels && { models: env.openrouterFallbackModels }),
+    ...shared,
+  });
 
   if (!env.openrouterFallbackModels) return primaryModel;
 
   const fallbackModels = env.openrouterFallbackModels;
-  const fallbackModel = openrouter(
-    fallbackModels[0],
-    fallbackModels.length > 1 ? { models: fallbackModels.slice(1) } : undefined,
-  );
+  const fallbackModel = openrouter(fallbackModels[0], {
+    ...(fallbackModels.length > 1 && { models: fallbackModels.slice(1) }),
+    ...shared,
+  });
   // App-level 402 retry: OpenRouter's server-side `models` fallback is not
   // documented to cover zero-balance 402.
   const creditFallbackMiddleware: LanguageModelV3Middleware = {

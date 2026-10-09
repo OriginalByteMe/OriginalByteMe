@@ -19,6 +19,6 @@ describe("loadCorpus", () => {
     expect(knowledge).toMatch(/Kuala Lumpur/);
   });
   it("loads bio.summary from the markdown body", () => {
-    expect(corpus.bio.summary).toContain("passionate developer");
+    expect(corpus.bio.summary).toContain("keen eye for design");
   });
 });

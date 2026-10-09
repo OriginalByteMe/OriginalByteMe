@@ -530,7 +530,7 @@ export async function publishPreparedStory(
   return story;
 }
 
-/** Resolve an opaque ID; pending rows are missing and outdated rows never expose Scenes. */
+/** Resolve an opaque ID; pending rows are missing and outdated rows never expose their Site. */
 export async function resolveStory(id: string): Promise<StoryResolution> {
   if (!PublicStoryIdSchema.safeParse(id).success) return { status: "missing" };
   const row = await selectPublishedByPublicId(id);

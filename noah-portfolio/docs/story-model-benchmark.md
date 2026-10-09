@@ -1,5 +1,7 @@
 # Story model benchmark
 
+> **2026-10-09:** this records the retired Plan/Scene pipeline, and its numbers now live only in this note. `/benchmark` and `lib/benchmark/results.json` show the generated-site eval from `scripts/story-model-eval.ts` instead; see "Running it for a future model" below.
+
 The Story model benchmark compares models on the production Story path rather than on isolated prompts. The planner was the unreliable step: several models produced valid scenes once a plan survived, but first-attempt plan validity ranged from 0% to 100%. A useful model therefore has to produce a valid, grounded plan, recover from one repair request, compose every locked scene, and avoid repetitive or unsupported prose at acceptable latency and cost.
 
 The recorded run is `story-pipeline`, dated 2026-07-18. It sent five fixed questions to each of seven OpenRouter models.
@@ -12,7 +14,7 @@ The recorded run is `story-pipeline`, dated 2026-07-18. It sent five fixed quest
 4. `How does Noah combine design thinking with engineering?`
 5. `Which technologies and systems does Noah work with?`
 
-These are the `QUESTIONS` in `scripts/story-model-eval.ts`. Keep the list fixed when comparing models.
+These were the fixed `QUESTIONS` in `scripts/story-model-eval.ts` for both runs below. The script now asks its own site questions.
 
 ## Pipeline
 
@@ -54,31 +56,25 @@ The benchmark path and Story validators catch the failures that caused the plan 
 
 ## Cost model
 
-Costs are estimates, not measured spend. For each model, the page multiplies run-level prompt and completion token totals by the input and output rates in the pricing snapshot, then divides by Stories attempted.
+Costs were estimates, not measured spend. For each model, the old page multiplied run-level prompt and completion token totals by the input and output rates in the pricing snapshot, then divided by Stories attempted.
 
 > Costs are estimates: run token totals × one OpenRouter price snapshot per model. The eval used auto-routing, and per-provider endpoint prices vary materially.
 
-The snapshot is dated by `pricedAt` in `lib/benchmark/results.json`. Auto-routing can select endpoints with different quantization, quality, and prices; at review time GLM-5.2 endpoints ranged from $0.2968/$0.9328 to $1.05/$4.40 per million input/output tokens. Do not present the result as an invoice or exact provider spend.
+The snapshot was taken on 2026-07-18. Auto-routing can select endpoints with different quantization, quality, and prices; at review time GLM-5.2 endpoints ranged from $0.2968/$0.9328 to $1.05/$4.40 per million input/output tokens. Do not present the result as an invoice or exact provider spend.
 
 ## Running it for a future model
 
-Set `OPENROUTER_API_KEY`, then run the full production-pipeline comparison:
+This benchmark cannot be rerun. Its 2026-07-18 and 2026-07-20 tables below are the only record of the retired Plan + Scenes pipeline.
+
+`scripts/story-model-eval.ts` now measures site generation instead:
 
 ```bash
-npm run eval -- --pipeline --models vendor/new-model --out lib/benchmark/results.json
+npx tsx scripts/story-model-eval.ts --out-dir <dir> [--quick] [--limit N] [--self-test] [--results lib/benchmark/results.json]
 ```
 
-`--models` accepts one OpenRouter slug or a comma-separated list. `--out` merges results by model ID into `lib/benchmark/results.json` and preserves existing editorial verdicts. The `/benchmark` charts import that file and update on the next build.
+It sends its fixed question set through the production site generator against whatever the `OPENROUTER_*` variables point at, so set `OPENROUTER_API_KEY` and choose the model with `OPENROUTER_MODEL`. `OPENROUTER_BASE_URL` can point the same run at another OpenAI-compatible endpoint. Each question writes its own case file into the out dir, followed by `records.json` and `summary.json`. With `--results`, a full run also upserts that model's row in `lib/benchmark/results.json`, which `/benchmark` reads; the row's `label`, `host` and `pricing` are written by hand and kept across reruns.
 
-The canonical loop is:
-
-1. Rerun the evaluator with the model slug and `--out lib/benchmark/results.json`.
-2. Review the merged row and perform a blinded output review before changing its verdict.
-3. Build the site; `/benchmark` reads the updated results without a manual chart edit.
-
-Use `--quick` to run only the first fixed question while checking credentials or a new slug. Use `--self-test` for the deterministic repetition and model-resolution checks; it does not call a model.
-
-`CACTUS_BASE_URL` is **not currently implemented** by `scripts/story-model-eval.ts` or `lib/llm/openrouter.ts`; setting it has no effect. The evaluator currently constructs an OpenRouter provider directly and requires `OPENROUTER_API_KEY`. A non-OpenRouter local endpoint needs an explicit provider/base-URL seam before it can use this harness.
+Use `--quick` to run only the questions marked as a representative subset, and `--limit N` to stop after the first N selected questions. Use `--self-test` for the deterministic summary checks; it does not call a model and needs no `--out-dir`.
 
 ## 2026-07-18 results
 
