@@ -1,42 +1,23 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, Gauge, Sparkles } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import BenchmarkCharts, { type BenchmarkDatum } from '@/components/benchmark/BenchmarkCharts';
 import { ThemeSwitch } from '@/components/ThemeSwitch';
-import {
-  benchmark,
-  costUsdPerStory,
-  pricingSnapshotDates,
-  runDates,
-  storySampleSizes,
-} from '@/lib/benchmark/data';
+import { benchmark, costUsdPer1000Sites } from '@/lib/benchmark/data';
+
+const models: BenchmarkDatum[] = benchmark.models.map((model) => ({
+  ...model,
+  costUsdPer1000Sites: costUsdPer1000Sites(model),
+}));
+const questions = models[0]?.questions ?? 0;
+const references = models.filter((model) => model.pricing);
+const selfHosted = models.length - references.length;
+const runDates = [...new Set(models.map((model) => model.runAt.slice(0, 10)))].sort();
 
 export const metadata: Metadata = {
-  title: 'Story Pipeline Benchmark | Noah Rijkaard',
-  description: `A ${benchmark.models.length}-model benchmark of the plan, repair, scene, and validation pipeline behind Noah Rijkaard’s generated Stories.`,
+  title: 'Ask-me Site Model Benchmark | Noah Rijkaard',
+  description: `${models.length} models, ${selfHosted} of them self-hosted, generating the same ${questions} Ask-me sites: validity, honesty, layout fit, speed and cost.`,
 };
-
-const chartModels: BenchmarkDatum[] = benchmark.models.map((model) => ({
-  id: model.id,
-  label: model.label,
-  planFirstTryValid: model.planFirstTryValid,
-  planFinalValid: model.planFinalValid,
-  repetitionMax: model.repetitionMax,
-  repetitionMean: model.repetitionMean,
-  bannedPhrases: model.bannedPhrases,
-  meanStoryMs: model.meanStoryMs,
-  costUsdPerStory: costUsdPerStory(model),
-  verdict: model.verdict,
-}));
-
-const winner = benchmark.models.find((model) => model.verdict === 'default');
-const benchmarkRunDates = runDates(benchmark);
-const sampleSizes = storySampleSizes(benchmark);
-const sampleSizeLabel = sampleSizes.length === 0
-  ? 'Story questions per model'
-  : sampleSizes.length === 1
-    ? `${sampleSizes[0]} Story questions per model`
-    : `${sampleSizes[0]}–${sampleSizes[sampleSizes.length - 1]} Story questions per model`;
 
 export default function BenchmarkPage() {
   return (
@@ -55,79 +36,56 @@ export default function BenchmarkPage() {
       </header>
 
       <div className="mx-auto max-w-7xl px-5 pb-20 pt-14 sm:px-8 sm:pt-20 lg:pb-28">
-        <section aria-labelledby="benchmark-heading" className="grid gap-10 border-b border-border pb-14 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
+        <section aria-labelledby="benchmark-heading" className="mb-10 grid gap-10 border-b border-border pb-14 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
           <div className="max-w-3xl">
             <p className="font-mono text-xs uppercase tracking-[0.26em] text-muted-foreground">
-              Story pipeline /{' '}
-              {benchmarkRunDates.length === 0 ? (
+              Ask-me sites /{' '}
+              {runDates.length === 0 ? (
                 'Date unavailable'
-              ) : benchmarkRunDates.length === 1 ? (
-                <time dateTime={benchmarkRunDates[0]}>{benchmarkRunDates[0]}</time>
+              ) : runDates.length === 1 ? (
+                <time dateTime={runDates[0]}>{runDates[0]}</time>
               ) : (
                 <>
-                  <time dateTime={benchmarkRunDates[0]}>{benchmarkRunDates[0]}</time>
+                  <time dateTime={runDates[0]}>{runDates[0]}</time>
                   {' – '}
-                  <time dateTime={benchmarkRunDates[benchmarkRunDates.length - 1]}>
-                    {benchmarkRunDates[benchmarkRunDates.length - 1]}
-                  </time>
+                  <time dateTime={runDates[runDates.length - 1]}>{runDates[runDates.length - 1]}</time>
                 </>
               )}
             </p>
             <h1 id="benchmark-heading" className="mt-5 text-balance font-serif text-5xl leading-[0.95] tracking-tight sm:text-6xl lg:text-7xl">
-              {benchmark.models.length} model{benchmark.models.length === 1 ? '' : 's'} entered the Story pipeline.
+              {models.length} models built the same {questions} Ask-me sites.
             </h1>
             <p className="mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground">
-              {sampleSizeLabel} went through the real plan → repair → scenes pipeline and the app&apos;s own validators.{' '}
-              {winner
-                ? `${winner.label} won the blinded review and became the default.`
-                : 'The results below compare every completed run.'}
+              {selfHosted} small open models ran on the CPU of Noah&apos;s Unraid server through Ollama, at no cost per
+              site.{' '}
+              {references.length
+                ? `${references.map((model) => model.label).join(' and ')} ran on the paid Anthropic API for comparison. `
+                : ''}
+              Every question went through the production generator: one model call, the app&apos;s own validators,
+              and at most one repair call.
             </p>
           </div>
 
           <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[var(--story-radius-md)] border border-border bg-border">
             <div className="bg-card p-4">
               <dt className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-muted-foreground">Models</dt>
-              <dd className="mt-2 font-serif text-3xl">{benchmark.models.length}</dd>
+              <dd className="mt-2 font-serif text-3xl">{models.length}</dd>
             </div>
             <div className="bg-card p-4">
-              <dt className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-muted-foreground">Stories</dt>
-              <dd className="mt-2 font-serif text-3xl">{benchmark.models.reduce((sum, model) => sum + model.stories, 0)}</dd>
+              <dt className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-muted-foreground">Sites</dt>
+              <dd className="mt-2 font-serif text-3xl">{models.reduce((sum, model) => sum + model.questions, 0)}</dd>
             </div>
             <div className="col-span-2 bg-card p-4">
-              <dt className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-muted-foreground">Pipeline</dt>
-              <dd className="mt-2 text-sm text-card-foreground">Plan → repair → scenes → validate</dd>
+              <dt className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-muted-foreground">Source</dt>
+              <dd className="mt-2 break-words font-mono text-sm text-card-foreground">{benchmark.source}</dd>
             </div>
           </dl>
         </section>
 
-        {winner ? (
-          <section aria-labelledby="winner-heading" className="my-10 grid gap-6 rounded-[var(--story-radius-md)] border border-border bg-card p-5 shadow-[var(--story-shadow)] sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-            <div>
-              <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.22em] text-chart-2">
-                <Sparkles className="size-4" strokeWidth={1.5} aria-hidden /> Selected default
-              </p>
-              <h2 id="winner-heading" className="mt-3 font-serif text-3xl tracking-tight sm:text-4xl">{winner.label}</h2>
-              <blockquote className="mt-4 max-w-3xl border-l-2 border-chart-2 pl-4 text-base leading-relaxed text-muted-foreground">
-                “{winner.note}”
-              </blockquote>
-            </div>
-            <dl className="grid min-w-64 grid-cols-2 gap-4 text-sm">
-              <div>
-                <dt className="flex items-center gap-2 text-muted-foreground"><CheckCircle2 className="size-4 text-chart-2" strokeWidth={1.5} aria-hidden /> Final plans</dt>
-                <dd className="mt-1 font-mono text-lg">{Math.round(winner.planFinalValid * 100)}%</dd>
-              </div>
-              <div>
-                <dt className="flex items-center gap-2 text-muted-foreground"><Gauge className="size-4 text-chart-1" strokeWidth={1.5} aria-hidden /> Per Story</dt>
-                <dd className="mt-1 font-mono text-lg">{(winner.meanStoryMs / 1000).toFixed(1)} s</dd>
-              </div>
-            </dl>
-          </section>
-        ) : null}
-
         <BenchmarkCharts
-          models={chartModels}
-          pricingDates={pricingSnapshotDates(benchmark)}
+          models={models}
           pricingNote={benchmark.pricingNote}
+          untaggedLayoutQuestions={benchmark.untaggedLayoutQuestions}
         />
       </div>
     </main>

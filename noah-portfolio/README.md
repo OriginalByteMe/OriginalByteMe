@@ -28,7 +28,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 - `OPENROUTER_BASE_URL` (optional): any OpenAI-compatible endpoint, e.g. a local Ollama `http://localhost:11434/v1`.
 - `OPENROUTER_REASONING_EFFORT` (optional): one of `xhigh`, `high`, `medium`, `low`, `minimal`, `none`, sent as `reasoning: { effort }`; other values are rejected.
 
-`npx tsx scripts/story-model-eval.ts --out-dir <dir> [--quick] [--limit N]` runs the built-in question set through the same generator against whatever these variables point at.
+`npx tsx scripts/story-model-eval.ts --out-dir <dir> [--quick] [--limit N]` runs the built-in question set through the same generator against whatever these variables point at. Add `--results lib/benchmark/results.json` on a full run to update that model's row on `/benchmark`.
 
 ## Observability (Langfuse)
 
