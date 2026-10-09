@@ -1,8 +1,24 @@
 import { vi } from "vitest";
 
-/** jsdom lacks the modal dialog methods SiteTakeover calls on mount; the `open` attribute keeps it shown. */
+/**
+ * jsdom has no modal dialogs or scrolling. This models what SiteTakeover relies on: showModal
+ * remembers the focused element and close() hands focus back, which a browser skips once the
+ * dialog has left the document. The `open` attribute keeps the dialog shown.
+ */
 export function stubDialog(): void {
-  Object.assign(HTMLDialogElement.prototype, { showModal() {}, close() {}, scrollTo() {} });
+  const opener = new WeakMap<HTMLDialogElement, Element | null>();
+  Object.assign(HTMLDialogElement.prototype, {
+    showModal(this: HTMLDialogElement) {
+      opener.set(this, document.activeElement);
+    },
+    close(this: HTMLDialogElement) {
+      const element = opener.get(this);
+      opener.delete(this);
+      if (this.isConnected && element instanceof HTMLElement) element.focus();
+    },
+    scrollTo() {},
+  });
+  Element.prototype.scrollIntoView = function scrollIntoView() {};
 }
 
 /** What the page asked the browser's audio engine for; `sounds` counts every audible tick or click. */

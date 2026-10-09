@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import type { CSSProperties, MouseEvent } from "react";
 import { ArrowDown, ArrowUpRight } from "lucide-react";
 
 import { Art } from "@/lib/site/art";
@@ -70,6 +70,18 @@ function Sources({ ids, evidence }: { ids: readonly string[]; evidence: readonly
   return labels.length ? <p className="gs-sources">Sources: {labels.join(" · ")}</p> : null;
 }
 
+/**
+ * In-site links scroll in place instead of navigating to the fragment, which would push a history
+ * entry per click and make the browser Back button step through sections before leaving the site.
+ * Focusing the target keeps keyboard users where a fragment jump would have put them.
+ */
+function jumpTo(event: MouseEvent<HTMLAnchorElement>) {
+  event.preventDefault();
+  const target = document.getElementById(event.currentTarget.hash.slice(1));
+  target?.scrollIntoView({ block: "start" });
+  target?.focus({ preventScroll: true });
+}
+
 export default function GeneratedSite({ site, evidence, revealed, onAsk }: GeneratedSiteProps) {
   const { hero, sections } = site;
   const boundary = site.mode === "boundary";
@@ -88,7 +100,7 @@ export default function GeneratedSite({ site, evidence, revealed, onAsk }: Gener
     >
       <div className="gs-top">
         <header className="gs-nav" {...block(0)}>
-          <a className="gs-brand" href="#gs-hero">
+          <a className="gs-brand" href="#gs-hero" onClick={jumpTo}>
             <span className="gs-brand__mark" aria-hidden />
             {site.brand}
           </a>
@@ -99,7 +111,7 @@ export default function GeneratedSite({ site, evidence, revealed, onAsk }: Gener
                   // Small models repeat labels; one link per label keeps the menu readable.
                   sections.findIndex((other) => other.nav === section.nav) === index ? (
                     <li key={index}>
-                      <a href={`#gs-section-${index + 1}`}>{section.nav}</a>
+                      <a href={`#gs-section-${index + 1}`} onClick={jumpTo}>{section.nav}</a>
                     </li>
                   ) : null,
                 )}
@@ -108,14 +120,14 @@ export default function GeneratedSite({ site, evidence, revealed, onAsk }: Gener
           ) : null}
         </header>
 
-        <section id="gs-hero" className="gs-hero" aria-labelledby="gs-hero-title" {...block(1)}>
+        <section id="gs-hero" className="gs-hero" aria-labelledby="gs-hero-title" tabIndex={-1} {...block(1)}>
           <div className="gs-hero__copy">
             <p className="gs-eyebrow">{hero.eyebrow}</p>
             <h1 id="gs-hero-title" className="gs-hero__title">{hero.headline}</h1>
             <p className="gs-hero__lede">{hero.lede}</p>
             <div className="gs-hero__actions">
               {sections.length ? (
-                <a className="gs-button" href="#gs-section-1">
+                <a className="gs-button" href="#gs-section-1" onClick={jumpTo}>
                   {sections[0].nav}
                   <span className="gs-button__icon"><ArrowDown aria-hidden className="size-4" strokeWidth={1.5} /></span>
                 </a>
@@ -139,6 +151,7 @@ export default function GeneratedSite({ site, evidence, revealed, onAsk }: Gener
             data-kind={section.kind}
             data-side={index % 2 ? "right" : "left"}
             aria-labelledby={`gs-section-${index + 1}-title`}
+            tabIndex={-1}
             {...block(index + 2)}
           >
             <div className="gs-section__head">

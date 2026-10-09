@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import type { ComponentProps } from "react";
+import { useState, type ComponentProps } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type SiteTakeoverComponent from "@/components/site/SiteTakeover";
@@ -20,8 +20,8 @@ const blockStates = () =>
 const shown = (count: number) =>
   Array.from({ length: BLOCKS }, (_, index) => (index < count ? "shown" : "pending"));
 
-function renderTakeover(initial: Partial<Props> = {}) {
-  let props: Props = {
+function takeoverProps(initial: Partial<Props> = {}): Props {
+  return {
     mode: "streaming",
     question: CURRENT_QUESTION,
     site: null,
@@ -33,9 +33,14 @@ function renderTakeover(initial: Partial<Props> = {}) {
     onBack: vi.fn(),
     ...initial,
   };
+}
+
+function renderTakeover(initial: Partial<Props> = {}) {
+  let props = takeoverProps(initial);
   const view = render(<SiteTakeover {...props} />);
   return {
     ...props,
+    unmount: view.unmount,
     rerender(next: Partial<Props>) {
       props = { ...props, ...next };
       view.rerender(<SiteTakeover {...props} />);
@@ -60,6 +65,8 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  vi.doUnmock("framer-motion");
 });
 
 describe("SiteTakeover", () => {
@@ -88,6 +95,44 @@ describe("SiteTakeover", () => {
     expect(document.querySelector(".gs")).toHaveAttribute("data-building");
     act(() => vi.advanceTimersByTime(700));
     expect(document.querySelector(".gs")).not.toHaveAttribute("data-building");
+  });
+
+  it("shows the whole site at once under reduced motion, with one snap and no zoom", async () => {
+    vi.doMock("framer-motion", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("framer-motion")>()),
+      useReducedMotion: () => true,
+    }));
+    // Re-import so SiteTakeover picks up the mocked hook.
+    vi.resetModules();
+    ({ default: SiteTakeover } = await import("@/components/site/SiteTakeover"));
+    ({ unlockSiteSound } = await import("@/lib/site/sound"));
+    unlockSiteSound();
+    const takeover = renderTakeover();
+
+    const beforeSite = audio.sounds;
+    takeover.rerender({ site, evidence });
+    expect(blockStates()).toEqual(shown(BLOCKS));
+    expect(document.querySelector(".gs")).not.toHaveAttribute("data-building");
+    expect(document.querySelector(".site-stage")).not.toHaveAttribute("style");
+    expect(audio.sounds).toBeGreaterThan(beforeSite);
+
+    const afterSnap = audio.sounds;
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(audio.sounds).toBe(afterSnap);
+  });
+
+  it("goes quiet when the visitor leaves part way through a build", () => {
+    unlockSiteSound();
+    const takeover = renderTakeover();
+    takeover.rerender({ site, evidence });
+    act(() => vi.advanceTimersByTime(320 + 430));
+    expect(blockStates()).toEqual(shown(2));
+
+    takeover.unmount();
+    const before = audio.sounds;
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(audio.sounds).toBe(before);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it.each([
@@ -150,6 +195,46 @@ describe("SiteTakeover", () => {
     // Escape on a modal dialog fires `cancel`.
     fireEvent(screen.getByRole("dialog"), new Event("cancel", { cancelable: true }));
     expect(takeover.onBack).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["the Back button", () => fireEvent.click(screen.getByRole("button", { name: "Back to portfolio" }))],
+    ["Escape", () => fireEvent(screen.getByRole("dialog"), new Event("cancel", { cancelable: true }))],
+  ])("hands focus back to the control that opened the site, if it still exists, when leaving with %s", (_exit, leave) => {
+    const opener = document.body.appendChild(document.createElement("button"));
+    opener.focus();
+    // Leaving unmounts the takeover, as the portfolio does when it returns home.
+    function Portfolio() {
+      const [open, setOpen] = useState(true);
+      return open ? (
+        <SiteTakeover {...takeoverProps({ mode: "answer", site, evidence, story: CURRENT_PUBLIC_STORY })} onBack={() => setOpen(false)} />
+      ) : null;
+    }
+    render(<Portfolio />);
+    expect(document.activeElement).toBe(screen.getByRole("dialog"));
+
+    leave();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+
+  it("scrolls to sections in place instead of navigating, so browser Back still leaves the site", () => {
+    const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
+    renderTakeover({ mode: "answer", site, evidence, story: CURRENT_PUBLIC_STORY });
+    const jumps: Array<[HTMLElement, string]> = [
+      [within(screen.getByRole("navigation")).getByRole("link", { name: site.sections[1].nav }), "gs-section-2"],
+      [within(screen.getByRole("region", { name: site.hero.headline })).getByRole("link", { name: site.sections[0].nav }), "gs-section-1"],
+      [screen.getByRole("link", { name: site.brand }), "gs-hero"],
+    ];
+
+    for (const [link, id] of jumps) {
+      // A cancelled click is a fragment navigation that never happens, so no history entry is added.
+      expect(fireEvent.click(link)).toBe(false);
+      const target = document.getElementById(id);
+      expect(scroll.mock.contexts.at(-1)).toBe(target);
+      expect(document.activeElement).toBe(target);
+    }
   });
 
   it("remembers a muted toggle and builds silently while muted", () => {

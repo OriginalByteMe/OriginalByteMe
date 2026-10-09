@@ -182,7 +182,7 @@ export default function SiteTakeover({
 
   useEffect(() => setMuted(isSiteSoundMuted()), []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const dialog = layerRef.current;
     if (!dialog) return;
     // Server HTML renders the dialog open so share links paint before hydration; upgrade it to modal
@@ -191,6 +191,8 @@ export default function SiteTakeover({
     dialog.showModal();
     // showModal focuses the first link; focus the layer itself so nothing shows a stray focus ring.
     dialog.focus();
+    // A layout cleanup runs before React removes the dialog, so the browser can still hand focus
+    // back to whatever opened it; a closed detached dialog drops focus to <body>.
     return () => dialog.close();
   }, []);
 
