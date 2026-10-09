@@ -1,5 +1,5 @@
 import { createElement, type ComponentProps } from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -98,7 +98,7 @@ describe('Hero interaction composition', () => {
     expect(document.querySelector('canvas')).not.toBeInTheDocument();
   });
 
-  it('reveals the centered Ask-Me composer and prompt routes only after activation', async () => {
+  it('shows the Ask-Me box straight away, with no launcher or close button', () => {
     render(
       <Provider store={makeStore()}>
         <ThemeProvider>
@@ -107,28 +107,10 @@ describe('Hero interaction composition', () => {
       </Provider>,
     );
 
-    const askRegion = screen.getByRole('region', { name: 'Ask-Me' });
-    expect(askRegion).toHaveAttribute('data-state', 'collapsed');
-    expect(askRegion).not.toHaveClass('hero-panel');
-    const launcher = screen.getByRole('button', { name: 'Open Ask-Me composer' });
-    expect(launcher).toHaveClass('ask-launcher-button');
-    expect(launcher).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByText('Ask this portfolio anything')).toBeVisible();
-    expect(screen.queryByRole('textbox', { name: 'Question for Noah' })).not.toBeInTheDocument();
-    expect(screen.queryByText('Where should we begin?')).not.toBeInTheDocument();
-
-    fireEvent.click(launcher);
-
-    expect(askRegion).toHaveAttribute('data-state', 'expanded');
-    expect(screen.getByRole('button', { name: 'Ask-Me composer is open' })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('heading', { level: 2, name: 'Where should we begin?' })).toBeVisible();
-    expect(screen.getByRole('textbox', { name: 'Question for Noah' })).toBeVisible();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse Ask-Me' }));
-
-    expect(screen.queryByRole('textbox', { name: 'Question for Noah' })).not.toBeInTheDocument();
-    const restoredLauncher = screen.getByRole('button', { name: 'Open Ask-Me composer' });
-    await waitFor(() => expect(restoredLauncher).toHaveFocus());
+    expect(screen.getByRole('region', { name: 'Ask-Me' })).toContainElement(
+      screen.getByRole('textbox', { name: 'Question for Noah' }),
+    );
+    expect(screen.queryByRole('button', { name: /open ask-me|collapse ask-me/i })).not.toBeInTheDocument();
   });
 
   it('keeps a selected Spotify track tied to portrait tinting without restoring listening UI', () => {

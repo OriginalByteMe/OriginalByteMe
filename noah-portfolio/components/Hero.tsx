@@ -5,9 +5,8 @@ import Image from 'next/image';
 import { ImageDithering } from '@paper-design/shaders-react';
 import { motion, useAnimationFrame, useMotionValue, useReducedMotion, useSpring } from 'framer-motion';
 import { useSelector } from 'react-redux';
-import { Github, Linkedin, Mail, X } from 'lucide-react';
+import { Github, Linkedin, Mail } from 'lucide-react';
 import ChatBox from './ChatBox';
-import { AskLauncherButton } from './AskDock';
 import { useTheme } from './ThemeProvider';
 import { ditherPaletteFromTrack, type DitherPalette } from '@/lib/dither-palette';
 import type { RootState } from '@/lib/store';
@@ -143,64 +142,6 @@ function HeroPortrait() {
   );
 }
 
-function HeroAskLauncher() {
-  const [expanded, setExpanded] = useState(false);
-  const launcherRef = useRef<HTMLButtonElement>(null);
-
-  const collapse = () => {
-    launcherRef.current?.focus();
-    setExpanded(false);
-  };
-
-  return (
-    <section
-      id="ask-me"
-      aria-label="Ask-Me"
-      className="profile-ask profile-ask-launcher"
-      data-state={expanded ? 'expanded' : 'collapsed'}
-    >
-      <div className="profile-ask-launcher__entry">
-        <AskLauncherButton
-          ref={launcherRef}
-          aria-label={expanded ? 'Ask-Me composer is open' : 'Open Ask-Me composer'}
-          aria-expanded={expanded}
-          aria-controls="ask-me-composer"
-          aria-describedby={expanded ? undefined : 'ask-me-cta'}
-          onClick={() => setExpanded(true)}
-        />
-        {!expanded && (
-          <p id="ask-me-cta" className="profile-ask-launcher__cta">
-            Ask this portfolio anything
-          </p>
-        )}
-      </div>
-
-      {expanded && (
-        <div id="ask-me-composer" className="profile-ask-launcher__composer">
-          <div className="ask-editorial__heading">
-            <div>
-              <p className="ask-editorial__eyebrow">Ask-Me</p>
-              <h2 className="ask-editorial__title">Where should we begin?</h2>
-            </div>
-            <button
-              type="button"
-              aria-label="Collapse Ask-Me"
-              onClick={collapse}
-              className="hero-action size-11 shrink-0 justify-center rounded-full"
-            >
-              <X {...ICON} className="size-4" aria-hidden />
-            </button>
-          </div>
-          <p className="ask-editorial__intro">
-            Choose a route below or write your own. The portfolio will compose an answer around your question.
-          </p>
-          <ChatBox variant="editorial" autoFocus />
-        </div>
-      )}
-    </section>
-  );
-}
-
 export default function Hero() {
   return (
     <section
@@ -263,7 +204,14 @@ export default function Hero() {
           </div>
         </div>
 
-        <HeroAskLauncher />
+        <section id="ask-me" aria-label="Ask-Me" className="profile-ask">
+          <p className="ask-editorial__eyebrow">Ask-Me</p>
+          <h2 className="ask-editorial__title">Where should we begin?</h2>
+          <p className="ask-editorial__intro">
+            Choose a route below or write your own. The portfolio will compose an answer around your question.
+          </p>
+          <ChatBox variant="editorial" />
+        </section>
       </div>
     </section>
   );
