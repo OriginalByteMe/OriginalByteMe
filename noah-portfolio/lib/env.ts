@@ -54,7 +54,7 @@ export function getServerEnv(): OpenRouterEnv {
 
   return {
     openrouterApiKey,
-    openrouterModel: process.env.OPENROUTER_MODEL || "anthropic/claude-haiku-5.5",
+    openrouterModel: process.env.OPENROUTER_MODEL || "z-ai/glm-5.2",
     openrouterProviderOrder: providerOrder,
     openrouterFallbackModels: fallbackModels,
     openrouterBaseUrl: process.env.OPENROUTER_BASE_URL?.trim() || undefined,

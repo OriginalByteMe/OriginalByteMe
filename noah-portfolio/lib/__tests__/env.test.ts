@@ -30,7 +30,7 @@ afterEach(() => {
 
 describe("LLM environment", () => {
   it("defaults the model when unset", () => {
-    expect(getServerEnv().openrouterModel).toBe("anthropic/claude-haiku-5.5");
+    expect(getServerEnv().openrouterModel).toBe("z-ai/glm-5.2");
   });
 
   it("leaves provider order unset by default", () => {

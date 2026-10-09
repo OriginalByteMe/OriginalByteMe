@@ -21,9 +21,6 @@ import { assertValidSite } from "@/lib/story/validation";
 const MAX_SITE_ATTEMPTS = 2;
 // A maximal site is about 3.5k tokens of JSON; the rest is headroom for reasoning models.
 const MAX_SITE_OUTPUT_TOKENS = 8192;
-// Every visitor shares the system prompt, so it ends in a cache breakpoint: Anthropic models on OpenRouter
-// bill a repeat within five minutes, repair calls included, at a tenth of the input price.
-const CACHE_SYSTEM_PROMPT = { openrouter: { cacheControl: { type: "ephemeral" } } };
 
 /** Response format for constrained decoding: the draft schema with Evidence ids narrowed to the active Corpus. */
 export const SITE_RESPONSE_JSON_SCHEMA = (() => {
@@ -122,7 +119,7 @@ async function completeAttempt(messages: ModelMessage[], signal: AbortSignal, at
   let streamError: unknown;
   const result = streamText({
     model: getModel(),
-    system: { role: "system", content: buildSiteSystemPrompt(), providerOptions: CACHE_SYSTEM_PROMPT },
+    system: buildSiteSystemPrompt(),
     messages,
     output: siteOutput,
     maxOutputTokens: MAX_SITE_OUTPUT_TOKENS,
