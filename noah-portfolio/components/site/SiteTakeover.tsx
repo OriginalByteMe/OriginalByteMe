@@ -21,6 +21,8 @@ import type { EvidenceRef, PublicStory, Site } from "@/lib/story/types";
 
 const BLOCK_MS = 430;
 const GENERATING_STEPS = ["Picking a layout", "Writing the copy", "Choosing pictures", "Citing Noah's notes"];
+// How long one thought bubble shows; site-thought animations read it through --life.
+const THOUGHT_MS = 3800;
 
 interface SiteTakeoverProps {
   mode: Exclude<CanvasMode, "home">;
@@ -44,9 +46,9 @@ function ThoughtBubbles() {
     let timer = window.setTimeout(function think() {
       id += 1;
       const thought = { id, text: next(Date.now() - started), rise: Math.round(Math.random() * 40) };
-      // A bubble lives 3.8s and the next comes 1.9-2.7s later, so the one dropped here has faded.
+      // The next bubble comes at least half a lifetime later, so the one dropped here has faded.
       setThoughts((shown) => [...shown.slice(-1), thought]);
-      timer = window.setTimeout(think, 1900 + Math.random() * 800);
+      timer = window.setTimeout(think, THOUGHT_MS / 2 + Math.random() * 800);
     }, 700);
     return () => window.clearTimeout(timer);
   }, []);
@@ -55,7 +57,7 @@ function ThoughtBubbles() {
       key={id}
       className="site-thought"
       data-side={id % 2 ? "left" : "right"}
-      style={{ "--rise": `${rise}px` } as CSSProperties}
+      style={{ "--rise": `${rise}px`, "--life": `${THOUGHT_MS}ms` } as CSSProperties}
     >
       {text}
     </p>

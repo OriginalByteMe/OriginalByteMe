@@ -20,7 +20,8 @@
   text-align: center;
   text-wrap: balance;
   pointer-events: none;
-  animation: site-thought 3.8s cubic-bezier(0.33, 1, 0.68, 1) both;
+  /* --life is set by SiteTakeover, which spaces bubbles by it. */
+  animation: site-thought var(--life) cubic-bezier(0.33, 1, 0.68, 1) both;
 }
 .site-thought[data-side="left"] {
   --drift: -10px;
