@@ -59,7 +59,7 @@ export default function BenchmarkPage() {
               {selfHosted} small open models ran on the CPU of Noah&apos;s Unraid server through Ollama, at no cost per
               site.{' '}
               {references.length
-                ? `${references.map((model) => model.label).join(' and ')} ran on the paid Anthropic API for comparison. `
+                ? `${references.map((model) => model.label).join(' and ')} ran on Anthropic through Noah's Claude subscription for comparison; their costs are estimates at Anthropic's API list price. `
                 : ''}
               Every question went through the production generator: one model call, the app&apos;s own validators,
               and at most one repair call.

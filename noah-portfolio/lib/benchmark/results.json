@@ -1,6 +1,6 @@
 {
   "source": "scripts/story-model-eval.ts",
-  "pricingNote": "The Haiku costs are estimates: each model's mean measured tokens per site, repair calls included, times Anthropic's list price without prompt caching. The runs went through Noah's Claude subscription, whose CLI adds a short preamble to every prompt, so the estimates run slightly high. The self-hosted models cost nothing per site on a server that is already running.",
+  "pricingNote": "The Haiku costs are estimates: each model's mean measured tokens per site, repair calls included, times Anthropic's API list price without prompt caching. The runs went through Noah's Claude subscription, whose CLI adds a short preamble to every prompt, so the estimates run slightly high. The self-hosted models cost nothing per site on a server that is already running.",
   "untaggedLayoutQuestions": [
     "What did Noah build at Supa?",
     "Does Noah have e-commerce experience?",
@@ -85,7 +85,7 @@
     },
     {
       "label": "Claude Haiku 4.5",
-      "host": "Anthropic API",
+      "host": "Anthropic (Claude subscription)",
       "id": "anthropic/claude-haiku-4-5",
       "pricing": {
         "inputUsdPerMTok": 1,
@@ -108,7 +108,7 @@
     },
     {
       "label": "Claude Haiku 5.5",
-      "host": "Anthropic API",
+      "host": "Anthropic (Claude subscription)",
       "id": "anthropic/claude-haiku-5-5",
       "pricing": {
         "inputUsdPerMTok": 0.1,
