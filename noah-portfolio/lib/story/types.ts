@@ -63,10 +63,13 @@ export const ProjectSlugSchema = z.enum(PROJECT_SLUGS, {
   message: "Unknown Corpus project slug",
 });
 
+/** Project cards one section can carry. */
+export const MAX_SECTION_PROJECTS = 3;
+
 const ProjectSlugsSchema = z
   .array(ProjectSlugSchema)
   .min(1)
-  .max(3)
+  .max(MAX_SECTION_PROJECTS)
   .refine((slugs) => new Set(slugs).size === slugs.length, {
     message: "Project slugs must be unique",
   });
@@ -112,15 +115,18 @@ const sectionShape = {
   // Eight fits the longest names-only skills list (seven languages) without letting facts sprawl.
   items: z.array(SiteItemSchema).max(8),
   art: ArtIdSchema.optional(),
-  projectSlugs: ProjectSlugsSchema.optional(),
 };
 
 /** A section as the model writes it. */
 const SiteSectionDraftSchema = z.object(sectionShape).strict();
 
-/** A stored section: trusted code adds the canonical Corpus cards for its project slugs. */
+/** A stored section: trusted code adds the canonical Corpus cards for the projects it cites. */
 const SiteSectionSchema = z
-  .object({ ...sectionShape, projects: z.array(StoryProjectSchema).min(1).max(3).optional() })
+  .object({
+    ...sectionShape,
+    projectSlugs: ProjectSlugsSchema.optional(),
+    projects: z.array(StoryProjectSchema).min(1).max(MAX_SECTION_PROJECTS).optional(),
+  })
   .strict();
 
 const SiteHeroSchema = z

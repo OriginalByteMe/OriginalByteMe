@@ -7,7 +7,7 @@ import {
   buildSiteUserMessage,
 } from "@/lib/llm/prompt";
 import { storyTelemetry } from "@/lib/observability/langfuse";
-import { CORPUS_EVIDENCE_REFS, resolveStoryProjects } from "@/lib/story/evidence";
+import { CORPUS_EVIDENCE_REFS, attachCitedProjects } from "@/lib/story/evidence";
 import { validationError } from "@/lib/story/public-validation";
 import {
   EvidenceRefIdSchema,
@@ -99,9 +99,7 @@ function parseSite(text: string): Site {
     palette: paletteFor(hero.evidenceRefIds[0] ?? sections[0]?.evidenceRefIds[0]),
     brand,
     hero,
-    sections: sections.map((section) =>
-      section.projectSlugs ? { ...section, projects: resolveStoryProjects(section.projectSlugs) } : section,
-    ),
+    sections: attachCitedProjects(sections),
     relatedQuestions,
   };
   assertValidSite(site, CORPUS_EVIDENCE_REFS);

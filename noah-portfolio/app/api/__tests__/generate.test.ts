@@ -77,7 +77,6 @@ const GROUNDED_DRAFT: SiteDraft = {
       nav: "Projects",
       body: "My portfolio includes the LLM Comparison app.",
       items: [],
-      projectSlugs: ["llm-comparison"],
     },
   ],
   relatedQuestions: ["Which databases does Noah know?", "Where is Noah based?"],
@@ -101,9 +100,11 @@ const GROUNDED_SITE: Site = {
   mode: "grounded",
   ...GROUNDED_DRAFT,
   palette: "forest",
-  sections: GROUNDED_DRAFT.sections.map((section) =>
-    section.projectSlugs ? { ...section, projects: resolveStoryProjects(section.projectSlugs) } : section,
-  ),
+  // The second section cites project-llm-comparison, so the server attaches that project's card.
+  sections: [
+    GROUNDED_DRAFT.sections[0],
+    { ...GROUNDED_DRAFT.sections[1], projectSlugs: ["llm-comparison"], projects: resolveStoryProjects(["llm-comparison"]) },
+  ],
 };
 const BOUNDARY_SITE: Site = { mode: "boundary", ...BOUNDARY_DRAFT, palette: "midnight" };
 const GROUNDED_EVIDENCE = CORPUS_EVIDENCE_REFS.filter((ref) =>
@@ -211,6 +212,24 @@ describe("POST /api/generate", () => {
     expect(options?.signal?.aborted).toBe(false);
   });
 
+  it("puts each cited project's card on the first section that cites it, at most three per section", async () => {
+    const cited = ["project-ai-image-cutout", "project-ask-me-portfolio", "project-llm-comparison", "project-moodify"];
+    const draft = {
+      ...GROUNDED_DRAFT,
+      sections: [
+        { ...GROUNDED_DRAFT.sections[1], evidenceRefIds: cited },
+        { ...GROUNDED_DRAFT.sections[0], evidenceRefIds: ["project-llm-comparison", "project-moodify"] },
+      ],
+    };
+    streamTextMock.mockReturnValueOnce(modelResult(JSON.stringify(draft)));
+
+    const events = await readEvents(await generate(postRequest({ question: QUESTION })));
+    const site = events.find((event) => event.type === "site");
+    const cards = site?.type === "site" ? site.site.sections.map((section) => section.projects?.map((project) => project.slug)) : null;
+
+    expect(cards).toEqual([["ai-image-cutout", "ask-me-portfolio", "llm-comparison"], ["moodify"]]);
+  });
+
   it("repairs an invalid first site by naming its validation error", async () => {
     const invalid = JSON.stringify({
       ...GROUNDED_DRAFT,
@@ -242,12 +261,12 @@ describe("POST /api/generate", () => {
   it.each([
     { label: "malformed JSON", output: "{\"mode\":", message: /JSON/ },
     {
-      label: "an invented project slug",
+      label: "a model-chosen project slug",
       output: JSON.stringify({
         ...GROUNDED_DRAFT,
-        sections: [GROUNDED_DRAFT.sections[0], { ...GROUNDED_DRAFT.sections[1], projectSlugs: ["invented-project"] }],
+        sections: [GROUNDED_DRAFT.sections[0], { ...GROUNDED_DRAFT.sections[1], projectSlugs: ["moodify"] }],
       }),
-      message: /Unknown Corpus project slug/,
+      message: /Unrecognized key.*projectSlugs/,
     },
     {
       label: "model-authored project cards",

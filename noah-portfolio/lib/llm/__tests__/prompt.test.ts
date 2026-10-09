@@ -6,7 +6,7 @@ import { SITE_EXAMPLE, SITE_EXAMPLE_QUESTION } from "@/lib/llm/examples";
 import { generateSite } from "@/lib/llm/generate-site";
 import { getModel } from "@/lib/llm/openrouter";
 import { BANNED_PHRASES, buildSiteSystemPrompt, buildSiteUserMessage } from "@/lib/llm/prompt";
-import { CORPUS_EVIDENCE_REFS, CORPUS_PROJECT_PROMPT_CATALOG } from "@/lib/story/evidence";
+import { CORPUS_EVIDENCE_REFS } from "@/lib/story/evidence";
 
 vi.mock("ai", async (importOriginal) => ({
   ...(await importOriginal<typeof Ai>()),
@@ -24,11 +24,10 @@ beforeEach(() => {
 });
 
 describe("Site generation prompt", () => {
-  it("offers every active Corpus Evidence id, project slug, and art id within the size budget", () => {
+  it("offers every active Corpus Evidence id and art id within the size budget", () => {
     const prompt = buildSiteSystemPrompt();
 
     for (const ref of CORPUS_EVIDENCE_REFS) expect(prompt).toContain(`${ref.id} | ${ref.label} |`);
-    for (const { slug } of CORPUS_PROJECT_PROMPT_CATALOG) expect(prompt).toContain(`${slug}: `);
     for (const id of ART_IDS) expect(prompt).toContain(`${id}: `);
     expect(prompt.length).toBeLessThan(12_000);
   });

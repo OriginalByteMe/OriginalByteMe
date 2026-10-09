@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { corpus } from "@/lib/corpus";
-import {
-  CORPUS_PROJECT_PROMPT_CATALOG,
-  UnknownProjectSlugError,
-  resolveStoryProjects,
-} from "@/lib/story/evidence";
+import { UnknownProjectSlugError, resolveStoryProjects } from "@/lib/story/evidence";
 import { PROJECT_SLUGS } from "@/lib/story/types";
 
 describe("trusted Story project resolution", () => {
@@ -19,16 +15,13 @@ describe("trusted Story project resolution", () => {
     expect(resolveStoryProjects(undefined)).toBeUndefined();
   });
 
-  it("keeps the client vocabulary and prompt catalog aligned with the active Corpus", () => {
+  it("keeps the client vocabulary aligned with the active Corpus", () => {
     expect(corpus.projects.map((project) => project.slug).sort()).toEqual(
       [...PROJECT_SLUGS].sort(),
     );
-    expect(CORPUS_PROJECT_PROMPT_CATALOG).toEqual(
-      corpus.projects.map(({ slug, title }) => ({ slug, title })),
-    );
   });
 
-  it("uses a typed failure for unknown model-supplied slugs", () => {
+  it("uses a typed failure for unknown slugs", () => {
     expect(() => resolveStoryProjects(["invented-project"])).toThrow(
       UnknownProjectSlugError,
     );

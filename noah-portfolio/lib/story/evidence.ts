@@ -1,6 +1,7 @@
 import { corpus } from "@/lib/corpus";
 import {
   EvidenceRefSchema,
+  MAX_SECTION_PROJECTS,
   PROJECT_SLUGS,
   StoryProjectSchema,
   type EvidenceRef,
@@ -107,11 +108,24 @@ if (JSON.stringify(corpusSlugs) !== JSON.stringify(schemaSlugs)) {
   );
 }
 
-/** Model-visible project vocabulary, derived from the same trusted Corpus records used at runtime. */
-export const CORPUS_PROJECT_PROMPT_CATALOG = parsedProjects.map(({ slug, title }) => ({
-  slug,
-  title,
-}));
+const projectSlugByEvidenceId = new Map(parsedProjects.map(({ slug }) => [`project-${slug}`, slug]));
+
+/**
+ * Give each project's Corpus card to the first section that cites its project-<slug> Evidence,
+ * at most MAX_SECTION_PROJECTS per section, so a page never repeats a card. The model never names projects.
+ */
+export function attachCitedProjects<T extends { evidenceRefIds: readonly string[] }>(sections: readonly T[]) {
+  const shown = new Set<ProjectSlug>();
+  return sections.map((section) => {
+    const projectSlugs = section.evidenceRefIds
+      .flatMap((id) => projectSlugByEvidenceId.get(id) ?? [])
+      .filter((slug) => !shown.has(slug))
+      .slice(0, MAX_SECTION_PROJECTS);
+    if (!projectSlugs.length) return section;
+    for (const slug of projectSlugs) shown.add(slug);
+    return { ...section, projectSlugs, projects: resolveStoryProjects(projectSlugs) };
+  });
+}
 
 /** Resolve project slugs into trusted, serializable Corpus card data in the same order. */
 export function resolveStoryProjects(

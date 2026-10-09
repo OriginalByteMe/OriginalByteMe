@@ -1,6 +1,6 @@
 import { artPromptCatalog } from "@/lib/site/art";
 import { SITE_EXAMPLE, SITE_EXAMPLE_QUESTION } from "@/lib/llm/examples";
-import { CORPUS_EVIDENCE_REFS, CORPUS_PROJECT_PROMPT_CATALOG } from "@/lib/story/evidence";
+import { CORPUS_EVIDENCE_REFS } from "@/lib/story/evidence";
 
 export const BANNED_PHRASES = [
   "technical depth",
@@ -69,7 +69,6 @@ Return one JSON object only. No markdown, no code fences, no commentary.
 - sections[].nav: 1 to 3 word menu label, different for every section.
 - sections[].body: 1 to 3 sentences. Every section has a body, cards too.
 - items[]: {title, text?, art?}. A short title naming the fact or thing. Add text, one sentence, only when an excerpt says something about that item; a list of names gives titles only.
-- sections[].projectSlugs: on a section about a project in the Project catalog, set its slug and cite its project-<slug> Evidence id. The app adds the project card with its picture and link.
 - art: pick the picture whose description matches the topic. Optional on sections and items.
 - relatedQuestions: 2 or 3 different follow-up questions the Evidence can answer.`;
 
@@ -81,15 +80,11 @@ export function buildSiteSystemPrompt(): string {
       : excerpt;
     return `${id} | ${label} | ${shown}`;
   }).join("\n");
-  const projects = CORPUS_PROJECT_PROMPT_CATALOG.map(({ slug, title }) => `${slug}: ${title}`).join("\n");
 
   return `${SITE_RULES}
 
 # Evidence catalog (id | label | excerpt)
 ${evidence}
-
-# Project catalog (slug: title)
-${projects}
 
 # Art catalog (id: picture)
 ${artPromptCatalog}
