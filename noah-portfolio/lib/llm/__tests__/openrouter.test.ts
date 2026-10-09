@@ -35,6 +35,8 @@ beforeEach(() => {
   vi.stubEnv("OPENROUTER_MODEL", "");
   vi.stubEnv("OPENROUTER_PROVIDER_ORDER", undefined);
   vi.stubEnv("OPENROUTER_FALLBACK_MODELS", undefined);
+  vi.stubEnv("OPENROUTER_BASE_URL", undefined);
+  vi.stubEnv("OPENROUTER_REASONING_EFFORT", undefined);
 
   const creditError = Object.assign(new Error("insufficient credits"), { statusCode: 402 });
   primaryGenerate.mockRejectedValue(creditError);
@@ -59,8 +61,35 @@ describe("OpenRouter model", () => {
     await expect(model.doStream({} as never)).resolves.toBe(fallbackStreamResult);
     expect(modelFactory).toHaveBeenCalledWith("z-ai/glm-5.2", {
       models: ["tencent/hy3:free"],
+      structuredOutputs: { strict: false },
     });
-    expect(modelFactory).toHaveBeenCalledWith("tencent/hy3:free", undefined);
+    expect(modelFactory).toHaveBeenCalledWith("tencent/hy3:free", {
+      structuredOutputs: { strict: false },
+    });
+  });
+
+  it("points every model at the configured base URL and reasoning effort", () => {
+    vi.stubEnv("OPENROUTER_BASE_URL", "http://localhost:11434/v1");
+    vi.stubEnv("OPENROUTER_REASONING_EFFORT", "none");
+    vi.stubEnv("OPENROUTER_FALLBACK_MODELS", "tencent/hy3:free,vendor/backup");
+
+    getModel();
+
+    expect(createOpenRouterMock).toHaveBeenCalledWith({
+      apiKey: "test-key",
+      compatibility: "strict",
+      baseURL: "http://localhost:11434/v1",
+    });
+    expect(modelFactory).toHaveBeenCalledWith("z-ai/glm-5.2", {
+      models: ["tencent/hy3:free", "vendor/backup"],
+      structuredOutputs: { strict: false },
+      reasoning: { effort: "none" },
+    });
+    expect(modelFactory).toHaveBeenCalledWith("tencent/hy3:free", {
+      models: ["vendor/backup"],
+      structuredOutputs: { strict: false },
+      reasoning: { effort: "none" },
+    });
   });
 
   it("propagates non-credit errors", async () => {

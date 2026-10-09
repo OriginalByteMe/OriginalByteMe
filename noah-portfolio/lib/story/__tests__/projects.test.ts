@@ -24,7 +24,7 @@ describe("trusted Story project resolution", () => {
       [...PROJECT_SLUGS].sort(),
     );
     expect(CORPUS_PROJECT_PROMPT_CATALOG).toEqual(
-      corpus.projects.map(({ slug, description }) => ({ slug, description })),
+      corpus.projects.map(({ slug, title }) => ({ slug, title })),
     );
   });
 

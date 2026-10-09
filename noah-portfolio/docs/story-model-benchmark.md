@@ -1,5 +1,7 @@
 # Story model benchmark
 
+> **2026-10-09:** this records the retired Plan/Scene pipeline, and `lib/benchmark/results.json` is frozen with it. `scripts/story-model-eval.ts` now evaluates the generated-site pipeline; see the README section "Site generation model" for its flags.
+
 The Story model benchmark compares models on the production Story path rather than on isolated prompts. The planner was the unreliable step: several models produced valid scenes once a plan survived, but first-attempt plan validity ranged from 0% to 100%. A useful model therefore has to produce a valid, grounded plan, recover from one repair request, compose every locked scene, and avoid repetitive or unsupported prose at acceptable latency and cost.
 
 The recorded run is `story-pipeline`, dated 2026-07-18. It sent five fixed questions to each of seven OpenRouter models.

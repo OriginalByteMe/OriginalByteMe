@@ -1,18 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { streamText, type ModelMessage, type TelemetrySettings } from "ai";
-import { getModel } from "@/lib/llm/openrouter";
-import { storyTelemetry, withStoryTrace } from "@/lib/observability/langfuse";
-import {
-  buildSceneRepairMessage,
-  buildSceneSystemPrompt,
-  buildSceneUserMessage,
-  buildSystemPrompt,
-  buildUserMessage,
-} from "@/lib/llm/prompt";
-import {
-  CORPUS_EVIDENCE_REFS,
-  resolveStoryProjects,
-} from "@/lib/story/evidence";
+import { generateSite } from "@/lib/llm/generate-site";
+import { withStoryTrace } from "@/lib/observability/langfuse";
 import {
   MAX_STORY_QUESTION_LENGTH,
   StoryQuestionSchema,
@@ -20,37 +8,19 @@ import {
 } from "@/lib/story/types";
 import { findCurrentStory, findPreparedStory, prepareCompleteStory } from "@/lib/story/store";
 import type {
-  ScenePlan,
-  StoryPlan,
   StoryPublicationToken,
   StoryRecord,
-  StoryScene,
   StoryStreamEvent,
 } from "@/lib/story/types";
-import {
-  assertValidStoryPlan,
-  assertValidStoryPlanWithEvidence,
-  assertValidStoryRecord,
-  assertValidStorySceneWithEvidence,
-  validateCanonicalStoryEvidence,
-  type ValidatedStoryEvidence,
-} from "@/lib/story/validation";
+import { assertValidStoryRecord } from "@/lib/story/validation";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const MAX_PLAN_ATTEMPTS = 2;
-const MAX_SCENE_ATTEMPTS = 2;
 const RESPONSE_HEADERS = {
   "Content-Type": "application/x-ndjson; charset=utf-8",
   "Cache-Control": "no-store",
 };
-
-function stripFences(text: string): string {
-  const trimmed = text.trim();
-  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  return fenced ? fenced[1].trim() : trimmed;
-}
 
 function abortIfNeeded(signal: AbortSignal): void {
   if (signal.aborted) {
@@ -58,137 +28,6 @@ function abortIfNeeded(signal: AbortSignal): void {
       ? signal.reason
       : new DOMException("Generation aborted", "AbortError");
   }
-}
-
-async function collectModelText(
-  system: string,
-  messages: ModelMessage[],
-  signal: AbortSignal,
-  telemetry: TelemetrySettings,
-): Promise<string> {
-  abortIfNeeded(signal);
-  const result = streamText({
-    model: getModel(),
-    system,
-    messages,
-    abortSignal: signal,
-    experimental_telemetry: telemetry,
-  });
-  let text = "";
-  for await (const delta of result.textStream) {
-    abortIfNeeded(signal);
-    text += delta;
-  }
-  abortIfNeeded(signal);
-  return text;
-}
-
-async function generatePlan(question: string, signal: AbortSignal): Promise<StoryPlan> {
-  const messages: ModelMessage[] = [{ role: "user", content: buildUserMessage(question) }];
-  let lastError = "The model did not return a valid Story Plan.";
-
-  for (let attempt = 0; attempt < MAX_PLAN_ATTEMPTS; attempt += 1) {
-    let output = "";
-    try {
-      output = await collectModelText(
-        buildSystemPrompt(),
-        messages,
-        signal,
-        storyTelemetry("story-plan", { attempt }),
-      );
-      const parsed: unknown = JSON.parse(stripFences(output));
-      assertValidStoryPlan(parsed, CORPUS_EVIDENCE_REFS, question);
-      return parsed;
-    } catch (error) {
-      abortIfNeeded(signal);
-      lastError = error instanceof Error ? error.message : lastError;
-    }
-
-    if (attempt + 1 < MAX_PLAN_ATTEMPTS) {
-      messages.push({ role: "assistant", content: output });
-      messages.push({
-        role: "user",
-        content: `The Story Plan was invalid: ${lastError}\nReturn only a corrected complete Plan. Do not invent Evidence Refs, Motion Asset IDs, or project slugs.`,
-      });
-    }
-  }
-
-  throw new Error(lastError);
-}
-
-function evidenceForPlan(
-  plan: StoryPlan,
-  expectedQuestion: string,
-): ValidatedStoryEvidence {
-  const usedIds = new Set(plan.scenes.flatMap((scene) => scene.evidenceRefIds));
-  const evidence = validateCanonicalStoryEvidence(
-    CORPUS_EVIDENCE_REFS.filter((ref) => usedIds.has(ref.id)),
-  );
-  assertValidStoryPlanWithEvidence(plan, evidence, expectedQuestion);
-  return evidence;
-}
-
-function parseSceneBody(output: string): string {
-  const parsed: unknown = JSON.parse(stripFences(output));
-  if (
-    !parsed ||
-    typeof parsed !== "object" ||
-    Array.isArray(parsed) ||
-    Object.keys(parsed).length !== 1 ||
-    !("body" in parsed) ||
-    typeof parsed.body !== "string"
-  ) {
-    throw new Error('Scene composition must contain only a string "body" field.');
-  }
-  return parsed.body;
-}
-
-async function composeScene(
-  question: string,
-  scenes: readonly Pick<ScenePlan, "index" | "role" | "title" | "claim">[],
-  lockedPlan: ScenePlan,
-  storyEvidence: ValidatedStoryEvidence,
-  signal: AbortSignal,
-): Promise<StoryScene> {
-  const lockedEvidence = storyEvidence.refs.filter((ref) => lockedPlan.evidenceRefIds.includes(ref.id));
-  const resolvedProjects = resolveStoryProjects(lockedPlan.projectSlugs);
-  const messages: ModelMessage[] = [{ role: "user", content: buildSceneUserMessage() }];
-  let lastError = "The model did not return a valid Scene body.";
-
-  for (let attempt = 0; attempt < MAX_SCENE_ATTEMPTS; attempt += 1) {
-    let output = "";
-    try {
-      output = await collectModelText(
-        buildSceneSystemPrompt(question, scenes, lockedPlan, lockedEvidence),
-        messages,
-        signal,
-        storyTelemetry("story-scene", { sceneIndex: lockedPlan.index, attempt }),
-      );
-      const scene: unknown = {
-        ...lockedPlan,
-        body: parseSceneBody(output),
-        ...(resolvedProjects ? { projects: resolvedProjects } : {}),
-      };
-      assertValidStorySceneWithEvidence(scene, lockedPlan, storyEvidence);
-      return scene;
-    } catch (error) {
-      abortIfNeeded(signal);
-      lastError = error instanceof Error ? error.message : lastError;
-    }
-
-    if (attempt + 1 < MAX_SCENE_ATTEMPTS) {
-      messages.push({ role: "assistant", content: output });
-      messages.push({ role: "user", content: buildSceneRepairMessage(output, lastError) });
-    }
-  }
-
-  const fallback: unknown = {
-    ...lockedPlan,
-    body: lockedPlan.claim.trim(),
-    ...(resolvedProjects ? { projects: resolvedProjects } : {}),
-  };
-  assertValidStorySceneWithEvidence(fallback, lockedPlan, storyEvidence);
-  return fallback;
 }
 
 function replayStory(
@@ -205,12 +44,8 @@ function replayStory(
       };
 
       try {
-        emit({ type: "phase", phase: "planning" });
-        emit({ type: "plan", plan: story.plan, evidence: story.evidence });
-        emit({ type: "phase", phase: "composing" });
-        for (const scene of story.scenes) {
-          emit({ type: "scene", index: scene.index, scene });
-        }
+        emit({ type: "phase", phase: "generating" });
+        emit({ type: "site", site: story.site, evidence: story.evidence });
         emit({ type: "phase", phase: "validating" });
         if (pendingPublicationToken) {
           // A prior abort left this validated Story pending: replay its canonical
@@ -260,29 +95,21 @@ function generationStream(
       void (async () => {
         try {
           await withStoryTrace(question, async (trace) => {
-            emit({ type: "phase", phase: "planning" });
-            const plan = await generatePlan(question, signal);
-            const evidence = evidenceForPlan(plan, question);
-            emit({ type: "plan", plan, evidence: evidence.refs });
-
-            emit({ type: "phase", phase: "composing" });
-            const scenes: StoryScene[] = [];
-            for (const lockedScene of plan.scenes) {
-              const scene = await composeScene(question, plan.scenes, lockedScene, evidence, signal);
-              scenes.push(scene);
-              emit({ type: "scene", index: scene.index, scene });
-            }
+            emit({ type: "phase", phase: "generating" });
+            let attempts = 0;
+            const { site, evidence } = await generateSite(question, {
+              signal,
+              onAttempt: () => {
+                attempts += 1;
+              },
+            });
+            emit({ type: "site", site, evidence });
 
             emit({ type: "phase", phase: "validating" });
             abortIfNeeded(signal);
 
             const prepared = await prepareCompleteStory(
-              {
-                displayQuestion: question,
-                plan,
-                scenes,
-                evidence: evidence.refs,
-              },
+              { displayQuestion: question, site, evidence },
               { signal },
             );
             abortIfNeeded(signal);
@@ -302,7 +129,9 @@ function generationStream(
             }
             trace.setOutput({
               storyId: prepared.story.id,
-              scenes: scenes.length,
+              layout: site.layout,
+              sections: site.sections.length,
+              attempts,
               cache:
                 concurrentlyPublished?.id === prepared.story.id
                   ? "published-concurrently"

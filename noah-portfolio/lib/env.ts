@@ -4,11 +4,17 @@ export interface CloudflareD1Config {
   token: string;
 }
 
+export const REASONING_EFFORTS = ["xhigh", "high", "medium", "low", "minimal", "none"] as const;
+export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
+
 export interface OpenRouterEnv {
   openrouterApiKey: string;
   openrouterModel: string;
   openrouterProviderOrder: string[] | undefined;
   openrouterFallbackModels: string[] | undefined;
+  /** OpenAI-compatible endpoint override, e.g. a local Ollama `/v1` URL. */
+  openrouterBaseUrl: string | undefined;
+  openrouterReasoningEffort: ReasoningEffort | undefined;
 }
 
 export interface LangfuseEnv {
@@ -41,11 +47,18 @@ export function getServerEnv(): OpenRouterEnv {
     throw new Error("OPENROUTER_FALLBACK_MODELS must not contain empty entries");
   }
 
+  const reasoningEffort = process.env.OPENROUTER_REASONING_EFFORT?.trim() || undefined;
+  if (reasoningEffort && !REASONING_EFFORTS.includes(reasoningEffort as ReasoningEffort)) {
+    throw new Error(`OPENROUTER_REASONING_EFFORT must be one of ${REASONING_EFFORTS.join(", ")}`);
+  }
+
   return {
     openrouterApiKey,
     openrouterModel: process.env.OPENROUTER_MODEL || "z-ai/glm-5.2",
     openrouterProviderOrder: providerOrder,
     openrouterFallbackModels: fallbackModels,
+    openrouterBaseUrl: process.env.OPENROUTER_BASE_URL?.trim() || undefined,
+    openrouterReasoningEffort: reasoningEffort as ReasoningEffort | undefined,
   };
 }
 

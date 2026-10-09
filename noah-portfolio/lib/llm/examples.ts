@@ -1,66 +1,54 @@
-export const GOLD_STANDARD_STORY_PLAN_EXAMPLE = {
-  question: "What did Noah build at Supa?",
+import type { SiteDraft } from "@/lib/story/types";
+
+/** One complete grounded site shown to the model; a test proves it passes the server validators. */
+export const SITE_EXAMPLE_QUESTION = "Who is Noah?";
+
+export const SITE_EXAMPLE: SiteDraft = {
   mode: "grounded",
-  backdropPreset: "ditherTide",
-  scenes: [
+  layout: "dossier",
+  palette: "midnight",
+  brand: "Noah Rijkaard",
+  hero: {
+    evidenceRefIds: ["bio-headline", "bio-location", "bio-summary"],
+    eyebrow: "Kuala Lumpur, Malaysia",
+    headline: "I'm Noah, a full-stack developer",
+    lede: "I have years of experience in front-end and back-end technologies, and a keen eye for design.",
+    art: "laptop-desk",
+  },
+  sections: [
     {
-      id: "supa-training-data",
-      index: 0,
-      role: "direct-answer",
-      pattern: "hero-statement",
-      register: "editorial",
-      title: "Supa training-data tools, 2020–2025",
-      claim:
-        "From 2020 to 2025, I built data-labeling and AI training-data tooling end to end.",
-      assetId: "circuit-mind",
-      evidenceRefIds: ["career-2"],
-      cue: { phase: "intro", focus: "center", intensity: "strong" },
+      kind: "timeline",
+      evidenceRefIds: ["career-2", "career-3", "career-1"],
+      title: "Supa, Bowiq and MerchantSpring",
+      nav: "Work",
+      body: "Three roles since 2020; two are current.",
+      items: [
+        { title: "2020 - 2025", text: "Full-Stack Developer at Supa: data-labeling and AI training-data tooling." },
+        { title: "2023 - Present", text: "CAD Designer & 3D Printing Engineer at Bowiq." },
+        { title: "2026 - Present", text: "Senior AI Engineer at MerchantSpring, building marketplace analytics." },
+      ],
     },
     {
-      id: "supa-llm-evaluation",
-      index: 1,
-      role: "evidence",
-      pattern: "capability-map",
-      register: "technical",
-      title: "LLM evaluation tooling at Supa",
-      claim: "At Supa, I shipped the open-source LLM Comparison app as LLM evaluation tooling.",
-      assetId: "circuit-mind",
-      evidenceRefIds: ["career-2", "project-llm-comparison"],
-      projectSlugs: ["llm-comparison"],
-      cue: { phase: "develop", focus: "left", intensity: "strong" },
+      kind: "cards",
+      evidenceRefIds: ["project-llm-comparison", "project-moodify"],
+      title: "LLM Comparison and Moodify",
+      nav: "Projects",
+      body: "My portfolio includes these two projects.",
+      items: [
+        { title: "LLM Comparison", text: "An open-source app that pits two LLMs against each other.", art: "robot-versus" },
+        { title: "Moodify", text: "Search a tune and its album cover's colour palette takes over the page.", art: "vinyl-record" },
+      ],
+      projectSlugs: ["llm-comparison", "moodify"],
     },
     {
-      id: "supa-two-llm-comparison",
-      index: 2,
-      role: "synthesis",
-      pattern: "closing-synthesis",
-      register: "reflective",
-      title: "Two-LLM comparison",
-      claim:
-        "The open-source LLM Comparison app lets users pit two LLMs against each other and compare them.",
-      assetId: "morning-coffee",
-      evidenceRefIds: ["project-llm-comparison"],
-      projectSlugs: ["llm-comparison"],
-      cue: { phase: "resolve", focus: "right", intensity: "medium" },
+      kind: "banner",
+      evidenceRefIds: ["fun-fact-2"],
+      title: "Proxmox and Unraid at home",
+      nav: "Homelab",
+      body: "I self-host on Proxmox and Unraid.",
+      items: [],
+      art: "server-rack",
     },
   ],
-  relatedQuestions: [
-    "How did Noah evaluate LLMs at Supa?",
-    "Which Noah project lets users compare two LLMs?",
-    "What AI engineering work did Noah do after Supa?",
-  ],
-} as const;
-
-export const SCENE_COMPOSITION_EXAMPLE = {
-  body:
-    "Moodify lets people search for a favourite tune and watch the album cover's colour palette take over the page. The same palette trick recolours this site's hero dither.",
-} as const;
-
-export const STORY_EXAMPLES = `
-## Gold-standard complete Story Plan
-
-This example is complete and follows every invariant, including distinct Patterns, exact
-Evidence Ref IDs and project slugs, specific titles and claims, and answerable related questions:
-
-${JSON.stringify(GOLD_STANDARD_STORY_PLAN_EXAMPLE, null, 2)}
-`;
+  relatedQuestions: ["What did Noah build at Supa?", "Which databases does Noah know?"],
+};

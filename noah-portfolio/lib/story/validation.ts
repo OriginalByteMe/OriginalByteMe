@@ -1,36 +1,23 @@
+import { CORPUS_EVIDENCE_REFS, assertCanonicalStoryProjects } from "@/lib/story/evidence";
 import {
-  CORPUS_EVIDENCE_REFS,
-  assertCanonicalStoryProjects,
-  assertKnownStoryPlanProjectSlugs,
-  resolveStoryProjects,
-} from "@/lib/story/evidence";
-import {
-  assertValidParsedStreamPlan,
-  assertValidParsedStreamScene,
+  assertValidParsedSite,
   evidenceIdsFor,
   parseEvidence,
   validationError,
 } from "@/lib/story/public-validation";
 import {
-  ScenePlanSchema,
-  StoryPlanSchema,
+  SiteSchema,
   StoryRecordSchema,
-  StorySceneSchema,
   type EvidenceRef,
-  type ScenePlan,
-  type StoryPlan,
+  type Site,
   type StoryRecord,
-  type StoryScene,
 } from "@/lib/story/types";
 
 const canonicalEvidenceById = new Map(CORPUS_EVIDENCE_REFS.map((ref) => [ref.id, ref]));
 
-export interface ValidatedStoryEvidence {
-  readonly refs: EvidenceRef[];
-  readonly ids: ReadonlySet<string>;
-}
-
-function assertCanonicalEvidence(evidence: readonly EvidenceRef[]): void {
+/** Unique Evidence ids, each Ref identical to its active-Corpus record. */
+function canonicalEvidenceIds(evidence: readonly EvidenceRef[]): ReadonlySet<string> {
+  const ids = evidenceIdsFor(evidence);
   for (const ref of evidence) {
     const canonical = canonicalEvidenceById.get(ref.id);
     if (
@@ -42,87 +29,29 @@ function assertCanonicalEvidence(evidence: readonly EvidenceRef[]): void {
       throw new Error(`Invalid Evidence Refs: ${ref.id} is not in the active Corpus vocabulary`);
     }
   }
+  return ids;
 }
 
-function validatedStoryEvidenceFromParsed(refs: EvidenceRef[]): ValidatedStoryEvidence {
-  const ids = evidenceIdsFor(refs);
-  assertCanonicalEvidence(refs);
-  return { refs, ids };
+function assertValidParsedServerSite(site: Site, evidence: readonly EvidenceRef[]): void {
+  assertValidParsedSite(site, canonicalEvidenceIds(evidence));
+  for (const [index, section] of site.sections.entries()) {
+    assertCanonicalStoryProjects(section, `Site section ${index + 1}`);
+  }
 }
 
-/** Parse and validate one exact active-Corpus Evidence vocabulary at its boundary. */
-export function validateCanonicalStoryEvidence(evidence: unknown): ValidatedStoryEvidence {
-  return validatedStoryEvidenceFromParsed(parseEvidence(evidence));
+/** Server validator: shared Site semantics, active-Corpus Evidence, and canonical project cards. */
+export function assertValidSite(site: unknown, evidence: unknown): asserts site is Site {
+  const parsed = SiteSchema.safeParse(site);
+  if (!parsed.success) throw validationError("Site", parsed.error);
+  assertValidParsedServerSite(parsed.data, parseEvidence(evidence));
 }
 
-export function assertValidStoryPlanWithEvidence(
-  plan: unknown,
-  evidence: ValidatedStoryEvidence,
-  expectedQuestion: string,
-): asserts plan is StoryPlan {
-  assertKnownStoryPlanProjectSlugs(plan);
-  const parsed = StoryPlanSchema.safeParse(plan);
-  if (!parsed.success) throw validationError("Story Plan", parsed.error);
-  assertValidParsedStreamPlan(parsed.data, evidence.ids, expectedQuestion);
-  for (const scene of parsed.data.scenes) resolveStoryProjects(scene.projectSlugs);
-}
-
-/** Server validator: shared semantics plus exact active-Corpus Evidence records. */
-export function assertValidStoryPlan(
-  plan: unknown,
-  evidence: unknown,
-  expectedQuestion: string,
-): asserts plan is StoryPlan {
-  assertValidStoryPlanWithEvidence(
-    plan,
-    validateCanonicalStoryEvidence(evidence),
-    expectedQuestion,
-  );
-}
-
-export function assertValidStorySceneWithEvidence(
-  scene: unknown,
-  lockedPlan: ScenePlan,
-  evidence: ValidatedStoryEvidence,
-): asserts scene is StoryScene {
-  const parsed = StorySceneSchema.safeParse(scene);
-  if (!parsed.success) throw validationError("Story Scene", parsed.error);
-  const locked = ScenePlanSchema.safeParse(lockedPlan);
-  if (!locked.success) throw validationError("locked Scene Plan", locked.error);
-  assertValidParsedStreamScene(parsed.data, locked.data, evidence.ids);
-  assertCanonicalStoryProjects(parsed.data);
-}
-
-/** Server validator: shared locked-Scene semantics plus exact active-Corpus Evidence. */
-export function assertValidStoryScene(
-  scene: unknown,
-  lockedPlan: ScenePlan,
-  evidence: unknown,
-): asserts scene is StoryScene {
-  assertValidStorySceneWithEvidence(
-    scene,
-    lockedPlan,
-    validateCanonicalStoryEvidence(evidence),
-  );
-}
-
-/** Validate a schema-parsed private record without re-parsing its Evidence. */
+/** Validate a schema-parsed private record without re-parsing it. */
 export function assertValidParsedStoryRecord(record: StoryRecord): void {
-  const { plan, scenes, evidence, displayQuestion } = record;
-  if (plan.mode === "boundary" && evidence.length !== 0) {
+  if (record.site.mode === "boundary" && record.evidence.length !== 0) {
     throw new Error("Invalid Story Record: boundary mode must not include Evidence");
   }
-  const validatedEvidence = validatedStoryEvidenceFromParsed(evidence);
-  assertKnownStoryPlanProjectSlugs(plan);
-  assertValidParsedStreamPlan(plan, validatedEvidence.ids, displayQuestion);
-  for (const scene of plan.scenes) resolveStoryProjects(scene.projectSlugs);
-  if (scenes.length !== plan.scenes.length) {
-    throw new Error("Invalid Story Record: Scene count differs from the locked Story Plan");
-  }
-  for (const [index, scene] of scenes.entries()) {
-    assertValidParsedStreamScene(scene, plan.scenes[index], validatedEvidence.ids);
-    assertCanonicalStoryProjects(scene);
-  }
+  assertValidParsedServerSite(record.site, record.evidence);
 }
 
 /** Complete private-record validation adds active-Corpus semantics to its strict schema. */

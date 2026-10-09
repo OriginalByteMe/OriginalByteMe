@@ -1,31 +1,18 @@
-import { isBackdropPresetName, type BackdropPresetName } from "@/lib/backdrop/presets";
-import { isMotionAssetId, type MotionAssetId } from "@/lib/motion-assets/catalog";
+import { ART_IDS } from "@/lib/site/art";
 import { z } from "zod";
 
 /** Deliberate compatibility boundary for generated Story structure and behavior. */
-export const STORY_CONTRACT_VERSION = "v6" as const;
+export const STORY_CONTRACT_VERSION = "v7" as const;
 
 /** Deliberate compatibility boundary for the authored Corpus used to ground Stories. */
 export const CORPUS_REVISION = "2026-07-14" as const;
 
-export const SCENE_PATTERNS = [
-  "hero-statement",
-  "project-spotlight",
-  "evidence-ledger",
-  "timeline",
-  "capability-map",
-  "system-diagram",
-  "closing-synthesis",
-] as const;
-
-export const STORY_REGISTERS = [
-  "editorial",
-  "technical",
-  "diagrammatic",
-  "reflective",
-] as const;
-
-export const SCENE_ROLES = ["direct-answer", "evidence", "synthesis"] as const;
+/** Whole-page arrangements the model chooses between. */
+export const SITE_LAYOUTS = ["bento", "editorial", "landing", "dossier", "cascade"] as const;
+/** Colour schemes; each name maps to `--site-*` variables in `lib/site/art/art.css`. */
+export const SITE_PALETTES = ["midnight", "paper", "studio", "forest", "ember"] as const;
+/** Visual shapes a section can take; the renderer handles any item count for each. */
+export const SECTION_KINDS = ["cards", "split", "list", "timeline", "quote", "banner"] as const;
 
 /** Client-safe vocabulary mirrored from the authored Corpus project filenames. */
 export const PROJECT_SLUGS = [
@@ -35,24 +22,7 @@ export const PROJECT_SLUGS = [
   "moodify",
   "story-model-benchmark",
 ] as const;
-export const ELIGIBLE_PATTERNS_BY_ROLE = {
-  "direct-answer": ["hero-statement"],
-  evidence: [
-    "project-spotlight",
-    "evidence-ledger",
-    "timeline",
-    "capability-map",
-    "system-diagram",
-  ],
-  synthesis: ["closing-synthesis"],
-} as const satisfies Record<
-  (typeof SCENE_ROLES)[number],
-  readonly (typeof SCENE_PATTERNS)[number][]
->;
-export const SCENE_CUE_PHASES = ["intro", "develop", "resolve"] as const;
-export const SCENE_CUE_FOCUSES = ["center", "left", "right"] as const;
-export const SCENE_CUE_INTENSITIES = ["quiet", "medium", "strong"] as const;
-export const NON_PUBLISHING_STORY_PHASES = ["planning", "composing", "validating"] as const;
+export const NON_PUBLISHING_STORY_PHASES = ["generating", "validating"] as const;
 export const StoryPublicationTokenSchema = z
   .string()
   .regex(
@@ -85,17 +55,9 @@ export const EvidenceRefSchema = z
   })
   .strict();
 
-export const SceneCueSchema = z
-  .object({
-    phase: z.enum(SCENE_CUE_PHASES),
-    focus: z.enum(SCENE_CUE_FOCUSES),
-    intensity: z.enum(SCENE_CUE_INTENSITIES),
-  })
-  .strict();
-
-const EvidenceRefIdsSchema = z
-  .array(nonEmptyText(120).regex(SLUG_PATTERN))
-  .max(12);
+/** One cited Evidence Ref id. Exported so the server can narrow it to the active Corpus ids. */
+export const EvidenceRefIdSchema = nonEmptyText(120).regex(SLUG_PATTERN);
+const EvidenceRefIdsSchema = z.array(EvidenceRefIdSchema).max(6);
 
 export const ProjectSlugSchema = z.enum(PROJECT_SLUGS, {
   message: "Unknown Corpus project slug",
@@ -128,41 +90,67 @@ export const StoryProjectSchema = z
   })
   .strict();
 
-const AssetIdSchema = z.custom<MotionAssetId>(isMotionAssetId, {
-  message: "Unknown Motion Asset ID",
-});
+const ArtIdSchema = z.enum(ART_IDS, { message: "Unknown art id" });
 
-export const ScenePlanSchema = z
+export const SiteItemSchema = z
   .object({
-    id: nonEmptyText(80).regex(SLUG_PATTERN),
-    index: z.number().int().min(0).max(4),
-    role: z.enum(SCENE_ROLES),
-    pattern: z.enum(SCENE_PATTERNS),
-    register: z.enum(STORY_REGISTERS),
-    title: nonEmptyText(120),
-    claim: nonEmptyText(500),
-    assetId: AssetIdSchema,
+    title: nonEmptyText(60),
+    text: nonEmptyText(220),
+    art: ArtIdSchema.optional(),
+  })
+  .strict();
+
+// Key order is generation order under constrained decoding: cite first, then write, then pick a picture.
+const sectionShape = {
+  kind: z.enum(SECTION_KINDS),
+  evidenceRefIds: EvidenceRefIdsSchema,
+  title: nonEmptyText(80),
+  nav: nonEmptyText(24),
+  body: nonEmptyText(600),
+  items: z.array(SiteItemSchema).max(4),
+  art: ArtIdSchema.optional(),
+  projectSlugs: ProjectSlugsSchema.optional(),
+};
+
+/** A section as the model writes it. */
+export const SiteSectionDraftSchema = z.object(sectionShape).strict();
+
+/** A stored section: trusted code adds the canonical Corpus cards for its project slugs. */
+export const SiteSectionSchema = z
+  .object({ ...sectionShape, projects: z.array(StoryProjectSchema).min(1).max(3).optional() })
+  .strict();
+
+export const SiteHeroSchema = z
+  .object({
     evidenceRefIds: EvidenceRefIdsSchema,
-    projectSlugs: ProjectSlugsSchema.optional(),
-    cue: SceneCueSchema,
+    eyebrow: nonEmptyText(60),
+    headline: nonEmptyText(100),
+    lede: nonEmptyText(320),
+    art: ArtIdSchema,
   })
   .strict();
 
-export const StorySceneSchema = ScenePlanSchema
-  .extend({
-    body: nonEmptyText(1200),
-    projects: z.array(StoryProjectSchema).min(1).max(3).optional(),
-  })
-  .strict();
+const siteShape = {
+  mode: z.enum(["grounded", "boundary"]),
+  layout: z.enum(SITE_LAYOUTS),
+  palette: z.enum(SITE_PALETTES),
+  brand: nonEmptyText(40),
+  hero: SiteHeroSchema,
+};
 
-export const StoryPlanSchema = z
+/** The whole site as the model writes it. The server owns the question. */
+export const SiteDraftSchema = z
   .object({
-    question: StoryQuestionSchema,
-    mode: z.enum(["grounded", "boundary"]),
-    backdropPreset: z.custom<BackdropPresetName>(isBackdropPresetName, {
-      message: "Unknown Backdrop Preset",
-    }),
-    scenes: z.array(ScenePlanSchema).min(1).max(5),
+    ...siteShape,
+    sections: z.array(SiteSectionDraftSchema).max(5),
+    relatedQuestions: z.array(StoryQuestionSchema).min(2).max(3),
+  })
+  .strict();
+
+export const SiteSchema = z
+  .object({
+    ...siteShape,
+    sections: z.array(SiteSectionSchema).max(5),
     relatedQuestions: z.array(StoryQuestionSchema).min(2).max(3),
   })
   .strict();
@@ -178,8 +166,7 @@ export const StoryRecordSchema = z
     corpusRevision: nonEmptyText(120),
     storyContractVersion: nonEmptyText(120),
     createdAt: z.string().datetime({ offset: true }),
-    plan: StoryPlanSchema,
-    scenes: z.array(StorySceneSchema).min(1).max(5),
+    site: SiteSchema,
     evidence: z.array(EvidenceRefSchema).max(64),
   })
   .strict();
@@ -214,31 +201,34 @@ export const PublishStoryResponseSchema = z
   .object({ type: z.literal("complete"), story: PublicStorySchema })
   .strict();
 
+/** Stream order: phase generating, site, phase validating, then publishing or complete. */
 export const StoryStreamEventSchema = z.union([
   z.object({ type: z.literal("phase"), phase: z.enum(NON_PUBLISHING_STORY_PHASES) }).strict(),
   StoryPublishingEventSchema,
-  z.object({ type: z.literal("plan"), plan: StoryPlanSchema, evidence: z.array(EvidenceRefSchema).max(64) }).strict(),
-  z.object({ type: z.literal("scene"), index: z.number().int().min(0).max(4), scene: StorySceneSchema }).strict(),
+  z.object({ type: z.literal("site"), site: SiteSchema, evidence: z.array(EvidenceRefSchema).max(64) }).strict(),
   PublishStoryResponseSchema,
   z.object({ type: z.literal("error"), message: nonEmptyText(500) }).strict(),
 ]);
 
 export type EvidenceRef = z.infer<typeof EvidenceRefSchema>;
-export type SceneCue = z.infer<typeof SceneCueSchema>;
 export type ProjectSlug = z.infer<typeof ProjectSlugSchema>;
 export type StoryProjectTechnology = z.infer<typeof StoryProjectTechnologySchema>;
 export type StoryProject = z.infer<typeof StoryProjectSchema>;
-export type ScenePlan = z.infer<typeof ScenePlanSchema>;
-export type StoryScene = z.infer<typeof StorySceneSchema>;
-export type StoryPlan = z.infer<typeof StoryPlanSchema>;
+export type SiteItem = z.infer<typeof SiteItemSchema>;
+export type SiteSectionDraft = z.infer<typeof SiteSectionDraftSchema>;
+export type SiteSection = z.infer<typeof SiteSectionSchema>;
+export type SiteHero = z.infer<typeof SiteHeroSchema>;
+export type SiteDraft = z.infer<typeof SiteDraftSchema>;
+export type Site = z.infer<typeof SiteSchema>;
+export type SiteLayout = (typeof SITE_LAYOUTS)[number];
+export type SitePalette = (typeof SITE_PALETTES)[number];
+export type SectionKind = (typeof SECTION_KINDS)[number];
 export type StoryRecord = z.infer<typeof StoryRecordSchema>;
 export type PublicStory = z.infer<typeof PublicStorySchema>;
 export type NewStoryRecord = z.infer<typeof NewStoryRecordSchema>;
 export type StoryQuestion = z.infer<typeof StoryQuestionSchema>;
 export type StoryStreamEvent = z.infer<typeof StoryStreamEventSchema>;
 export type StoryPhase = Extract<StoryStreamEvent, { type: "phase" }>["phase"];
-export type ScenePattern = (typeof SCENE_PATTERNS)[number];
-export type StoryRegister = (typeof STORY_REGISTERS)[number];
 export type StoryPublicationToken = z.infer<typeof StoryPublicationTokenSchema>;
 export type StoryPublishingEvent = z.infer<typeof StoryPublishingEventSchema>;
 export type PublishStoryRequest = z.infer<typeof PublishStoryRequestSchema>;
@@ -250,8 +240,7 @@ export function toPublicStory(record: StoryRecord): PublicStory {
     id: record.id,
     displayQuestion: record.displayQuestion,
     createdAt: record.createdAt,
-    plan: record.plan,
-    scenes: record.scenes,
+    site: record.site,
     evidence: record.evidence,
   });
 }

@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 
-import StoryExperience from "@/components/story/StoryExperience";
+import SiteTakeover from "@/components/site/SiteTakeover";
 import { useAskMe } from "./AskMeProvider";
 
 const HomePortfolioCanvas = dynamic(() => import("./HomePortfolioCanvas"), {
@@ -16,38 +16,25 @@ const HomePortfolioCanvas = dynamic(() => import("./HomePortfolioCanvas"), {
   ),
 });
 
-/** Renders json-render only for home; every generated answer is a typed Story. */
+/** Renders json-render only for home; every generated answer takes over the screen as a site. */
 export default function PortfolioCanvas() {
-  const {
-    mode,
-    spec,
-    question,
-    phase,
-    plan,
-    scenes,
-    evidence,
-    story,
-    error,
-    ask,
-  } = useAskMe();
+  const { mode, spec, question, site, evidence, story, error, ask, goHome } = useAskMe();
 
   if (mode === "home") {
     return <HomePortfolioCanvas spec={spec} />;
   }
 
   return (
-    <StoryExperience
+    <SiteTakeover
+      mode={mode}
       question={question}
-      phase={phase}
-      plan={plan}
-      scenes={scenes}
+      site={site}
       evidence={evidence}
       story={story}
       error={error}
       onRetry={() => void ask(question)}
-      onRelatedQuestion={(relatedQuestion) =>
-        void ask(relatedQuestion, { history: "push" })
-      }
+      onAsk={(relatedQuestion) => void ask(relatedQuestion, { history: "push" })}
+      onBack={goHome}
     />
   );
 }

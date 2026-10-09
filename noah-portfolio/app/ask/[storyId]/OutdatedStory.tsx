@@ -4,14 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
+  normalizeQuestion,
   PublishStoryRequestSchema,
   PublishStoryResponseSchema,
 } from "@/lib/story/types";
 import { consumeStoryStream } from "@/lib/story/consume-story-stream";
-import {
-  assertValidPublicStory,
-  assertValidStreamPlan,
-} from "@/lib/story/public-validation";
+import { assertValidPublicStory } from "@/lib/story/public-validation";
 
 interface OutdatedStoryProps {
   displayQuestion: string;
@@ -67,7 +65,9 @@ async function publishStory(
 
   const event = PublishStoryResponseSchema.parse(await response.json());
   assertValidPublicStory(event.story);
-  assertValidStreamPlan(event.story.plan, event.story.evidence, expectedQuestion);
+  if (normalizeQuestion(event.story.displayQuestion) !== normalizeQuestion(expectedQuestion)) {
+    throw new Error("The regenerated Story answered a different question.");
+  }
   return event.story.id;
 }
 

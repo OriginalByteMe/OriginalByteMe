@@ -7,30 +7,15 @@ import { STREAMING_BACKDROP_PRESET } from '@/lib/backdrop/presets';
 import { resetBackdropPreset, setBackdropPreset } from '@/lib/store/slices/backdrop-slice';
 import { useAskMe } from './AskMeProvider';
 
-/**
- * Keeps application mode and the Story Plan's single allowlisted preset in
- * sync. Scene cues are applied by the active Story document as bounded data.
- */
+/** Home keeps the visitor's Backdrop; any generated site sits on the streaming preset behind it. */
 export default function BackdropSceneSync() {
-  const { mode, plan } = useAskMe();
+  const { mode } = useAskMe();
   const dispatch = useDispatch();
 
   useEffect(() => {
-    if (mode === 'home') {
-      dispatch(resetBackdropPreset());
-      return;
-    }
-
-    if (plan) {
-      dispatch(setBackdropPreset(plan.backdropPreset));
-      return;
-    }
-
-    if (mode === 'streaming') {
-      dispatch(resetBackdropPreset());
-      dispatch(setBackdropPreset(STREAMING_BACKDROP_PRESET));
-    }
-  }, [mode, plan, dispatch]);
+    dispatch(resetBackdropPreset());
+    if (mode !== 'home') dispatch(setBackdropPreset(STREAMING_BACKDROP_PRESET));
+  }, [mode, dispatch]);
 
   return null;
 }

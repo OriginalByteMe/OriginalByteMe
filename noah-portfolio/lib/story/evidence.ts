@@ -5,8 +5,8 @@ import {
   StoryProjectSchema,
   type EvidenceRef,
   type ProjectSlug,
+  type SiteSection,
   type StoryProject,
-  type StoryScene,
 } from "@/lib/story/types";
 import { z } from "zod";
 
@@ -86,10 +86,7 @@ const refs: EvidenceRef[] = [
 /** The only Evidence Refs a generated Story may cite. Derived from the active Corpus. */
 export const CORPUS_EVIDENCE_REFS: readonly EvidenceRef[] = Object.freeze(refs);
 
-/** Compact generator-visible vocabulary derived from the same validated refs. */
-export const evidenceRefPromptCatalog = JSON.stringify(CORPUS_EVIDENCE_REFS);
-
-/** Typed planning failure for a model-supplied project slug outside the active Corpus. */
+/** Typed failure for a project slug outside the active Corpus. */
 export class UnknownProjectSlugError extends Error {
   readonly code = "UNKNOWN_PROJECT_SLUG" as const;
 
@@ -113,12 +110,12 @@ if (JSON.stringify(corpusSlugs) !== JSON.stringify(schemaSlugs)) {
 }
 
 /** Model-visible project vocabulary, derived from the same trusted Corpus records used at runtime. */
-export const CORPUS_PROJECT_PROMPT_CATALOG = parsedProjects.map(({ slug, description }) => ({
+export const CORPUS_PROJECT_PROMPT_CATALOG = parsedProjects.map(({ slug, title }) => ({
   slug,
-  description,
+  title,
 }));
 
-/** Resolve locked project slugs into trusted, serializable Corpus card data in the same order. */
+/** Resolve project slugs into trusted, serializable Corpus card data in the same order. */
 export function resolveStoryProjects(
   slugs: readonly string[] | undefined,
 ): StoryProject[] | undefined {
@@ -131,35 +128,12 @@ export function resolveStoryProjects(
   });
 }
 
-/** Preflight model output so unknown slugs use the typed planning error path. */
-export function assertKnownStoryPlanProjectSlugs(plan: unknown): void {
-  if (!plan || typeof plan !== "object" || !("scenes" in plan) || !Array.isArray(plan.scenes)) {
-    return;
-  }
-
-  for (const scene of plan.scenes) {
-    if (
-      !scene ||
-      typeof scene !== "object" ||
-      !("projectSlugs" in scene) ||
-      !Array.isArray(scene.projectSlugs)
-    ) {
-      continue;
-    }
-    for (const slug of scene.projectSlugs) {
-      if (typeof slug === "string" && !projectBySlug.has(slug as ProjectSlug)) {
-        throw new UnknownProjectSlugError(slug);
-      }
-    }
-  }
-}
-
-/** Assert that a resolved Scene contains exactly the canonical cards for its locked slugs. */
-export function assertCanonicalStoryProjects(scene: StoryScene): void {
-  const expected = resolveStoryProjects(scene.projectSlugs);
-  if (JSON.stringify(scene.projects) !== JSON.stringify(expected)) {
+/** Assert that a section carries exactly the canonical Corpus cards for its project slugs. */
+export function assertCanonicalStoryProjects(section: SiteSection, context: string): void {
+  const expected = resolveStoryProjects(section.projectSlugs);
+  if (JSON.stringify(section.projects) !== JSON.stringify(expected)) {
     throw new Error(
-      `Invalid Story Scene ${scene.index}: projects must exactly match its locked Corpus project slugs`,
+      `Invalid ${context}: projects must exactly match the Corpus cards for its projectSlugs`,
     );
   }
 }
