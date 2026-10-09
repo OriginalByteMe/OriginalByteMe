@@ -248,6 +248,12 @@
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
+/* Inside a section the label is a quiet running head, not a second pill competing with the title. */
+.gs-section .gs-eyebrow {
+  padding: 0;
+  background: none;
+  color: var(--site-muted);
+}
 
 .gs-nav {
   position: sticky;
@@ -275,6 +281,7 @@
   text-decoration: none;
 }
 .gs-brand__mark {
+  flex: none;
   width: 14px;
   height: 14px;
   border-radius: 4px;
@@ -390,6 +397,9 @@
   margin: 0 auto;
 }
 .gs-section {
+  /* The section's own fill, and the fill for things set inside it (project cards). */
+  --gs-surface: var(--site-paper);
+  --gs-inset: var(--site-bg);
   container-type: inline-size;
   position: relative;
   display: grid;
@@ -397,29 +407,28 @@
   gap: 30px;
   padding: clamp(26px, 4vw, 56px);
   border-radius: var(--gs-radius);
-  background: var(--site-paper);
+  background: var(--gs-surface);
   box-shadow:
     0 0 0 1px var(--site-line),
-    0 0 0 7px color-mix(in srgb, var(--site-soft) 40%, transparent);
+    0 22px 44px -36px rgb(0 0 0 / 0.4);
 }
 .gs-section__head {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+  display: flex;
   align-items: center;
   gap: clamp(20px, 4vw, 56px);
 }
-.gs-section__head:not(:has(.gs-section__art)) {
-  grid-template-columns: minmax(0, 1fr);
-}
 .gs-section__copy {
   display: grid;
+  flex: 1 1 0;
+  min-width: 0;
   gap: 18px;
   justify-items: start;
 }
 .gs-section__title {
-  font-size: clamp(28px, 3.4vw, 46px);
+  /* Sized by the section's own width, so a narrow bento tile does not shout. */
+  font-size: var(--gs-title, clamp(26px, 5cqi, 42px));
   font-weight: 640;
-  line-height: 1.04;
+  line-height: 1.06;
   letter-spacing: -0.028em;
   text-wrap: balance;
 }
@@ -430,9 +439,8 @@
   line-height: 1.65;
 }
 .gs-section__art {
-  justify-self: center;
-  width: 100%;
-  max-width: 340px;
+  flex: 0 1 var(--gs-art-basis, 36%);
+  max-width: var(--gs-art-max, 320px);
 }
 .gs-sources {
   color: var(--site-muted);
@@ -452,6 +460,15 @@
   padding: 22px;
   border-radius: 20px;
   background: var(--site-soft);
+}
+/* Bare names are a set, not a row of empty cards: smaller tiles that wrap two or more abreast. */
+.gs-items[data-items="cards"]:not(:has(.gs-item__text, .gs-item__art)) {
+  grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr));
+  gap: 10px;
+}
+.gs-items[data-items="cards"]:not(:has(.gs-item__text, .gs-item__art)) .gs-item {
+  padding: 16px 18px;
+  border-radius: 16px;
 }
 .gs-item__art {
   width: 96px;
@@ -486,8 +503,16 @@
   margin-top: 1px;
   border-radius: 999px;
   background:
-    linear-gradient(135deg, transparent 46%, var(--site-paper) 46% 56%, transparent 56%) center / 10px 10px no-repeat,
+    linear-gradient(135deg, transparent 46%, var(--gs-surface) 46% 56%, transparent 56%) center / 10px 10px no-repeat,
     var(--site-accent);
+}
+.gs-items[data-items="list"]:not(:has(.gs-item__text)) {
+  grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
+  column-gap: 16px;
+}
+.gs-items[data-items="list"]:not(:has(.gs-item__text)) .gs-item {
+  align-items: center;
+  padding: 13px 0;
 }
 .gs-items[data-items="timeline"] {
   display: grid;
@@ -510,7 +535,7 @@
   height: 16px;
   border-radius: 999px;
   background: var(--site-accent);
-  box-shadow: 0 0 0 5px var(--site-paper);
+  box-shadow: 0 0 0 5px var(--gs-surface);
 }
 .gs-items[data-items="timeline"] .gs-item__title {
   font: 600 13px/1.3 var(--gs-mono);
@@ -518,22 +543,43 @@
   text-transform: uppercase;
   color: var(--site-accent);
 }
+.gs-items[data-items="timeline"]:has(> :only-child) {
+  border-left-color: transparent;
+}
+.gs-items[data-items="timeline"] .gs-item__text {
+  max-width: 62ch;
+}
+/* Wide enough for a CV: periods in their own gutter, the work beside them. */
+@container (min-width: 600px) {
+  .gs-items[data-items="timeline"] .gs-item {
+    grid-template-columns: 9.5rem minmax(0, 1fr);
+    column-gap: 24px;
+  }
+}
 
 .gs-section[data-kind="split"][data-side="right"] .gs-section__art {
   order: -1;
 }
-.gs-section[data-kind="split"] .gs-section__art {
-  max-width: 420px;
+.gs-section[data-kind="split"] {
+  --gs-art-basis: 44%;
+  --gs-art-max: 420px;
 }
-.gs-section[data-kind="cards"] .gs-section__art {
-  max-width: 240px;
+.gs-section[data-kind="cards"] {
+  --gs-art-max: 240px;
+}
+/* A quote's title steps down to a caption so the sentence itself leads. */
+.gs-section[data-kind="quote"] .gs-section__title {
+  font-size: 19px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
 }
 .gs-quote {
+  max-width: 30ch;
   color: var(--site-ink);
   font-family: var(--gs-serif);
-  font-size: clamp(26px, 3.2vw, 42px);
+  font-size: clamp(27px, 4.6cqi, 46px);
   font-style: italic;
-  line-height: 1.22;
+  line-height: 1.2;
   text-wrap: pretty;
 }
 .gs-quote::before {
@@ -545,18 +591,25 @@
   line-height: 0.9;
 }
 .gs-section[data-kind="banner"] {
-  background: var(--site-accent);
+  --gs-surface: var(--site-accent);
+  --gs-art-basis: 42%;
+  --gs-art-max: 440px;
   color: var(--site-bg);
   box-shadow: none;
 }
-.gs-section[data-kind="banner"] :is(.gs-section__body, .gs-sources, .gs-item__text) {
+.gs-section[data-kind="banner"] :is(.gs-eyebrow, .gs-section__body, .gs-sources, .gs-item__text) {
   color: color-mix(in srgb, var(--site-bg) 82%, var(--site-accent));
 }
-.gs-section[data-kind="banner"] .gs-eyebrow {
-  background: color-mix(in srgb, var(--site-bg) 16%, transparent);
-}
-.gs-section[data-kind="banner"] .gs-section__art {
-  max-width: 460px;
+
+/* Single-fact sections sit straight on the page between the carded ones, so the surface alternates by kind. */
+.gs:is([data-layout="landing"], [data-layout="dossier"]) .gs-section:is([data-kind="split"], [data-kind="quote"]),
+.gs[data-layout="editorial"] .gs-section:not([data-kind="banner"]) {
+  --gs-surface: var(--site-bg);
+  --gs-inset: var(--site-paper);
+  padding-inline: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
 }
 
 .gs-projects {
@@ -569,7 +622,7 @@
   display: grid;
   grid-template-rows: auto 1fr;
   border-radius: 22px;
-  background: var(--site-bg);
+  background: var(--gs-inset);
   color: var(--site-ink);
   box-shadow: 0 0 0 1px var(--site-line);
 }
@@ -692,8 +745,8 @@
 .gs[data-layout="landing"] .gs-hero__art {
   max-width: 620px;
 }
-.gs[data-layout="landing"] .gs-section:nth-child(even):not([data-kind="banner"]) {
-  background: var(--site-soft);
+.gs:is([data-layout="landing"], [data-layout="editorial"]) .gs-hero__actions {
+  justify-content: center;
 }
 
 /* ---------- Layout: bento (asymmetric card grid) ---------- */
@@ -722,6 +775,11 @@
 }
 .gs[data-layout="bento"] .gs-section {
   grid-column: span 6;
+  /* Tiles in a row share a height: the head takes the slack, so items and sources settle at the foot. */
+  grid-template-rows: 1fr;
+}
+.gs[data-layout="bento"] .gs-section__head {
+  align-self: start;
 }
 @media (min-width: 900px) {
   .gs[data-layout="bento"] .gs-section:nth-child(4n + 1),
@@ -764,11 +822,11 @@
   max-width: 780px;
   gap: 0;
 }
+.gs[data-layout="editorial"] .gs-section {
+  --gs-art-basis: 240px;
+}
 .gs[data-layout="editorial"] .gs-section:not([data-kind="banner"]) {
-  padding: 56px 0;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
+  padding-block: 56px;
   border-top: 1px solid var(--site-line);
 }
 .gs[data-layout="editorial"] .gs-section[data-kind="banner"] {
@@ -779,18 +837,14 @@
   font-size: 19px;
   line-height: 1.7;
 }
-.gs[data-layout="editorial"] .gs-section:first-child .gs-section__body::first-letter {
-  float: left;
-  margin: 0.06em 0.1em 0 0;
-  color: var(--site-accent);
-  font: 600 4.1em/0.82 var(--gs-serif);
+/* The opening section's body is the standfirst; it reads right at one line or four. */
+.gs[data-layout="editorial"] .gs-section:first-child .gs-section__body {
+  font-family: var(--gs-serif);
+  font-size: clamp(21px, 2.2vw, 25px);
+  line-height: 1.5;
 }
 .gs[data-layout="editorial"] .gs-section__head {
-  grid-template-columns: minmax(0, 1fr) 210px;
   align-items: start;
-}
-.gs[data-layout="editorial"] .gs-section__head:not(:has(.gs-section__art)) {
-  grid-template-columns: minmax(0, 1fr);
 }
 .gs[data-layout="editorial"] .gs-section[data-side="right"] .gs-section__art {
   order: -1;
@@ -801,21 +855,25 @@
 
 /* ---------- Layout: dossier (sticky profile sidebar) ---------- */
 
+.gs[data-layout="dossier"] {
+  --gs-title: clamp(24px, 4cqi, 30px);
+}
+/* Without sections there is nothing to sit beside, so the answer keeps the full-width hero. */
 @media (min-width: 900px) {
-  .gs[data-layout="dossier"] {
+  .gs[data-layout="dossier"]:has(.gs-section) {
     display: grid;
     grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
     align-items: start;
     column-gap: clamp(20px, 3vw, 40px);
   }
-  .gs[data-layout="dossier"] .gs-top {
+  .gs[data-layout="dossier"]:has(.gs-section) .gs-top {
     position: sticky;
     top: 16px;
     grid-row: span 3;
     display: grid;
     gap: 16px;
   }
-  .gs[data-layout="dossier"] .gs-nav {
+  .gs[data-layout="dossier"]:has(.gs-section) .gs-nav {
     position: static;
     flex-direction: column;
     align-items: stretch;
@@ -824,10 +882,10 @@
     padding: 18px;
     border-radius: 24px;
   }
-  .gs[data-layout="dossier"] .gs-nav__links {
+  .gs[data-layout="dossier"]:has(.gs-section) .gs-nav__links {
     flex-direction: column;
   }
-  .gs[data-layout="dossier"] .gs-hero {
+  .gs[data-layout="dossier"]:has(.gs-section) .gs-hero {
     grid-template-columns: minmax(0, 1fr);
     gap: 18px;
     margin: 0;
@@ -836,28 +894,29 @@
     background: var(--site-paper);
     box-shadow: 0 0 0 1px var(--site-line);
   }
-  .gs[data-layout="dossier"] .gs-hero__art {
+  .gs[data-layout="dossier"]:has(.gs-section) .gs-hero__art {
     order: -1;
     max-width: 220px;
     justify-self: start;
   }
-  .gs[data-layout="dossier"] .gs-hero__title {
-    font-size: clamp(28px, 2.6vw, 38px);
+  /* The answer outranks its details: the sidebar headline stays larger than any section title. */
+  .gs[data-layout="dossier"]:has(.gs-section) .gs-hero__title {
+    font-size: clamp(30px, 2.9vw, 40px);
     line-height: 1.06;
   }
-  .gs[data-layout="dossier"] .gs-hero__lede {
+  .gs[data-layout="dossier"]:has(.gs-section) .gs-hero__lede {
     font-size: 16px;
   }
-  .gs[data-layout="dossier"] .gs-hero__actions .gs-button--ghost {
+  .gs[data-layout="dossier"]:has(.gs-section) .gs-hero__actions .gs-button--ghost {
     display: none;
   }
-  .gs[data-layout="dossier"] :is(.gs-main, .gs-related, .gs-footer) {
+  .gs[data-layout="dossier"]:has(.gs-section) :is(.gs-main, .gs-related, .gs-footer) {
     grid-column: 2;
     width: 100%;
     max-width: none;
     margin-left: 0;
   }
-  .gs[data-layout="dossier"] .gs-related {
+  .gs[data-layout="dossier"]:has(.gs-section) .gs-related {
     margin-top: 40px;
   }
 }
@@ -896,13 +955,19 @@
   .gs-nav__links {
     display: none;
   }
+  /* Alone in the bar, a brand near its 40-character limit wraps instead of running off the screen. */
+  .gs-brand {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
   .gs-hero,
   .gs[data-layout="bento"] .gs-hero {
     grid-template-columns: minmax(0, 1fr);
   }
   .gs-hero__art {
     order: -1;
-    max-width: 360px;
+    max-width: 280px;
   }
   .gs[data-layout="landing"] .gs-hero__art,
   .gs[data-layout="editorial"] .gs-hero__art {
@@ -910,14 +975,32 @@
   }
 }
 @container (max-width: 560px) {
-  .gs-section__head,
-  .gs[data-layout="editorial"] .gs-section__head {
-    grid-template-columns: minmax(0, 1fr);
+  .gs-section__head {
+    flex-direction: column;
+    align-items: flex-start;
   }
   .gs-section__art {
     order: -1;
-    max-width: 260px;
-    justify-self: start;
+    flex: none;
+    width: 100%;
+    max-width: 220px;
+  }
+}
+/* A lone project sits beside its picture once there is room, not under a picture as wide as the section. */
+@container (min-width: 640px) {
+  .gs-project:only-child {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+  .gs-project:only-child .gs-project__image {
+    height: 100%;
+    min-height: 240px;
+    aspect-ratio: auto;
+    contain: size;
+  }
+  .gs-project:only-child .gs-project__body {
+    align-content: center;
+    padding: 28px;
   }
 }
 
