@@ -118,7 +118,7 @@ export default function OutdatedStory({ displayQuestion }: OutdatedStoryProps) {
         </h1>
         <p className="mt-6 max-w-2xl text-base leading-7 sm:text-lg">
           Noah&apos;s portfolio facts or Story format have changed since this Story was made. Its old
-          scenes are not shown as current.
+          site is not shown as current.
         </p>
         <div className="mt-8 rounded-2xl border border-current/10 p-5">
           <p className="text-sm font-medium">Original question</p>
