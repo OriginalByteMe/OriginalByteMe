@@ -1,0 +1,61 @@
+name: readme-assets
+
+# Builds the profile README images (snake + live stats cards) and publishes
+# them to the `output` branch, served from raw.githubusercontent.com.
+# Pull requests only build and test; they never publish.
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - ".github/readme/**"
+      - ".github/workflows/readme-assets.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: readme-assets-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Snake (light and dark)
+        uses: Platane/snk/svg-only@v3
+        with:
+          github_user_name: ${{ github.repository_owner }}
+          outputs: |
+            dist/snake.svg?color_snake=#5646a8&color_dots=#ece9f3,#dcd7f7,#c7bff5,#b2a8f2,#8a7bea
+            dist/snake-dark.svg?color_snake=#7fe0bd&color_dots=#211f29,#37334f,#524a86,#7467bd,#9d8ff2
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Test renderer
+        run: node --test '.github/readme/__tests__/*.test.mjs'
+
+      - name: Render stats and project cards
+        run: node .github/readme/render.mjs dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USER: ${{ github.repository_owner }}
+
+      - name: Publish to the output branch
+        if: github.event_name != 'pull_request'
+        uses: crazy-max/ghaction-github-pages@v5
+        with:
+          target_branch: output
+          build_dir: dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
