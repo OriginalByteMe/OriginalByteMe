@@ -52,3 +52,12 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Cosmos lab (`/cosmos`)
+
+A set of interactive space animations that tell the portfolio story as you scroll, plus a workbench for choosing between them.
+
+- `lib/cosmos/` is a dependency-free WebGL2 engine. `config.ts` names every scene, render style, palette, transition, chapter and cut; `shaders/` holds the GLSL; `engine.ts` draws scene A and scene B, blends them with a transition, then applies a render style; `lab.ts` builds the scroll journey and the workbench.
+- `components/cosmos/CosmosCanvas.tsx` draws one scene: `<CosmosCanvas scene="afroHole" style="ascii" palette="kente" />`. Pass `progress` (0..1) to drive it from scroll.
+- `components/cosmos/CosmosJourney.tsx` is the full scroll story. Edit `CHAPTERS` in `lib/cosmos/config.ts` to change the copy, order, styles, palettes and transitions.
+- Pointer: moving steers and lights scenes, clicking sends a shockwave. `prefers-reduced-motion` freezes time and redraws only on scroll.
