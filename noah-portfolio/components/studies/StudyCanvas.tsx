@@ -30,7 +30,8 @@ export default function StudyCanvas({
 
   useEffect(() => {
     const def = STUDIES.find((s) => s.id === study);
-    if (!ref.current || !def) return;
+    // No observers means no real browser (tests, very old engines): leave the canvas blank.
+    if (!ref.current || !def || typeof IntersectionObserver === 'undefined') return;
     const m = mountStudy(ref.current, def, PALETTES[0], 0, {
       image: imageKey === 'null' ? undefined : JSON.parse(imageKey),
       fit,

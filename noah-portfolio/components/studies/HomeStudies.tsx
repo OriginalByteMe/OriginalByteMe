@@ -81,7 +81,8 @@ export default function HomeStudies() {
         }
         const top = Math.max(0, rect.top);
         // Run to the top of the next chapter so no gap opens between two pieces.
-        const end = rects[i + 1]?.top ?? rect.bottom;
+        const below = rects.filter((r): r is DOMRect => r !== null && r.top > rect.top + 1).map((r) => r.top);
+        const end = below.length ? Math.min(...below) : rect.bottom;
         const bottom = Math.max(0, vh - end);
         slot.el.hidden = top >= vh || bottom >= vh;
         slot.el.style.clipPath = `inset(${top}px 0 ${bottom}px 0)`;

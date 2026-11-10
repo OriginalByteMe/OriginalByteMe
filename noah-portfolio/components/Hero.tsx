@@ -147,14 +147,22 @@ export default function Hero() {
       <div className="profile-hero-grid mx-auto w-full max-w-[92rem]">
         <header className="profile-identity self-end text-center lg:text-left">
           <p className="font-mono text-xs uppercase tracking-[0.3em] text-[#6f6885] dark:text-[#a9a2bd]">
-            Ask-Me portfolio
+            Senior AI Engineer · Kuala Lumpur
           </p>
           <h1 id="profile-heading" className="mt-3 text-balance font-serif text-[clamp(3.2rem,7vw,7rem)] leading-[0.9] tracking-tight">
             Noah <em className="block italic text-[#5646a8] dark:text-[#9d8ff2]">Rijkaard</em>
           </h1>
           <p className="mx-auto mt-5 max-w-md text-pretty text-lg leading-relaxed text-[#5d5673] dark:text-[#bdb6d0] lg:mx-0">
-            Full-stack developer building calm interfaces, self-hosted systems, and portfolio pages that answer back.
+            I build AI tooling, full-stack systems and 3D-printed parts, and a portfolio that answers back when you ask it something.
           </p>
+          <div className="profile-cta">
+            <a className="profile-cta__primary" href="#builds">
+              See the work
+            </a>
+            <a className="profile-cta__secondary" href="#what-i-do">
+              What I do
+            </a>
+          </div>
         </header>
 
         <div className="profile-portrait-cell">

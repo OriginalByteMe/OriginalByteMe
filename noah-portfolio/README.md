@@ -70,3 +70,7 @@ Seven quiet, interactive generative pieces (Ink, Lattice, Tide, Contours, Vase m
 - `lib/studies/pieces/` holds one file per piece; `lib/studies/list.ts` sets the order.
 - `<StudyCanvas study="ink" palette="ember" />` (in `components/studies`) drops a single piece anywhere; `<Studies />` is the whole gallery.
 - On the home page, `components/studies/HomeStudies.tsx` pins one piece behind each story chapter and clips it to that chapter, so chapters wipe past each other on scroll. Its `PLAN` array maps chapter ids to pieces. The hero portrait is the Lattice piece fed with `hero.png`.
+
+## Home page structure
+
+Top to bottom: hero (role, calls to action, lattice portrait, Ask-Me), `components/Disciplines.tsx` ("What I do", three crafts each with a live piece), then the story chapters from `lib/jsonui/homeSpec.ts` in the order About, Work, Experience, Toolbox, Setup, Contact. On wide screens a chapter with `align: "start"` pins its heading beside its content. `components/ChapterRail.tsx` adds the reading-progress line and the chapter rail.

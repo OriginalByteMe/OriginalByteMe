@@ -59,8 +59,9 @@ function Scene({
     >
       <div
         className={cn(
-          "mx-auto flex w-full max-w-4xl flex-col gap-6 md:gap-7",
-          centered ? "items-center" : "items-start",
+          "scene-shell mx-auto flex w-full flex-col gap-6 md:gap-7",
+          // Chapters with a lot to show get a pinned heading beside their content.
+          centered ? "max-w-4xl items-center" : "scene-shell--split max-w-7xl items-start",
         )}
       >
         {props.accent ? (

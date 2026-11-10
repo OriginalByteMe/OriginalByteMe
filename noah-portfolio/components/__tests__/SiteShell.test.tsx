@@ -17,6 +17,7 @@ vi.mock('@/lib/hooks/useSpotify', () => ({
   default: () => spotifyHook,
 }));
 vi.mock('@/components/Hero', () => ({ default: () => <div>Hero surface</div> }));
+vi.mock('@/components/Disciplines', () => ({ default: () => <div>Disciplines surface</div> }));
 vi.mock('@/components/PortfolioCanvas', () => ({
   default: () => canvasState.showChapters ? (
     <div key={canvasState.renderVersion}>

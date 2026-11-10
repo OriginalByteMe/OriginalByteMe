@@ -26,11 +26,12 @@ export const homeSpec: Spec = {
     root: {
       type: "Stack",
       props: { gap: "sm" },
+      // Work first, then where it was done, then the tools.
       children: [
         "intro",
-        "stack",
-        "career",
         "builds",
+        "career",
+        "stack",
         "setup",
         "contact",
       ],
@@ -44,7 +45,7 @@ export const homeSpec: Spec = {
     },
     introHeading: {
       type: "ChapterHeading",
-      props: { kicker: "Chapter 01", text: "Noah, in brief" },
+      props: { kicker: "01 · About", text: "Noah, in brief" },
       children: [],
     },
     introBeat: {
@@ -68,7 +69,7 @@ export const homeSpec: Spec = {
     },
     stackHeading: {
       type: "ChapterHeading",
-      props: { kicker: "Chapter 02", text: "The toolbox" },
+      props: { kicker: "04 · Toolbox", text: "The toolbox" },
       children: [],
     },
     skillGrid: {
@@ -85,7 +86,7 @@ export const homeSpec: Spec = {
     },
     careerHeading: {
       type: "ChapterHeading",
-      props: { kicker: "Chapter 03", text: "Where I've been" },
+      props: { kicker: "03 · Experience", text: "Where I've been" },
       children: [],
     },
     careerTimeline: {
@@ -102,7 +103,7 @@ export const homeSpec: Spec = {
     },
     buildsHeading: {
       type: "ChapterHeading",
-      props: { kicker: "Chapter 04", text: "Things I've built" },
+      props: { kicker: "02 · Work", text: "Things I've built" },
       children: [],
     },
     projectShowcase: {
@@ -119,7 +120,7 @@ export const homeSpec: Spec = {
     },
     setupHeading: {
       type: "ChapterHeading",
-      props: { kicker: "Chapter 05", text: "The rig" },
+      props: { kicker: "05 · Setup", text: "The rig" },
       children: [],
     },
     osGrid: {
@@ -141,7 +142,7 @@ export const homeSpec: Spec = {
     },
     contactHeading: {
       type: "ChapterHeading",
-      props: { kicker: "Chapter 06", text: "Say hi" },
+      props: { kicker: "06 · Contact", text: "Say hi" },
       children: [],
     },
     contactBeat: {

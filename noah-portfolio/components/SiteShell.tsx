@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, MotionConfig, motion, useReducedMotion } from 'framer-motion';
 import { ArrowDown, ArrowUpRight, BarChart3 } from 'lucide-react';
+import Disciplines from './Disciplines';
 import Hero from './Hero';
 import PortfolioCanvas from './PortfolioCanvas';
 import CompactHeader from './CompactHeader';
@@ -184,6 +185,7 @@ export default function SiteShell() {
               transition={{ duration: reducedMotion ? 0 : 0.3 }}
             >
               <Hero />
+              <Disciplines />
             </motion.div>
           )}
         </AnimatePresence>
