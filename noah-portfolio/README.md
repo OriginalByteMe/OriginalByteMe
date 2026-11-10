@@ -64,8 +64,9 @@ A set of interactive space animations that tell the portfolio story as you scrol
 
 ## Studies (`/studies`)
 
-Nine quiet, interactive generative pieces, each a full-viewport plate with its own variations and a shared palette switcher.
+Seven quiet, interactive generative pieces (Ink, Lattice, Tide, Contours, Vase mode, Forms, Silk), each a full-viewport plate with its own variations and a shared palette switcher. Lattice and Tide can form a picture or a word (`image={{ src }}` or `image={{ text }}`).
 
 - `lib/studies/core.ts` is the runtime (loop, resize, pointer, idle autopilot, reduced motion) and the palettes.
 - `lib/studies/pieces/` holds one file per piece; `lib/studies/list.ts` sets the order.
-- `<StudyCanvas study="horizon" palette="ember" variant={1} />` (in `components/studies`) drops a single piece anywhere; `<Studies />` is the whole gallery.
+- `<StudyCanvas study="ink" palette="ember" />` (in `components/studies`) drops a single piece anywhere; `<Studies />` is the whole gallery.
+- On the home page, `components/studies/HomeStudies.tsx` pins one piece behind each story chapter and clips it to that chapter, so chapters wipe past each other on scroll. Its `PLAN` array maps chapter ids to pieces. The hero portrait is the Lattice piece fed with `hero.png`.

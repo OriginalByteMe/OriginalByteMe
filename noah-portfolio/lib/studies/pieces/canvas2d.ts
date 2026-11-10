@@ -101,90 +101,36 @@ export const silk: Study = {
   },
 };
 
-/**
- * Pulsar — stacked traces, each hiding the one behind it. The form echoes how
- * the first pulsar signals were plotted.
- */
-export const pulsar: Study = {
-  id: 'pulsar',
-  title: 'Pulsar',
-  line: 'Stacked traces of one signal, each hiding the one behind, the way the first pulsars were plotted.',
-  hint: 'The peaks follow your pointer. Click to send a pulse.',
-  variants: ['Signal', 'Dunes', 'Wide'],
-  create(canvas) {
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-    return {
-      frame(f) {
-        const { w, h } = f;
-        ctx.fillStyle = f.pal.bg;
-        ctx.fillRect(0, 0, w, h);
-        const wide = f.variant === 2;
-        const dunes = f.variant === 1;
-        const rows = dunes ? 34 : 58;
-        const colW = wide ? w * 0.94 : Math.min(w * 0.86, Math.max(h * 0.62, 300 * f.dpr));
-        const x0 = (w - colW) / 2;
-        const top = h * 0.2, bottom = h * 0.86;
-        const amp = (bottom - top) * (dunes ? 0.2 : 0.16);
-        const cx = (f.sx * w - x0) / colW;
-        const STEPS = wide ? 220 : 150;
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = Math.max(1, f.dpr * 1.1);
-        for (let r = 0; r < rows; r++) {
-          const fr = r / (rows - 1);
-          const y = top + (bottom - top) * fr;
-          ctx.beginPath();
-          for (let s = 0; s <= STEPS; s++) {
-            const u = s / STEPS;
-            const env = Math.exp(-(((u - cx) / (wide ? 0.16 : 0.2)) ** 2)) * (0.35 + 0.65 * Math.exp(-(((u - 0.5) / 0.42) ** 2)));
-            let v: number;
-            if (dunes) {
-              v = (0.5 + 0.5 * Math.sin(u * 9 + r * 0.45 + f.t * 0.5)) * noise(u * 3 + r * 0.21, f.t * 0.12 + r * 0.3);
-            } else {
-              const n = noise(u * 16 + r * 7.3, f.t * 0.45 + r * 0.17);
-              v = Math.pow(n, 3) * 2.2 + noise(u * 60, r * 3.1 + f.t * 0.6) * 0.07;
-            }
-            let pulse = 0;
-            for (const c of f.clicks) {
-              const cu = (c.x * w - x0) / colW;
-              const front = fr - (c.y * h - top) / (bottom - top);
-              pulse += Math.exp(-(((Math.abs(front) - c.age * 0.45) * 9) ** 2)) * Math.exp(-(((u - cu) / 0.25) ** 2)) * Math.exp(-c.age * 0.9) * 1.4;
-            }
-            const yy = y - (v * env + pulse) * amp - (dunes ? 0 : noise(u * 40 + r, f.t) * 1.2 * f.dpr);
-            if (s === 0) ctx.moveTo(x0, yy);
-            else ctx.lineTo(x0 + u * colW, yy);
-          }
-          ctx.strokeStyle = rgba(ramp(f.pal, f.pal.light ? fr * 0.8 : 0.25 + (1 - fr) * 0.75), 0.95);
-          ctx.stroke();
-          // Occlude everything behind this trace.
-          ctx.lineTo(x0 + colW, y + amp * 0.2);
-          ctx.lineTo(x0, y + amp * 0.2);
-          ctx.closePath();
-          ctx.fillStyle = f.pal.bg;
-          ctx.fill();
-        }
-      },
-    };
-  },
-};
-
 /** Tide — a sheet of characters behaving like water. */
 export const tide: Study = {
   id: 'tide',
   title: 'Tide',
   line: 'A sheet of plain characters that behaves like water.',
   hint: 'Move to make a wake. Click to drop a stone.',
-  variants: ['Glyphs', 'Binary', 'Braille'],
+  variants: ['Glyphs', 'Binary', 'Braille', 'Portrait'],
   create(canvas) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
-    const RAMPS = [' ..:-=+*#%@', ' 0011', ' ⠁⠃⠇⠏⠟⠿⡿⣿'];
+    const RAMPS = [' ..:-=+*#%@', ' 0011', ' ⠁⠃⠇⠏⠟⠿⡿⣿', ' ..:-=+*#%@'];
+    let imgV = -1;
+    let pix: ImageData | null = null;
     return {
       frame(f) {
         const { w, h } = f;
         ctx.fillStyle = f.pal.bg;
         ctx.fillRect(0, 0, w, h);
-        const fs = Math.round(13 * f.dpr);
+        if (imgV !== f.imgV) {
+          imgV = f.imgV;
+          pix = f.img ? (f.img.getContext('2d')?.getImageData(0, 0, f.img.width, f.img.height) ?? null) : null;
+        }
+        const pic = f.variant === 3 ? pix : null;
+        // Map a canvas position onto the picture, cover or contain.
+        const ia = pic ? pic.width / pic.height : 1;
+        const ca = w / h;
+        const wide = ca > ia;
+        const sx = (f.cover ? (wide ? 1 : ca / ia) : wide ? ca / ia : 1) / f.imgScale;
+        const sy = (f.cover ? (wide ? ia / ca : 1) : wide ? 1 : ia / ca) / f.imgScale;
+        const fs = Math.max(6, Math.round((13 * f.dpr) / f.density));
         const cw = fs * 0.66, ch = fs * 1.45;
         ctx.font = `${fs}px ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace`;
         ctx.textAlign = 'center';
@@ -204,6 +150,17 @@ export const tide: Study = {
             for (const cl of f.clicks) {
               const dd = Math.hypot(x - cl.x * w, y - cl.y * h) / m;
               val += 0.5 * Math.sin((dd - cl.age * 0.42) * 38) * Math.exp(-Math.abs(dd - cl.age * 0.42) * 7) * Math.exp(-cl.age * 0.8);
+            }
+            if (pic) {
+              const qx = (x / w - 0.5) * sx + 0.5, qy = (y / h - 0.5) * sy + 0.5;
+              let lum = 0;
+              if (qx >= 0 && qx < 1 && qy >= 0 && qy < 1) {
+                const o = (Math.floor(qy * pic.height) * pic.width + Math.floor(qx * pic.width)) * 4;
+                const l = (pic.data[o] * 0.299 + pic.data[o + 1] * 0.587 + pic.data[o + 2] * 0.114) / 255;
+                lum = (f.pal.light ? 1 - l : l) * (pic.data[o + 3] / 255);
+              }
+              // The picture rises out of the water; the water still moves through it.
+              val = 0.43 + lum * 0.5 + (val - 0.5) * 0.5;
             }
             val = Math.max(0, Math.min(0.999, (val - 0.3) * 1.5));
             const chr = chars[Math.floor(val * chars.length)];

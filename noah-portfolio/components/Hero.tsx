@@ -1,15 +1,16 @@
 'use client';
 
-import { Component, useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Component, useCallback, useMemo, type ReactNode } from 'react';
 import Image from 'next/image';
-import { ImageDithering } from '@paper-design/shaders-react';
-import { motion, useAnimationFrame, useMotionValue, useReducedMotion, useSpring } from 'framer-motion';
+import { motion, useMotionValue, useReducedMotion, useSpring } from 'framer-motion';
 import { useSelector } from 'react-redux';
 import { Github, Linkedin, Mail } from 'lucide-react';
 import ChatBox from './ChatBox';
+import StudyCanvas from './studies/StudyCanvas';
 import { useTheme } from './ThemeProvider';
 import { ditherPaletteFromTrack, type DitherPalette } from '@/lib/dither-palette';
 import type { RootState } from '@/lib/store';
+import type { Palette } from '@/lib/studies';
 
 const PORTRAIT_LIGHT: DitherPalette = { colorFront: '#7a5fa0', colorBack: '#f4ecdf', colorHighlight: '#f3d9c8' };
 const PORTRAIT_DARK: DitherPalette = { colorFront: '#c9b3ec', colorBack: '#26232c', colorHighlight: '#8d7bb0' };
@@ -31,7 +32,7 @@ class DitherBoundary extends Component<{ fallback: ReactNode; children: ReactNod
  * *through* the portrait instead of being a frozen filter. Values are gentle
  * on purpose; out-of-frame area renders colorBack, which matches the card.
  */
-const DITHER_REST = { scale: 1.08, rotation: 0, size: 2 };
+const PORTRAIT_IMAGE = { src: '/hero.png' };
 
 function HeroPortrait() {
   const { theme } = useTheme();
@@ -67,20 +68,21 @@ function HeroPortrait() {
     tiltY.set(0);
   }, [tiltX, tiltY]);
 
-  // Dither pulse loop (~30fps is plenty for a slow breathe).
-  const [dither, setDither] = useState(DITHER_REST);
-  const lastFrame = useRef(0);
-  useAnimationFrame((t) => {
-    if (reducedMotion) return;
-    if (t - lastFrame.current < 33) return;
-    lastFrame.current = t;
-    const s = t / 1000;
-    setDither({
-      scale: 1.1 + 0.04 * Math.sin(s * 0.55),
-      rotation: (360 + 3 * Math.sin(s * 0.21)) % 360,
-      size: 2.1 + 0.9 * (0.5 + 0.5 * Math.sin(s * 0.8)),
-    });
-  });
+  // The portrait is drawn as a lattice of dots that swell with the photo's
+  // brightness and lean away from the pointer; a soundtrack pick still retints it.
+  const latticePalette = useMemo<Palette>(() => {
+    const hex = (c: string, fallback: string) => (/^#[0-9a-f]{6}$/i.test(c) ? c : fallback);
+    const front = hex(palette.colorFront, basePalette.colorFront);
+    const soft = hex(palette.colorHighlight, basePalette.colorHighlight);
+    return {
+      id: 'portrait',
+      label: 'Portrait',
+      bg: hex(palette.colorBack, basePalette.colorBack),
+      ink: front,
+      stops: [soft, front, front, front],
+      light: theme !== 'dark',
+    };
+  }, [palette, basePalette, theme]);
 
   return (
     <figure
@@ -115,26 +117,19 @@ function HeroPortrait() {
             />
             <div aria-hidden className="absolute inset-0">
               <DitherBoundary fallback={null}>
-                <ImageDithering
-                  image="/hero.png"
-                  colorFront={palette.colorFront}
-                  colorBack={palette.colorBack}
-                  colorHighlight={palette.colorHighlight}
-                  type="8x8"
-                  speed={0}
-                  size={dither.size}
-                  colorSteps={3}
-                  scale={dither.scale}
-                  rotation={dither.rotation}
+                <StudyCanvas
+                  study="lattice"
+                  variant={3}
+                  palette={latticePalette}
+                  image={PORTRAIT_IMAGE}
                   fit="cover"
-                  minPixelRatio={1}
-                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+                  density={4.6}
                 />
               </DitherBoundary>
             </div>
           </div>
           <figcaption className="px-3 pb-1 pt-3 font-mono text-[10px] uppercase tracking-widest text-[#6f6885] dark:text-[#a9a2bd]">
-            hero.png · 8×8 ordered dither{selectedTrack ? ` · tinted by ${selectedTrack.title}` : ''} · Noah Rijkaard
+            hero.png · dot lattice{selectedTrack ? ` · tinted by ${selectedTrack.title}` : ''} · Noah Rijkaard
           </figcaption>
         </motion.div>
       </motion.div>

@@ -1504,3 +1504,37 @@ body {
     transition: none;
   }
 }
+
+/* Home studies: one generative piece per story chapter, pinned to the viewport
+   and clipped to its chapter, so chapters wipe past each other as you scroll. */
+.home-studies {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.home-study {
+  position: absolute;
+  inset: 0;
+  background: var(--site-bg);
+  will-change: clip-path;
+}
+
+.home-study canvas {
+  position: absolute;
+  left: 0;
+  top: -6vh;
+  width: 100%;
+  height: 112vh;
+  opacity: 0.62;
+}
+
+/* Keep the middle, where the copy sits, a touch calmer than the edges. */
+.home-study::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 60% at 50% 50%, var(--site-bg), transparent 85%);
+  opacity: 0.42;
+}

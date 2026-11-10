@@ -2,7 +2,7 @@
  * The Studies gallery: one full-height plate per piece. Only the plates near
  * the viewport hold a live canvas, so nine pieces never mean nine GPU contexts.
  */
-import { PALETTES, mountStudy, type Mounted, type Palette, type Study } from './core';
+import { PALETTES, mountStudy, type ImageSource, type Mounted, type Palette, type Study } from './core';
 import { STUDIES } from './list';
 
 function h<K extends keyof HTMLElementTagNameMap>(
@@ -18,7 +18,15 @@ function h<K extends keyof HTMLElementTagNameMap>(
 
 const STORE = 'studies-palette';
 
-export function mountGallery(root: HTMLElement, studies: Study[] = STUDIES): () => void {
+export interface GalleryOptions {
+  studies?: Study[];
+  /** The picture the Portrait variations of Lattice and Tide are made of. */
+  portrait?: ImageSource;
+}
+
+export function mountGallery(root: HTMLElement, options: GalleryOptions = {}): () => void {
+  const studies = options.studies ?? STUDIES;
+  const portrait = options.portrait ?? { text: 'NOAH' };
   let pal: Palette = PALETTES[0];
   try {
     pal = PALETTES.find((p) => p.id === window.localStorage.getItem(STORE)) ?? pal;
@@ -90,7 +98,12 @@ export function mountGallery(root: HTMLElement, studies: Study[] = STUDIES): () 
       if (live.has(plate)) return;
       const canvas = h('canvas', { class: 'st-canvas', 'aria-hidden': 'true' });
       stage.replaceChildren(canvas);
-      const m = mountStudy(canvas, study, pal, state.variant);
+      const m = mountStudy(canvas, study, pal, state.variant, {
+        image: portrait,
+        fit: 'contain',
+        imageScale: 0.86,
+        density: study.id === 'lattice' ? 2 : 1.35,
+      });
       if (!m) {
         stage.replaceChildren(h('p', { class: 'st-fallback' }, ['This piece needs WebGL2, which this browser is not offering.']));
       }

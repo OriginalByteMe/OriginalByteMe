@@ -10,7 +10,7 @@ export default function Studies() {
 
   useEffect(() => {
     if (!ref.current) return;
-    return mountGallery(ref.current);
+    return mountGallery(ref.current, { portrait: { src: '/hero.png' } });
   }, []);
 
   return <div ref={ref} />;

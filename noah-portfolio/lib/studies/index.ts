@@ -1,3 +1,3 @@
 export * from './core';
 export { STUDIES } from './list';
-export { mountGallery } from './gallery';
+export { mountGallery, type GalleryOptions } from './gallery';

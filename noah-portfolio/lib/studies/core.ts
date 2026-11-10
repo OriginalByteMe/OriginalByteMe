@@ -28,10 +28,69 @@ export const PALETTES: Palette[] = [
   { id: 'paper', label: 'Paper', bg: '#f1ece2', ink: '#1b1922', stops: ['#1b1922', '#4a3fb0', '#e0553a', '#f0b23c'], light: true },
 ];
 
+/** Palettes that sit on the portfolio's own light and dark surfaces. */
+export const SITE_PALETTES: { dark: Palette; light: Palette } = {
+  dark: { id: 'site-dark', label: 'Nocturne', bg: '#17151d', ink: '#eae6f2', stops: ['#3a3158', '#7566d8', '#a99cf5', '#9fe8cf'], light: false },
+  light: { id: 'site-light', label: 'Paper', bg: '#f4efe6', ink: '#37304a', stops: ['#37304a', '#5646a8', '#8d7fe0', '#4fb893'], light: true },
+};
+
 export const hexToRgb = (h: string): RGB => {
-  const n = parseInt(h.slice(1), 16);
+  const hex = h.length === 4 ? `#${h[1]}${h[1]}${h[2]}${h[2]}${h[3]}${h[3]}` : h;
+  const n = parseInt(hex.slice(1), 16);
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 };
+
+/** What a piece should resemble: a picture, or a word set in heavy type. */
+export type ImageSource = { src: string; invert?: boolean } | { text: string };
+
+export interface StudyOptions {
+  image?: ImageSource;
+  /** 'cover' fills the canvas, 'contain' fits inside it. */
+  fit?: 'cover' | 'contain';
+  /** Size of a contained image relative to the canvas (1 = edge to edge). */
+  imageScale?: number;
+  /** Finer marks: 2 halves the cell size. */
+  density?: number;
+}
+
+function rasterise(source: ImageSource, done: (c: HTMLCanvasElement) => void) {
+  const c = document.createElement('canvas');
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return;
+  if ('text' in source) {
+    c.width = 1024;
+    c.height = 320;
+    let size = 260;
+    ctx.font = `800 ${size}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+    size = Math.min(size, (size * 960) / Math.max(1, ctx.measureText(source.text).width));
+    ctx.font = `800 ${size}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(source.text, 512, 168);
+    done(c);
+    return;
+  }
+  const img = new Image();
+  img.decoding = 'async';
+  img.onload = () => {
+    const k = Math.min(1, 420 / Math.max(img.naturalWidth || 420, img.naturalHeight || 420));
+    c.width = Math.max(2, Math.round((img.naturalWidth || 420) * k));
+    c.height = Math.max(2, Math.round((img.naturalHeight || 420) * k));
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    if (source.invert) {
+      const d = ctx.getImageData(0, 0, c.width, c.height);
+      for (let i = 0; i < d.data.length; i += 4) {
+        d.data[i] = 255 - d.data[i];
+        d.data[i + 1] = 255 - d.data[i + 1];
+        d.data[i + 2] = 255 - d.data[i + 2];
+      }
+      ctx.putImageData(d, 0, 0);
+    }
+    done(c);
+  };
+  img.src = source.src;
+}
 
 /** Smooth colour ramp through a palette's four stops; t in 0..1. */
 export function ramp(p: Palette, t: number): RGB {
@@ -78,6 +137,12 @@ export interface Frame {
   scroll: number;
   pal: Palette;
   variant: number;
+  /** The picture to resemble, once loaded, and a counter that bumps when it changes. */
+  img: HTMLCanvasElement | null;
+  imgV: number;
+  cover: boolean;
+  imgScale: number;
+  density: number;
 }
 
 export interface Instance {
@@ -97,11 +162,17 @@ export interface Study {
 }
 
 export interface Mounted {
-  set(patch: { pal?: Palette; variant?: number }): void;
+  set(patch: { pal?: Palette; variant?: number; image?: ImageSource }): void;
   destroy(): void;
 }
 
-export function mountStudy(canvas: HTMLCanvasElement, study: Study, pal: Palette, variant = 0): Mounted | null {
+export function mountStudy(
+  canvas: HTMLCanvasElement,
+  study: Study,
+  pal: Palette,
+  variant = 0,
+  opts: StudyOptions = {},
+): Mounted | null {
   const inst = study.create(canvas);
   if (!inst) return null;
   const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -109,6 +180,25 @@ export function mountStudy(canvas: HTMLCanvasElement, study: Study, pal: Palette
     t: 0, dt: 0, w: 2, h: 2, dpr: 1,
     px: 0.5, py: 0.5, sx: 0.5, sy: 0.5, dx: 0, dy: 0,
     down: false, hover: false, clicks: [], scroll: 0.5, pal, variant,
+    img: null, imgV: 0, cover: (opts.fit ?? 'cover') === 'cover', imgScale: opts.imageScale ?? 1, density: opts.density ?? 1,
+  };
+  let alive = true;
+  let imageKey = '';
+  const loadImage = (source?: ImageSource) => {
+    const key = source ? JSON.stringify(source) : '';
+    if (key === imageKey) return;
+    imageKey = key;
+    if (!source) {
+      f.img = null;
+      f.imgV++;
+      return;
+    }
+    rasterise(source, (c) => {
+      if (!alive || key !== imageKey) return;
+      f.img = c;
+      f.imgV++;
+      frames = 0;
+    });
   };
   let raf = 0;
   let last = 0;
@@ -209,14 +299,17 @@ export function mountStudy(canvas: HTMLCanvasElement, study: Study, pal: Palette
     inst.frame(f);
   };
   raf = requestAnimationFrame(tick);
+  loadImage(opts.image);
 
   return {
     set(patch) {
       if (patch.pal) f.pal = patch.pal;
       if (patch.variant !== undefined) f.variant = patch.variant;
+      if ('image' in patch) loadImage(patch.image);
       frames = 0;
     },
     destroy() {
+      alive = false;
       cancelAnimationFrame(raf);
       io.disconnect();
       window.removeEventListener('pointermove', onMove);
@@ -250,6 +343,21 @@ vec3 ramp(float t){
   int i=int(min(floor(t),2.));
   float f=t-float(i);f=f*f*(3.-2.*f);
   return mix(u_s[i],u_s[i+1],f);
+}`;
+
+/** GLSL: sample the picture a piece should resemble. Returns brightness in x, coverage in y. */
+export const GLSL_IMAGE = `
+uniform sampler2D u_img;
+uniform float u_hasImg,u_ia,u_cover,u_iscale;
+vec2 imgAt(vec2 uv,vec2 res){
+  if(u_hasImg<.5)return vec2(0.);
+  float ca=res.x/res.y;
+  vec2 sc=u_cover>.5?(ca>u_ia?vec2(1.,u_ia/ca):vec2(ca/u_ia,1.)):(ca>u_ia?vec2(ca/u_ia,1.):vec2(1.,u_ia/ca));
+  vec2 q=(uv-.5)*sc/u_iscale+.5;
+  if(q.x<0.||q.x>1.||q.y<0.||q.y>1.)return vec2(0.);
+  vec4 t=texture(u_img,vec2(q.x,1.-q.y));
+  float l=dot(t.rgb,vec3(.299,.587,.114));
+  return vec2(l,t.a);
 }`;
 
 export interface Prog {

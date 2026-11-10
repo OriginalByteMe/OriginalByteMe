@@ -21,8 +21,8 @@ vi.mock('next/image', () => ({
   },
 }));
 
-vi.mock('@paper-design/shaders-react', () => ({
-  ImageDithering: () => <div data-testid="portrait-dither" />,
+vi.mock('@/components/studies/StudyCanvas', () => ({
+  default: () => <div data-testid="portrait-lattice" />,
 }));
 
 vi.mock('@/components/ChatBox', () => ({
