@@ -61,3 +61,11 @@ A set of interactive space animations that tell the portfolio story as you scrol
 - `components/cosmos/CosmosCanvas.tsx` draws one scene: `<CosmosCanvas scene="afroHole" style="ascii" palette="kente" />`. Pass `progress` (0..1) to drive it from scroll.
 - `components/cosmos/CosmosJourney.tsx` is the full scroll story. Edit `CHAPTERS` in `lib/cosmos/config.ts` to change the copy, order, styles, palettes and transitions.
 - Pointer: moving steers and lights scenes, clicking sends a shockwave. `prefers-reduced-motion` freezes time and redraws only on scroll.
+
+## Studies (`/studies`)
+
+Nine quiet, interactive generative pieces, each a full-viewport plate with its own variations and a shared palette switcher.
+
+- `lib/studies/core.ts` is the runtime (loop, resize, pointer, idle autopilot, reduced motion) and the palettes.
+- `lib/studies/pieces/` holds one file per piece; `lib/studies/list.ts` sets the order.
+- `<StudyCanvas study="horizon" palette="ember" variant={1} />` (in `components/studies`) drops a single piece anywhere; `<Studies />` is the whole gallery.
